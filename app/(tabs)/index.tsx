@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useAuth } from '@/contexts/AuthContext';
+import { PendingReviewsAlert } from '@/components/PendingReviewsAlert';
 
 export default function SearchScreen() {
   const router = useRouter();
@@ -63,6 +64,11 @@ export default function SearchScreen() {
         <Text className="text-white text-4xl font-black leading-tight">
           Encuentra tu próximo{'\n'}partido de fútbol,{'\n'}a tu manera con Rondo.
         </Text>
+      </View>
+
+      {/* Alertas de valoraciones pendientes */}
+      <View className="px-4">
+        <PendingReviewsAlert />
       </View>
 
       {/* Formulario Buscador Azul Flotante */}

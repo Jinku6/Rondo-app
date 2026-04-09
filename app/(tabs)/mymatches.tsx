@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { Match } from '@/types/database';
@@ -70,7 +70,7 @@ export default function MyMatchesScreen() {
     const dateString = date.toLocaleDateString('es-ES', { weekday: 'short', month: 'short', day: 'numeric' });
     const timeString = date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
     const maxPlayers = item.requested_positions
-      ? Object.values(item.requested_positions).reduce((a: any, b: any) => a + b, 0)
+      ? Object.values(item.requested_positions).reduce((a: number, b: number) => a + b, 0)
       : 0;
 
     const isOrganizer = item._role === 'organizer';

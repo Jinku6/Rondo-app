@@ -2,9 +2,15 @@
 
 export type PreferredPosition = 'portero' | 'defensa' | 'mediocentro' | 'delantero';
 
+export type MatchLevel = 'tranquilo' | 'medio' | 'competitivo';
+
 export type MatchStatus = 'open' | 'full' | 'completed' | 'cancelled';
 
 export type ParticipantStatus = 'pending' | 'approved' | 'joined' | 'rejected' | 'dropped';
+
+export type PositionKey = 'portero' | 'defensa' | 'mediocentro' | 'delantero' | 'cualquiera';
+
+export type RequestedPositions = Record<PositionKey, number>;
 
 export interface UserProfile {
   id: string;
@@ -25,16 +31,10 @@ export interface Match {
   title: string;
   location: string;
   date_time: string;
-  requested_positions: {
-    portero: number;
-    defensa: number;
-    mediocentro: number;
-    delantero: number;
-    cualquiera: number;
-  };
+  requested_positions: RequestedPositions;
   team_a_color: string | null;
   team_b_color: string | null;
-  level: 'tranquilo' | 'medio' | 'competitivo';
+  level: MatchLevel;
   description: string;
   price_per_player: number;
   requires_approval: boolean;
@@ -66,3 +66,17 @@ export interface MatchReview {
   attitude_rating: number;
   created_at: string;
 }
+
+export type NotificationType = 'pending_organizer_review' | 'pending_player_review';
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  match_id: string;
+  type: NotificationType;
+  read: boolean;
+  created_at: string;
+  // Join opcional
+  match?: { title: string } | null;
+}
+

@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, Image } from 'react-native';
 import { useLocalSearchParams, Stack } from 'expo-router';
 import { supabase } from '@/lib/supabase';
-import { UserProfile, MatchReview } from '@/types/database';
+import { UserProfile } from '@/types/database';
 import { Ionicons } from '@expo/vector-icons';
 
 export default function UserProfileScreen() {

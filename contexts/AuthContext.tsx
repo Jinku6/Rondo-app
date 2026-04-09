@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { UserProfile } from '@/types/database';
+import * as Linking from 'expo-linking';
 
 interface AuthContextValue {
   session: Session | null;
@@ -95,14 +97,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
+    const redirectUrl = Platform.OS === 'web'
+      ? window.location.origin
+      : Linking.createURL('/');
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: window.location.origin
-      }
+        redirectTo: redirectUrl,
+      },
     });
     if (error) {
-      console.error("Error Google OAuth:", error.message);
+      console.error('Error Google OAuth:', error.message);
     }
   };
 

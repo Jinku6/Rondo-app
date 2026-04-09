@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
+import { PendingReviewsAlert } from '@/components/PendingReviewsAlert';
 
 const POSITIONS = ['portero', 'defensa', 'mediocentro', 'delantero'];
 
@@ -169,6 +170,9 @@ export default function ProfileScreen() {
 
   return (
     <ScrollView className="flex-1 bg-slate-50 dark:bg-neutral-950 p-6" contentContainerStyle={{ paddingBottom: 40 }}>
+      {/* Alerta de valoraciones pendientes */}
+      <PendingReviewsAlert />
+
       <View className="bg-white dark:bg-gray-900 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-gray-800 items-center">
         
         {/* Avatar */}

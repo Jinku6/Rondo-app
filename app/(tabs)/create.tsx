@@ -5,6 +5,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { z } from 'zod';
+import type { MatchLevel, PositionKey } from '@/types/database';
+
+const CreateMatchSchema = z.object({
+  title: z.string().min(3, 'El título debe tener al menos 3 caracteres'),
+  location: z.string().min(3, 'La ubicación debe tener al menos 3 caracteres'),
+  dateText: z.string().min(1, 'Debes indicar la fecha del partido'),
+  timeText: z.string().min(1, 'Debes indicar la hora del partido'),
+  totalPlayers: z.number().min(1, 'Debes solicitar al menos 1 jugador en las posiciones'),
+  price: z.string().refine((val) => !isNaN(Number(val)) && Number(val) >= 0, 'El precio no es válido'),
+});
 
 const LEVELS = [
   { key: 'tranquilo', label: 'Tranquilo', emoji: '😌', color: 'bg-emerald-100 border-emerald-400', activeColor: 'bg-emerald-500 border-emerald-500', text: 'text-emerald-700', activeText: 'text-white' },
@@ -19,7 +30,7 @@ export default function CreateMatchScreen() {
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
   const [description, setDescription] = useState('');
-  const [level, setLevel] = useState<'tranquilo' | 'medio' | 'competitivo'>('medio');
+  const [level, setLevel] = useState<MatchLevel>('medio');
 
   // Fecha y Hora
   const [dateObj, setDateObj] = useState(new Date());
@@ -134,10 +145,24 @@ export default function CreateMatchScreen() {
   };
 
   async function handleCreate() {
-    if (!title || !location) {
-      Alert.alert('Error', 'Debes completar el título y la ubicación.');
-      return;
+    const currentTotal = Object.values(positions).reduce((a, b) => a + b, 0);
+
+    try {
+      CreateMatchSchema.parse({
+        title,
+        location,
+        dateText,
+        timeText,
+        totalPlayers: currentTotal,
+        price,
+      });
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        Alert.alert('Error de validación', err.issues[0].message);
+        return;
+      }
     }
+
     const finalDateObj = validateAndParseDateTime();
     if (!finalDateObj) {
       Alert.alert('Error', 'La fecha u hora tienen un formato incorrecto. Usa DD/MM/YYYY y HH:MM.');
@@ -145,11 +170,6 @@ export default function CreateMatchScreen() {
     }
     if (!user) {
       Alert.alert('Error', 'No estás autenticado');
-      return;
-    }
-    const totalPlayers = Object.values(positions).reduce((a, b) => a + b, 0);
-    if (totalPlayers === 0) {
-      Alert.alert('Error', 'Debes solicitar al menos 1 jugador en las posiciones.');
       return;
     }
 
@@ -197,7 +217,7 @@ export default function CreateMatchScreen() {
     }
   }
 
-  const updatePosition = (pos: keyof typeof positions, increment: number) => {
+  const updatePosition = (pos: PositionKey, increment: number) => {
     setPositions(prev => {
       const newVal = prev[pos] + increment;
       return { ...prev, [pos]: newVal < 0 ? 0 : newVal };
@@ -257,7 +277,7 @@ export default function CreateMatchScreen() {
               return (
                 <TouchableOpacity
                   key={l.key}
-                  onPress={() => setLevel(l.key as any)}
+                  onPress={() => setLevel(l.key as MatchLevel)}
                   className={`flex-1 py-3 rounded-xl border-2 items-center ${isActive ? l.activeColor : l.color}`}
                 >
                   <Text className="text-xl mb-1">{l.emoji}</Text>
@@ -415,11 +435,11 @@ export default function CreateMatchScreen() {
                 <Text className="ml-3 text-slate-700 dark:text-slate-300 font-medium">{pos.label}</Text>
               </View>
               <View className="flex-row items-center">
-                <TouchableOpacity onPress={() => updatePosition(pos.key as any, -1)} className="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-700 items-center justify-center">
+                <TouchableOpacity onPress={() => updatePosition(pos.key as PositionKey, -1)} className="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-700 items-center justify-center">
                   <Ionicons name="remove" size={18} color="#64748b" />
                 </TouchableOpacity>
-                <Text className="mx-4 font-bold text-xl dark:text-white w-6 text-center">{positions[pos.key as keyof typeof positions]}</Text>
-                <TouchableOpacity onPress={() => updatePosition(pos.key as any, 1)} className="w-9 h-9 rounded-full bg-green-100 dark:bg-green-900 items-center justify-center">
+                <Text className="mx-4 font-bold text-xl dark:text-white w-6 text-center">{positions[pos.key as PositionKey]}</Text>
+                <TouchableOpacity onPress={() => updatePosition(pos.key as PositionKey, 1)} className="w-9 h-9 rounded-full bg-green-100 dark:bg-green-900 items-center justify-center">
                   <Ionicons name="add" size={18} color="#22C55E" />
                 </TouchableOpacity>
               </View>

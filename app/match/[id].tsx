@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Image, View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, TextInput, Switch } from 'react-native';
+import { Image, View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Match, MatchParticipant } from '@/types/database';
@@ -41,12 +41,14 @@ export default function MatchDetailScreen() {
 
     setMatch(matchData as Match);
 
-    const { data: partData } = await supabase
+    const { data: partData, error: partError } = await supabase
       .from('match_participants')
       .select('*, user:users(*)')
       .eq('match_id', id);
 
-    if (partData) {
+    if (partError) {
+      console.error('Error fetching participants:', partError.message);
+    } else if (partData) {
       setParticipants(partData as MatchParticipant[]);
     }
 
@@ -81,13 +83,23 @@ export default function MatchDetailScreen() {
     else { Alert.alert('Aviso', 'Has abandonado el partido'); fetchMatchDetails(); }
   };
 
-  const handleApprove = async (participantId: string, userId: string) => {
-    await supabase.from('match_participants').update({ status: 'approved' }).eq('id', participantId);
+  const handleApprove = async (participantId: string, _userId: string) => {
+    const { error } = await supabase.from('match_participants').update({ status: 'approved' }).eq('id', participantId);
+    if (error) {
+      Alert.alert('Error', 'No se pudo aprobar al jugador');
+      console.error('Error approving participant:', error.message);
+      return;
+    }
     fetchMatchDetails();
   };
 
   const handleReject = async (participantId: string) => {
-    await supabase.from('match_participants').update({ status: 'rejected' }).eq('id', participantId);
+    const { error } = await supabase.from('match_participants').update({ status: 'rejected' }).eq('id', participantId);
+    if (error) {
+      Alert.alert('Error', 'No se pudo rechazar al jugador');
+      console.error('Error rejecting participant:', error.message);
+      return;
+    }
     fetchMatchDetails();
   };
 
@@ -100,7 +112,7 @@ export default function MatchDetailScreen() {
   const isOrganizer = user?.id === match.organizer_id;
   const myParticipation = participants.find(p => p.user_id === user?.id);
   const maxPlayers = match.requested_positions
-    ? Object.values(match.requested_positions).reduce((a: any, b: any) => a + b, 0) as number
+    ? Object.values(match.requested_positions).reduce((a: number, b: number) => a + b, 0)
     : 0;
   const approvedParticipants = participants.filter(p => p.status === 'joined' || p.status === 'approved');
   const pendingParticipants = participants.filter(p => p.status === 'pending');
@@ -138,7 +150,7 @@ export default function MatchDetailScreen() {
 
         {/* Description */}
         {match.description ? (
-          <Text className="text-slate-600 dark:text-slate-400 mb-4 italic">"{match.description}"</Text>
+          <Text className="text-slate-600 dark:text-slate-400 mb-4 italic">&ldquo;{match.description}&rdquo;</Text>
         ) : null}
 
         <View className="space-y-3 mb-5">
@@ -204,19 +216,19 @@ export default function MatchDetailScreen() {
         {match.organizer && (
           <View className="mb-6">
             <Text className="text-slate-700 dark:text-slate-300 font-bold mb-3">Organizado por</Text>
-            <TouchableOpacity onPress={() => router.push(`/user/${match.organizer.id}` as any)} className="bg-white dark:bg-gray-900 p-3 rounded-xl flex-row items-center border border-slate-200 dark:border-slate-800 shadow-sm">
-              {match.organizer.avatar_url ? (
-                <Image source={{ uri: `${match.organizer.avatar_url}?t=${Date.now()}` }} className="w-10 h-10 rounded-full mr-3 border border-slate-200" />
+            <TouchableOpacity onPress={() => router.push(`/user/${match.organizer?.id}` as any)} className="bg-white dark:bg-gray-900 p-3 rounded-xl flex-row items-center border border-slate-200 dark:border-slate-800 shadow-sm">
+              {match.organizer?.avatar_url ? (
+                <Image source={{ uri: `${match.organizer?.avatar_url}?t=${Date.now()}` }} className="w-10 h-10 rounded-full mr-3 border border-slate-200" />
               ) : (
                 <View className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 justify-center items-center mr-3">
                   <Text className="font-bold text-slate-500 dark:text-slate-300 text-base">
-                    {match.organizer.full_name?.charAt(0).toUpperCase() || '?'}
+                    {match.organizer?.full_name?.charAt(0).toUpperCase() || '?'}
                   </Text>
                 </View>
               )}
               <View className="flex-1">
-                <Text className="font-bold text-slate-900 dark:text-white">{match.organizer.full_name}</Text>
-                <Text className="text-slate-500 dark:text-slate-400 text-xs">@{match.organizer.username}</Text>
+                <Text className="font-bold text-slate-900 dark:text-white">{match.organizer?.full_name}</Text>
+                <Text className="text-slate-500 dark:text-slate-400 text-xs">@{match.organizer?.username}</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color="#9ca3af" />
             </TouchableOpacity>

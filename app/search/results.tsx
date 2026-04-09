@@ -25,19 +25,25 @@ export default function SearchResultsScreen() {
     }
 
     if (date && typeof date === 'string') {
-      // Si la fecha es 'hoy', filtramos desde ahora
       const startDate = new Date();
       if (date === 'today') {
-        startDate.setHours(0, 0, 0, 0);
+        // Filter from now to avoid showing past matches today
       } else {
-        // Formato esperado DD/MM/YYYY
+        // Expected format DD/MM/YYYY
         const [day, month, year] = date.split('/');
         if (day && month && year) {
           startDate.setFullYear(parseInt(year), parseInt(month) - 1, parseInt(day));
           startDate.setHours(0, 0, 0, 0);
         }
       }
-      query = query.gte('date_time', startDate.toISOString());
+      
+      // Always exclude past matches even if a past date was somehow selected
+      const now = new Date();
+      const filterDate = startDate < now ? now : startDate;
+      query = query.gte('date_time', filterDate.toISOString());
+    } else {
+      // If no date specified, search from now onwards
+      query = query.gte('date_time', new Date().toISOString());
     }
 
     const { data, error } = await query;
