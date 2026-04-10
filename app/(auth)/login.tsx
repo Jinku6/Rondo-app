@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, ActivityIndicator, Alert, Platform, KeyboardAvoidingView, ScrollView, Keyboard } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, ActivityIndicator, Alert, Platform, KeyboardAvoidingView, ScrollView, Keyboard, Image } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { Link, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -81,9 +81,16 @@ export default function LoginScreen() {
           contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24 }}
           keyboardShouldPersistTaps="handled"
         >
-          <Text className="text-3xl font-bold mb-8 text-center text-slate-900 dark:text-white">
-            Bienvenido a Rondo
-          </Text>
+          <View className="items-center mb-8">
+            <Image 
+              source={require('@/assets/images/icon.png')} 
+              className="w-32 h-32 rounded-[32px] mb-4"
+              resizeMode="cover"
+            />
+            <Text className="text-3xl font-bold text-center text-slate-900 dark:text-white">
+              Bienvenido a Rondo
+            </Text>
+          </View>
 
           <View className="space-y-4">
             <View>

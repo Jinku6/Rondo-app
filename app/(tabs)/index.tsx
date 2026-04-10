@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Platform, Image, Modal } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -16,21 +17,40 @@ export default function SearchScreen() {
   const [searchDate, setSearchDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  const handleSearch = () => {
+  const handleSearch = (presetDate?: Date) => {
     let params: any = {};
     if (location.trim()) params.location = location;
     if (position !== 'cualquiera') params.position = position;
     
-    // Convert to DD/MM/YYYY for the results page
-    const dd = String(searchDate.getDate()).padStart(2, '0');
-    const mm = String(searchDate.getMonth() + 1).padStart(2, '0');
-    const yyyy = searchDate.getFullYear();
+    const targetDate = presetDate || searchDate;
+    const dd = String(targetDate.getDate()).padStart(2, '0');
+    const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
+    const yyyy = targetDate.getFullYear();
     params.date = `${dd}/${mm}/${yyyy}`;
 
     router.push({
       pathname: '/search/results',
       params
     });
+  };
+
+  const handleQuickAction = (daysToAdd: number, toEndOfWeek: boolean = false) => {
+    const today = new Date();
+    if (toEndOfWeek) {
+      // De hoy hasta el domingo
+      router.push({
+        pathname: '/search/results',
+        params: {
+          location: location.trim() || undefined,
+          position: position !== 'cualquiera' ? position : undefined,
+          dateRange: 'this_week'
+        }
+      });
+    } else {
+      const target = new Date();
+      target.setDate(today.getDate() + daysToAdd);
+      handleSearch(target);
+    }
   };
 
   const onDateChange = (_: DateTimePickerEvent, selectedDate?: Date) => {
@@ -43,8 +63,9 @@ export default function SearchScreen() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-slate-50 dark:bg-neutral-950 border-t border-slate-200 dark:border-neutral-950" 
-      contentContainerStyle={{ flexGrow: 1 }}>
+    <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top']}>
+      <ScrollView className="flex-1 border-t border-slate-200 dark:border-neutral-950" 
+        contentContainerStyle={{ flexGrow: 1 }}>
       
       {/* Cabecera BlaBlaCar style */}
       <View className="px-6 pt-10 pb-4 flex-row items-center">
@@ -112,6 +133,28 @@ export default function SearchScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Quick Actions */}
+        <View className="flex-row mt-4 space-x-2 gap-2">
+          <TouchableOpacity 
+            className="flex-1 items-center py-2 bg-slate-100 dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700"
+            onPress={() => handleQuickAction(0)}
+          >
+            <Text className="text-slate-600 dark:text-slate-300 font-medium">Hoy</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            className="flex-1 items-center py-2 bg-slate-100 dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700"
+            onPress={() => handleQuickAction(1)}
+          >
+            <Text className="text-slate-600 dark:text-slate-300 font-medium">Mañana</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            className="flex-1 items-center py-2 bg-slate-100 dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700"
+            onPress={() => handleQuickAction(0, true)}
+          >
+            <Text className="text-slate-600 dark:text-slate-300 font-medium">Esta semana</Text>
+          </TouchableOpacity>
+        </View>
+
         {/* Date Picker Nativo */}
         {Platform.OS === 'android' && showDatePicker && (
           <DateTimePicker
@@ -175,6 +218,7 @@ export default function SearchScreen() {
         <Ionicons name="football-outline" size={120} color="rgba(16, 185, 129, 0.1)" style={{ position: 'absolute', right: -20, bottom: -20 }} />
       </View>
 
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }

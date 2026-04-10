@@ -32,12 +32,12 @@ export default function ReviewOrganizerScreen() {
       return;
     }
 
-    // Por defecto todos asistieron y con actitud normal (5 estrellas virtuales). 
-    // Usaremos attended=true y bad_attitude=false
+    // Por defecto todos asistieron pero faltan sus valoraciones
     const initialized = data.map(p => ({
       ...p,
       attended: p.attended !== null ? p.attended : true,
-      bad_attitude: false
+      attitude: null,
+      level_rating: 0
     }));
 
     setParticipants(initialized);
@@ -51,15 +51,22 @@ export default function ReviewOrganizerScreen() {
     }));
   };
 
-  const toggleAttitude = (participantId: string) => {
-    setParticipants(prev => prev.map(p => {
-      if (p.id === participantId) return { ...p, bad_attitude: !p.bad_attitude };
-      return p;
-    }));
+  const setParticipantAttitude = (participantId: string, attitude: string) => {
+    setParticipants(prev => prev.map(p => p.id === participantId ? { ...p, attitude } : p));
+  };
+
+  const setParticipantLevel = (participantId: string, level: number) => {
+    setParticipants(prev => prev.map(p => p.id === participantId ? { ...p, level_rating: level } : p));
   };
 
   const saveReviews = async () => {
     if (!user) return;
+    const missing = participants.find(p => p.attended && (p.level_rating === 0 || !p.attitude));
+    if (missing) {
+      Alert.alert('Atención', 'Por favor, completa el nivel y la actitud de todos los jugadores que asistieron antes de guardar.');
+      return;
+    }
+
     setSaving(true);
     
     try {
@@ -71,7 +78,6 @@ export default function ReviewOrganizerScreen() {
           .eq('id', p.id);
 
         // Crear review: si no asistió, solo se registra attended=false
-        // Si asistió y tiene mal comportamiento, registrar actitud negativa
         if (!p.attended) {
           await supabase.from('match_reviews').insert({
             match_id: id,
@@ -81,13 +87,13 @@ export default function ReviewOrganizerScreen() {
             attitude: null,
             attended: false
           });
-        } else if (p.bad_attitude) {
+        } else {
           await supabase.from('match_reviews').insert({
             match_id: id,
             reviewer_id: user.id,
             reviewee_id: p.user_id,
-            level_rating: null,
-            attitude: 'negative',
+            level_rating: p.level_rating,
+            attitude: p.attitude,
             attended: true
           });
         }
@@ -147,7 +153,7 @@ export default function ReviewOrganizerScreen() {
                 </View>
               </View>
 
-              <View className="flex-row items-center justify-between mb-4">
+              <View className="flex-row items-center justify-between mb-2">
                 <Text className="text-slate-700 dark:text-slate-300 font-medium">Asistió al partido</Text>
                 <Switch
                   value={p.attended}
@@ -157,15 +163,48 @@ export default function ReviewOrganizerScreen() {
                 />
               </View>
 
-              <View className="flex-row items-center justify-between">
-                <Text className="text-slate-700 dark:text-slate-300 font-medium">Reportar mal comportamiento</Text>
-                <Switch
-                  value={p.bad_attitude}
-                  onValueChange={() => toggleAttitude(p.id)}
-                  trackColor={{ false: '#e2e8f0', true: '#ef4444' }}
-                  thumbColor="#ffffff"
-                />
-              </View>
+              {p.attended && (
+                <View className="mt-2 border-t border-gray-100 dark:border-gray-800 pt-3 space-y-4">
+                  <View>
+                    <Text className="text-slate-500 text-xs uppercase tracking-wider mb-2 font-bold">Valoración General</Text>
+                    <View className="flex-row space-x-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <TouchableOpacity key={star} onPress={() => setParticipantLevel(p.id, star)} className="px-1">
+                          <Ionicons
+                            name={p.level_rating >= star ? 'star' : 'star-outline'}
+                            size={32}
+                            color={p.level_rating >= star ? '#eab308' : '#cbd5e1'}
+                          />
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                  
+                  <View>
+                    <Text className="text-slate-500 text-xs uppercase tracking-wider mb-2 font-bold">Actitud</Text>
+                    <View className="flex-row flex-wrap gap-2">
+                      {[
+                        { val: 'positive', label: '🤩 Positiva' },
+                        { val: 'neutral', label: '😐 Neutral' },
+                        { val: 'negative', label: '😠 Negativa' }
+                      ].map(opt => {
+                        const isActive = p.attitude === opt.val;
+                        return (
+                          <TouchableOpacity
+                            key={opt.val}
+                            onPress={() => setParticipantAttitude(p.id, opt.val)}
+                            className={`px-3 py-2 rounded-full border ${isActive ? 'bg-green-500/20 border-green-500' : 'bg-transparent border-gray-200 dark:border-gray-700'}`}
+                          >
+                            <Text className={`font-semibold text-sm ${isActive ? 'text-green-600 dark:text-green-500' : 'text-slate-600 dark:text-slate-300'}`}>
+                              {opt.label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+                </View>
+              )}
             </View>
           ))
         )}

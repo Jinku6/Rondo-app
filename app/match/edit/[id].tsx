@@ -113,39 +113,7 @@ export default function EditMatchScreen() {
     loadMatch();
   }, [id, user]);
 
-  useEffect(() => {
-    const beforeRemoveListener = (e: any) => {
-      // Don't intercept if we're loading or deleting or successfully updating
-      if (loadingData || loading) return;
-
-      const currentStateStr = JSON.stringify({
-        title, location, description, level, teamAColor, teamBColor, price, requiresApproval, positions, dateText, timeText
-      });
-
-      if (currentStateStr === initialStateStr) {
-        return; // No unsaved changes
-      }
-
-      // Prevent default behavior of leaving the screen
-      e.preventDefault();
-
-      Alert.alert(
-        'Descartar cambios',
-        'Tienes cambios sin guardar. ¿Estás seguro de que quieres salir?',
-        [
-          { text: 'Cancelar', style: 'cancel', onPress: () => {} },
-          {
-            text: 'Salir sin guardar',
-            style: 'destructive',
-            onPress: () => navigation.dispatch(e.data.action),
-          },
-        ]
-      );
-    };
-
-    navigation.addListener('beforeRemove', beforeRemoveListener);
-    return () => navigation.removeListener('beforeRemove', beforeRemoveListener);
-  }, [navigation, loadingData, loading, initialStateStr, title, location, description, level, teamAColor, teamBColor, price, requiresApproval, positions, dateText, timeText]);
+  // Navigation guard removed from here because we moved it to headerLeft in Stack.Screen
 
 
   const handleDateChangeText = (text: string) => {
@@ -264,7 +232,32 @@ export default function EditMatchScreen() {
 
   return (
     <ScrollView className="flex-1 bg-neutral-950" keyboardShouldPersistTaps="handled">
-      <Stack.Screen options={{ title: 'Editar Partido' }} />
+      <Stack.Screen 
+        options={{ 
+          title: 'Editar Partido',
+          gestureEnabled: false,
+          headerLeft: () => (
+            <TouchableOpacity 
+              onPress={() => {
+                const currentStateStr = JSON.stringify({
+                  title, location, description, level, teamAColor, teamBColor, price, requiresApproval, positions, dateText, timeText
+                });
+                if (currentStateStr !== initialStateStr && !loading && !loadingData) {
+                  Alert.alert('Descartar cambios', 'Tienes cambios sin guardar. ¿Estás seguro de que quieres salir?', [
+                    { text: 'Cancelar', style: 'cancel' },
+                    { text: 'Salir sin guardar', style: 'destructive', onPress: () => router.back() }
+                  ]);
+                } else {
+                  router.back();
+                }
+              }}
+              style={{ flexDirection: 'row', alignItems: 'center', marginLeft: -8, padding: 8 }}
+            >
+              <Ionicons name="chevron-back" size={28} color="#22C55E" />
+            </TouchableOpacity>
+          )
+        }} 
+      />
       <View className="p-4 space-y-5 mb-10">
 
         <View className="bg-gray-900 p-4 rounded-xl border border-gray-800">

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Alert, Platform, Image } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
@@ -164,7 +165,8 @@ export default function ProfileScreen() {
   };
 
   return (
-    <ScrollView className="flex-1 bg-slate-50 dark:bg-neutral-950 p-6" contentContainerStyle={{ paddingBottom: 40 }}>
+    <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top']}>
+      <ScrollView className="flex-1 bg-slate-50 dark:bg-neutral-950 p-6" contentContainerStyle={{ paddingBottom: 40 }}>
       {/* Alerta de valoraciones pendientes */}
       <PendingReviewsAlert />
 
@@ -331,6 +333,7 @@ export default function ProfileScreen() {
       >
         <Text className="text-red-600 dark:text-red-400 font-bold text-lg">Cerrar Sesión</Text>
       </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }

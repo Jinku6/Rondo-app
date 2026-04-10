@@ -1,5 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { Match } from '@/types/database';
 import { useRouter, useFocusEffect } from 'expo-router';
@@ -127,7 +128,7 @@ export default function MyMatchesScreen() {
   }
 
   return (
-    <View className="flex-1 bg-slate-50 dark:bg-neutral-950">
+    <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top']}>
       <FlatList
         data={matches.filter(m => filter === 'all' || m._role === filter)}
         keyExtractor={item => item.id + item._role}
@@ -174,6 +175,6 @@ export default function MyMatchesScreen() {
           />
         }
       />
-    </View>
+    </SafeAreaView>
   );
 }

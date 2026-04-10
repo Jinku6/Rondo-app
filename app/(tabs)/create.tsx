@@ -233,8 +233,9 @@ export default function CreateMatchScreen() {
   const totalPlayers = Object.values(positions).reduce((a, b) => a + b, 0);
 
   return (
-    <ScrollView className="flex-1 bg-white dark:bg-neutral-950 p-4" keyboardShouldPersistTaps="handled">
-      <View className="space-y-5 mb-10">
+    <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top']}>
+      <ScrollView className="flex-1 bg-slate-50 dark:bg-neutral-950 p-4" keyboardShouldPersistTaps="handled">
+        <View className="space-y-5 mb-10">
 
         {/* Información General */}
         <View className="bg-slate-50 dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
@@ -364,10 +365,11 @@ export default function CreateMatchScreen() {
             display="default"
             onChange={onDatePickerChange}
             minimumDate={new Date()}
+            locale="es-ES"
           />
         )}
         {Platform.OS === 'ios' && showDatePicker && (
-          <Modal transparent animationType="fade" visible={showDatePicker}>
+          <Modal transparent animationType="slide" visible={showDatePicker}>
             <View className="flex-1 justify-end bg-black/60">
               <View className="bg-white dark:bg-gray-900 pb-10 pt-4 px-6 rounded-t-3xl shadow-xl">
                 <View className="flex-row justify-between mb-4 border-b border-gray-100 dark:border-gray-800 pb-2">
@@ -385,6 +387,7 @@ export default function CreateMatchScreen() {
                   display="spinner"
                   onChange={onDatePickerChange}
                   minimumDate={new Date()}
+                  locale="es-ES"
                 />
               </View>
             </View>
@@ -398,10 +401,11 @@ export default function CreateMatchScreen() {
             display="default"
             onChange={onTimePickerChange}
             is24Hour={true}
+            locale="es-ES"
           />
         )}
         {Platform.OS === 'ios' && showTimePicker && (
-          <Modal transparent animationType="fade" visible={showTimePicker}>
+          <Modal transparent animationType="slide" visible={showTimePicker}>
             <View className="flex-1 justify-end bg-black/60">
               <View className="bg-white dark:bg-gray-900 pb-10 pt-4 px-6 rounded-t-3xl shadow-xl">
                 <View className="flex-row justify-between mb-4 border-b border-gray-100 dark:border-gray-800 pb-2">
@@ -419,6 +423,7 @@ export default function CreateMatchScreen() {
                   display="spinner"
                   onChange={onTimePickerChange}
                   is24Hour={true}
+                  locale="es-ES"
                 />
               </View>
             </View>
@@ -542,6 +547,7 @@ export default function CreateMatchScreen() {
           </TouchableOpacity>
         </View>
       </View>
-    </ScrollView>
+      </ScrollView>
+    </SafeAreaView>
   );
 }

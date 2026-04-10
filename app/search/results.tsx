@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { EmptyState } from '@/components/ui/empty-state';
 
 export default function SearchResultsScreen() {
-  const { location, date, position } = useLocalSearchParams();
+  const { location, date, position, dateRange } = useLocalSearchParams();
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -24,7 +24,18 @@ export default function SearchResultsScreen() {
       query = query.ilike('location', `%${location}%`);
     }
 
-    if (date && typeof date === 'string') {
+    if (dateRange === 'this_week') {
+      const startOfTarget = new Date();
+      const endOfTarget = new Date();
+      const currentDay = endOfTarget.getDay(); // 0 es Domingo
+      const daysUntilSunday = currentDay === 0 ? 0 : 7 - currentDay;
+      endOfTarget.setDate(endOfTarget.getDate() + daysUntilSunday);
+      endOfTarget.setHours(23, 59, 59, 999);
+      
+      query = query
+        .gte('date_time', startOfTarget.toISOString())
+        .lte('date_time', endOfTarget.toISOString());
+    } else if (date && typeof date === 'string') {
       const startOfTarget = new Date();
       startOfTarget.setHours(0, 0, 0, 0);
       let endOfTarget = new Date();
@@ -73,7 +84,7 @@ export default function SearchResultsScreen() {
 
   useEffect(() => {
     fetchMatches();
-  }, [location, date]);
+  }, [location, date, dateRange]);
 
   const onRefresh = () => {
     setRefreshing(true);

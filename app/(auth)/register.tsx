@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, ActivityIndicator, Alert, ScrollView, Platform, KeyboardAvoidingView, Keyboard } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, ActivityIndicator, Alert, ScrollView, Platform, KeyboardAvoidingView, Keyboard, Image } from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -129,9 +129,16 @@ export default function RegisterScreen() {
           contentContainerStyle={{ flexGrow: 1, paddingBottom: 60 }}
           keyboardShouldPersistTaps="handled"
         >
-          <Text className="text-3xl font-bold mt-10 mb-8 text-center text-slate-900 dark:text-white">
-            Únete a Rondo
-          </Text>
+          <View className="items-center mt-10 mb-8">
+            <Image 
+              source={require('@/assets/images/icon.png')} 
+              className="w-32 h-32 rounded-[32px] mb-4"
+              resizeMode="cover"
+            />
+            <Text className="text-3xl font-bold text-center text-slate-900 dark:text-white">
+              Únete a Rondo
+            </Text>
+          </View>
 
           <View className="space-y-4">
             {/* Nombre Completo */}
