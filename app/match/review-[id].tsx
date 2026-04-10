@@ -29,9 +29,9 @@ export default function ReviewCarouselScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
 
   // Form states for the current reviewee
+  const [attended, setAttended] = useState<boolean | null>(null);
   const [levelRating, setLevelRating] = useState(0);
   const [attitude, setAttitude] = useState<'positive' | 'neutral' | 'negative' | null>(null);
-  const [attended, setAttended] = useState<boolean | null>(null);
 
   // Stored reviews waiting to be committed
   const [pendingReviews, setPendingReviews] = useState<any[]>([]);
@@ -121,31 +121,54 @@ export default function ReviewCarouselScreen() {
       .in('type', ['pending_player_review', 'pending_organizer_review']);
   };
 
-  const handleNext = async () => {
-    if (levelRating === 0 || !attitude || attended === null) {
-      Alert.alert('Atención', 'Por favor, completa todas las valoraciones (nivel, actitud y asistencia) antes de continuar.');
-      return;
-    }
+  const resetForm = () => {
+    setAttended(null);
+    setLevelRating(0);
+    setAttitude(null);
+  };
 
+  const buildReview = () => {
     const currentReviewee = reviewees[currentIndex];
     
-    const newReview = {
+    if (attended === false) {
+      return {
+        match_id: id,
+        reviewer_id: user?.id,
+        reviewee_id: currentReviewee.reviewee_id,
+        level_rating: null,
+        attitude: null,
+        attended: false
+      };
+    }
+
+    return {
       match_id: id,
       reviewer_id: user?.id,
       reviewee_id: currentReviewee.reviewee_id,
       level_rating: levelRating,
       attitude: attitude,
-      attended: attended
+      attended: true
     };
+  };
 
+  const handleNext = async () => {
+    if (attended === null) {
+      Alert.alert('Atención', 'Por favor, indica si este jugador asistió al partido.');
+      return;
+    }
+
+    if (attended === true && (levelRating === 0 || !attitude)) {
+      Alert.alert('Atención', 'Por favor, completa el nivel y la actitud antes de continuar.');
+      return;
+    }
+
+    const newReview = buildReview();
     const allReviews = [...pendingReviews, newReview];
     setPendingReviews(allReviews);
 
     if (currentIndex < reviewees.length - 1) {
       // Move to next
-      setLevelRating(0);
-      setAttitude(null);
-      setAttended(null);
+      resetForm();
       setCurrentIndex(currentIndex + 1);
     } else {
       // Submit all
@@ -229,60 +252,78 @@ export default function ReviewCarouselScreen() {
             </View>
           </View>
 
-          {/* Valoración Nivel */}
+          {/* 1. Asistencia (siempre visible) */}
           <View className="mb-6">
-            <Text className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Valoración General</Text>
-            {renderStars()}
-          </View>
-
-          {/* Valoración Actitud */}
-          <View className="mb-6">
-            <Text className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Actitud</Text>
-            <View className="flex-row flex-wrap gap-2">
-              {[
-                { val: 'positive', label: '🤩 Positiva' },
-                { val: 'neutral', label: '😐 Neutral' },
-                { val: 'negative', label: '😠 Negativa' }
-              ].map(opt => {
-                const isActive = attitude === opt.val;
-                return (
-                  <TouchableOpacity
-                    key={opt.val}
-                    onPress={() => setAttitude(opt.val as any)}
-                    className={`px-4 py-3 rounded-full border ${isActive ? 'bg-green-500/20 border-green-500' : 'bg-transparent border-gray-700'}`}
-                  >
-                    <Text className={`font-semibold ${isActive ? 'text-green-500' : 'text-slate-300'}`}>
-                      {opt.label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          </View>
-
-          {/* Valoración Asistencia */}
-          <View className="mb-6">
-            <Text className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Asistencia</Text>
+            <Text className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">¿Asistió al partido?</Text>
             <View className="flex-row gap-2">
               <TouchableOpacity
                 onPress={() => setAttended(true)}
                 className={`flex-1 px-4 py-3 rounded-xl border ${attended === true ? 'bg-green-500/20 border-green-500' : 'bg-transparent border-gray-700'} items-center`}
               >
                 <Text className={`font-semibold ${attended === true ? 'text-green-500' : 'text-slate-300'}`}>
-                  Asistió
+                  ✅ Sí, asistió
                 </Text>
               </TouchableOpacity>
               
               <TouchableOpacity
-                onPress={() => setAttended(false)}
+                onPress={() => {
+                  setAttended(false);
+                  setLevelRating(0);
+                  setAttitude(null);
+                }}
                 className={`flex-1 px-4 py-3 rounded-xl border ${attended === false ? 'bg-red-500/20 border-red-500' : 'bg-transparent border-gray-700'} items-center`}
               >
                 <Text className={`font-semibold ${attended === false ? 'text-red-500' : 'text-slate-300'}`}>
-                  No apareció
+                  ❌ No apareció
                 </Text>
               </TouchableOpacity>
             </View>
           </View>
+
+          {/* 2. Nivel y actitud (solo si asistió) */}
+          {attended === true && (
+            <>
+              {/* Valoración Nivel */}
+              <View className="mb-6">
+                <Text className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Valoración General</Text>
+                {renderStars()}
+              </View>
+
+              {/* Valoración Actitud */}
+              <View className="mb-6">
+                <Text className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-2">Actitud</Text>
+                <View className="flex-row flex-wrap gap-2">
+                  {[
+                    { val: 'positive', label: '🤩 Positiva' },
+                    { val: 'neutral', label: '😐 Neutral' },
+                    { val: 'negative', label: '😠 Negativa' }
+                  ].map(opt => {
+                    const isActive = attitude === opt.val;
+                    return (
+                      <TouchableOpacity
+                        key={opt.val}
+                        onPress={() => setAttitude(opt.val as any)}
+                        className={`px-4 py-3 rounded-full border ${isActive ? 'bg-green-500/20 border-green-500' : 'bg-transparent border-gray-700'}`}
+                      >
+                        <Text className={`font-semibold ${isActive ? 'text-green-500' : 'text-slate-300'}`}>
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            </>
+          )}
+
+          {/* Mensaje si no asistió */}
+          {attended === false && (
+            <View className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-2">
+              <Text className="text-red-400 text-center text-sm">
+                Se registrará la inasistencia de este jugador. Pulsa siguiente para continuar.
+              </Text>
+            </View>
+          )}
 
         </View>
       </ScrollView>

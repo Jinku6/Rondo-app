@@ -271,7 +271,80 @@ export default function MatchDetailScreen() {
         {/* Panel organizador */}
         {isOrganizer && (
           <View className="bg-purple-100 dark:bg-purple-900/30 p-4 rounded-xl border border-purple-200 dark:border-purple-800">
-            <Text className="text-purple-800 dark:text-purple-300 font-bold text-center">👑 Eres el organizador</Text>
+            <Text className="text-purple-800 dark:text-purple-300 font-bold text-center mb-3">👑 Eres el organizador</Text>
+            
+            {(match.status === 'open' || match.status === 'full') && (
+              <TouchableOpacity
+                className="bg-green-500 rounded-xl p-4 items-center flex-row justify-center"
+                style={{ minHeight: 48 }}
+                disabled={actionLoading}
+                onPress={() => {
+                  Alert.alert(
+                    'Finalizar Partido',
+                    '¿Estás seguro de que quieres finalizar este partido? Se generarán las notificaciones de valoración.',
+                    [
+                      { text: 'Cancelar', style: 'cancel' },
+                      {
+                        text: 'Finalizar',
+                        style: 'destructive',
+                        onPress: async () => {
+                          setActionLoading(true);
+                          try {
+                            // 1. Update match status
+                            const { error: updateError } = await supabase
+                              .from('matches')
+                              .update({ status: 'completed' })
+                              .eq('id', match.id);
+                            if (updateError) throw updateError;
+
+                            // 2. Notification for organizer
+                            await supabase.from('notifications').insert({
+                              user_id: user!.id,
+                              match_id: match.id,
+                              type: 'pending_organizer_review'
+                            });
+
+                            // 3. Notifications for all participants
+                            const activeParticipants = participants.filter(
+                              p => (p.status === 'joined' || p.status === 'approved')
+                            );
+                            if (activeParticipants.length > 0) {
+                              await supabase.from('notifications').insert(
+                                activeParticipants.map(p => ({
+                                  user_id: p.user_id,
+                                  match_id: match.id,
+                                  type: 'pending_player_review'
+                                }))
+                              );
+                            }
+
+                            Alert.alert('✅ Partido finalizado', 'Se han enviado las notificaciones de valoración.');
+                            fetchMatchDetails();
+                          } catch (error: any) {
+                            Alert.alert('Error', error.message);
+                          } finally {
+                            setActionLoading(false);
+                          }
+                        }
+                      }
+                    ]
+                  );
+                }}
+              >
+                {actionLoading ? <ActivityIndicator color="#fff" /> : (
+                  <>
+                    <Ionicons name="flag-outline" size={22} color="#fff" style={{ marginRight: 8 }} />
+                    <Text className="text-white font-bold text-lg">Finalizar Partido</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            )}
+
+            {match.status === 'completed' && (
+              <View className="bg-green-100 dark:bg-green-900/30 p-3 rounded-lg border border-green-200 dark:border-green-800">
+                <Text className="text-green-700 dark:text-green-400 text-center font-semibold text-sm">✅ Partido finalizado</Text>
+              </View>
+            )}
           </View>
         )}
       </View>

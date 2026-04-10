@@ -14,6 +14,7 @@ export default function ReviewPlayerScreen() {
   const [saving, setSaving] = useState(false);
   const [match, setMatch] = useState<any>(null);
   
+  const [attended, setAttended] = useState<boolean | null>(null);
   const [levelRating, setLevelRating] = useState(0);
   const [attitudeRating, setAttitudeRating] = useState(0);
 
@@ -38,7 +39,12 @@ export default function ReviewPlayerScreen() {
   };
 
   const handleSave = async () => {
-    if (levelRating === 0 || attitudeRating === 0) {
+    if (attended === null) {
+      Alert.alert('Aviso', 'Por favor, indica si el organizador asistió al partido.');
+      return;
+    }
+
+    if (attended === true && (levelRating === 0 || attitudeRating === 0)) {
       Alert.alert('Aviso', 'Por favor, puntúa el nivel y la actitud antes de guardar.');
       return;
     }
@@ -47,13 +53,14 @@ export default function ReviewPlayerScreen() {
     setSaving(true);
 
     try {
-      // Create review for the organizer/match
+      // Create review for the organizer
       await supabase.from('match_reviews').insert({
         match_id: id,
         reviewer_id: user.id,
         reviewee_id: match.organizer_id,
-        level_rating: levelRating,
-        attitude_rating: attitudeRating
+        level_rating: attended ? levelRating : null,
+        attitude_rating: attended ? attitudeRating : null,
+        attended: attended
       });
 
       // Delete notification
@@ -109,37 +116,78 @@ export default function ReviewPlayerScreen() {
           Ayuda a mejorar la comunidad valorando el nivel general y la actitud de los organizadores y jugadores.
         </Text>
 
-        <View className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-800 items-center mb-6">
-          <Text className="text-slate-700 dark:text-slate-300 font-bold text-lg mb-4">Nivel del partido</Text>
-          {renderStars(levelRating, setLevelRating)}
-          <Text className="text-slate-400 dark:text-slate-500 text-sm mt-3 text-center">
-            {levelRating === 1 && "Muy bajo para lo prometido"}
-            {levelRating === 2 && "Bajo"}
-            {levelRating === 3 && "Correcto, en lo esperado"}
-            {levelRating === 4 && "Buen nivel"}
-            {levelRating === 5 && "Excelente, muy parejo"}
-          </Text>
+        {/* 1. Asistencia */}
+        <View className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-800 mb-6">
+          <Text className="text-slate-700 dark:text-slate-300 font-bold text-lg mb-4 text-center">¿Asistió el organizador?</Text>
+          <View className="flex-row gap-3">
+            <TouchableOpacity
+              onPress={() => setAttended(true)}
+              className={`flex-1 px-4 py-3 rounded-xl border ${attended === true ? 'bg-green-500/20 border-green-500' : 'bg-transparent border-gray-200 dark:border-gray-700'} items-center`}
+            >
+              <Text className={`font-semibold ${attended === true ? 'text-green-600 dark:text-green-500' : 'text-slate-500 dark:text-slate-300'}`}>
+                ✅ Sí, asistió
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => {
+                setAttended(false);
+                setLevelRating(0);
+                setAttitudeRating(0);
+              }}
+              className={`flex-1 px-4 py-3 rounded-xl border ${attended === false ? 'bg-red-500/20 border-red-500' : 'bg-transparent border-gray-200 dark:border-gray-700'} items-center`}
+            >
+              <Text className={`font-semibold ${attended === false ? 'text-red-600 dark:text-red-500' : 'text-slate-500 dark:text-slate-300'}`}>
+                ❌ No apareció
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
-        <View className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-800 items-center">
-          <Text className="text-slate-700 dark:text-slate-300 font-bold text-lg mb-4">Actitud y deportividad</Text>
-          {renderStars(attitudeRating, setAttitudeRating)}
-          <Text className="text-slate-400 dark:text-slate-500 text-sm mt-3 text-center">
-            {attitudeRating === 1 && "Muy mala (conflictivo)"}
-            {attitudeRating === 2 && "Regular"}
-            {attitudeRating === 3 && "Normal"}
-            {attitudeRating === 4 && "Buena actitud"}
-            {attitudeRating === 5 && "Excepcional"}
-          </Text>
-        </View>
+        {/* 2. Nivel y actitud (solo si asistió) */}
+        {attended === true && (
+          <>
+            <View className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-800 items-center mb-6">
+              <Text className="text-slate-700 dark:text-slate-300 font-bold text-lg mb-4">Nivel del partido</Text>
+              {renderStars(levelRating, setLevelRating)}
+              <Text className="text-slate-400 dark:text-slate-500 text-sm mt-3 text-center">
+                {levelRating === 1 && "Muy bajo para lo prometido"}
+                {levelRating === 2 && "Bajo"}
+                {levelRating === 3 && "Correcto, en lo esperado"}
+                {levelRating === 4 && "Buen nivel"}
+                {levelRating === 5 && "Excelente, muy parejo"}
+              </Text>
+            </View>
+
+            <View className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-800 items-center">
+              <Text className="text-slate-700 dark:text-slate-300 font-bold text-lg mb-4">Actitud y deportividad</Text>
+              {renderStars(attitudeRating, setAttitudeRating)}
+              <Text className="text-slate-400 dark:text-slate-500 text-sm mt-3 text-center">
+                {attitudeRating === 1 && "Muy mala (conflictivo)"}
+                {attitudeRating === 2 && "Regular"}
+                {attitudeRating === 3 && "Normal"}
+                {attitudeRating === 4 && "Buena actitud"}
+                {attitudeRating === 5 && "Excepcional"}
+              </Text>
+            </View>
+          </>
+        )}
+
+        {/* Mensaje si no asistió */}
+        {attended === false && (
+          <View className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-2xl p-6 items-center">
+            <Text className="text-red-600 dark:text-red-400 text-center text-sm">
+              Se registrará la inasistencia del organizador.
+            </Text>
+          </View>
+        )}
       </ScrollView>
 
       <View className="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800">
         <TouchableOpacity 
           className="bg-green-500 rounded-xl p-4 items-center" 
           onPress={handleSave}
-          disabled={saving}
-          style={{ minHeight: 48 }}
+          disabled={saving || attended === null}
+          style={{ minHeight: 48, opacity: attended === null ? 0.5 : 1 }}
         >
           {saving ? <ActivityIndicator color="#fff" /> : (
             <Text className="text-white font-bold text-lg">Enviar Valoración</Text>

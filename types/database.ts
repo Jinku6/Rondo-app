@@ -62,8 +62,10 @@ export interface MatchReview {
   match_id: string;
   reviewer_id: string;
   reviewee_id: string;
-  level_rating: number;
-  attitude_rating: number;
+  level_rating: number | null;
+  attitude_rating: number | null;
+  attitude: 'positive' | 'neutral' | 'negative' | null;
+  attended: boolean;
   created_at: string;
 }
 

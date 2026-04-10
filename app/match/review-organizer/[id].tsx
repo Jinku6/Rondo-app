@@ -63,21 +63,32 @@ export default function ReviewOrganizerScreen() {
     setSaving(true);
     
     try {
-      // 1. Guardar la asistencia
+      // 1. Guardar la asistencia y reviews
       for (const p of participants) {
         await supabase
           .from('match_participants')
           .update({ attended: p.attended })
           .eq('id', p.id);
 
-        // Si hay actitud problemática, guardamos un review negativo de 1 estrella.
-        if (p.bad_attitude) {
+        // Crear review: si no asistió, solo se registra attended=false
+        // Si asistió y tiene mal comportamiento, registrar actitud negativa
+        if (!p.attended) {
           await supabase.from('match_reviews').insert({
             match_id: id,
             reviewer_id: user.id,
             reviewee_id: p.user_id,
-            level_rating: 3, // neutral
-            attitude_rating: 1 // problematic
+            level_rating: null,
+            attitude: null,
+            attended: false
+          });
+        } else if (p.bad_attitude) {
+          await supabase.from('match_reviews').insert({
+            match_id: id,
+            reviewer_id: user.id,
+            reviewee_id: p.user_id,
+            level_rating: null,
+            attitude: 'negative',
+            attended: true
           });
         }
       }

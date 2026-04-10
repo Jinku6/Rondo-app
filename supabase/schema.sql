@@ -48,8 +48,10 @@ CREATE TABLE IF NOT EXISTS public.match_reviews (
   match_id UUID NOT NULL REFERENCES public.matches(id) ON DELETE CASCADE,
   reviewer_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   reviewee_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
-  level_rating INTEGER NOT NULL CHECK (level_rating BETWEEN 1 AND 5),
-  attitude_rating INTEGER NOT NULL CHECK (attitude_rating BETWEEN 1 AND 5),
+  level_rating INTEGER CHECK (level_rating IS NULL OR (level_rating >= 1 AND level_rating <= 5)),
+  attitude_rating INTEGER CHECK (attitude_rating IS NULL OR (attitude_rating >= 1 AND attitude_rating <= 5)),
+  attitude TEXT CHECK (attitude IS NULL OR attitude IN ('positive', 'neutral', 'negative')),
+  attended BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE(match_id, reviewer_id, reviewee_id)
 );
@@ -123,22 +125,30 @@ RETURNS trigger AS $$
 DECLARE
   avg_lvl NUMERIC;
   avg_att NUMERIC;
-  total_reviews INTEGER;
 BEGIN
-  -- Calcular promedios
-  SELECT
-    AVG(level_rating),
-    AVG(attitude_rating),
-    COUNT(*)
-  INTO avg_lvl, avg_att, total_reviews
+  -- Solo promediar ratings no-null
+  SELECT AVG(level_rating)
+  INTO avg_lvl
   FROM public.match_reviews
-  WHERE reviewee_id = NEW.reviewee_id;
+  WHERE reviewee_id = NEW.reviewee_id
+    AND level_rating IS NOT NULL;
 
-  -- Actualizar perfil
+  SELECT AVG(
+    CASE attitude
+      WHEN 'positive' THEN 5
+      WHEN 'neutral' THEN 3
+      WHEN 'negative' THEN 1
+    END
+  )
+  INTO avg_att
+  FROM public.match_reviews
+  WHERE reviewee_id = NEW.reviewee_id
+    AND attitude IS NOT NULL;
+
   UPDATE public.users
   SET
-    average_level = ROUND(avg_lvl, 1),
-    average_attitude = ROUND(avg_att, 1)
+    average_level = COALESCE(ROUND(avg_lvl, 1), average_level),
+    average_attitude = COALESCE(ROUND(avg_att, 1), average_attitude)
   WHERE id = NEW.reviewee_id;
 
   RETURN NEW;
