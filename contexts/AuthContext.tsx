@@ -10,7 +10,7 @@ interface AuthContextValue {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
-  signUp: (email: string, password: string, username: string, fullName: string, preferredPosition: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string, username: string, fullName: string, preferredPosition: string, phone: string) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -65,7 +65,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, username: string, fullName: string, preferredPosition: string) => {
+  const signUp = async (email: string, password: string, username: string, fullName: string, preferredPosition: string, phone: string) => {
     const { error, data } = await supabase.auth.signUp({
       email,
       password,
@@ -74,6 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           username: username.toLowerCase(),
           full_name: fullName,
           preferred_position: preferredPosition,
+          phone: phone,
         },
       },
     });

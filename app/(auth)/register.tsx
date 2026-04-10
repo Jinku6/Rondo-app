@@ -15,6 +15,9 @@ const RegisterSchema = z.object({
     .min(6, 'La contraseña debe tener mínimo 6 caracteres')
     .regex(/[A-Z]/, 'La contraseña debe incluir al menos una letra mayúscula')
     .regex(/\d/, 'La contraseña debe incluir al menos un número'),
+  phone: z.string()
+    .min(9, 'El teléfono debe tener al menos 9 dígitos')
+    .regex(/^\d+$/, 'El teléfono solo puede contener números'),
 });
 
 const showAlert = (title: string, message: string, onOk?: () => void) => {
@@ -34,6 +37,7 @@ export default function RegisterScreen() {
   const [username, setUsername] = useState('');
   const [fullName, setFullName] = useState('');
   const [preferredPosition, setPreferredPosition] = useState('');
+  const [phone, setPhone] = useState('');
   
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false); // Para resaltar campos vacíos
@@ -71,11 +75,10 @@ export default function RegisterScreen() {
 
     try {
       RegisterSchema.parse({
-        fullName,
-        username,
         preferredPosition,
         email,
-        password
+        password,
+        phone
       });
     } catch (err: any) {
       if (err instanceof z.ZodError) {
@@ -99,7 +102,7 @@ export default function RegisterScreen() {
       return;
     }
 
-    const { error } = await signUp(email, password, username.toLowerCase(), fullName, preferredPosition);
+    const { error } = await signUp(email, password, username.toLowerCase(), fullName, preferredPosition, phone);
     setLoading(false);
 
     if (error) {
@@ -200,6 +203,24 @@ export default function RegisterScreen() {
                   </TouchableOpacity>
                 ))}
               </View>
+            </View>
+
+            {/* Teléfono */}
+            <View>
+              <Text className={`font-medium mb-1 ${isFieldError(phone) ? 'text-red-500' : 'text-slate-700 dark:text-slate-300'}`}>
+                Teléfono {isFieldError(phone) && '*'}
+              </Text>
+              <TextInput
+                className={`w-full bg-slate-50 dark:bg-gray-900 border ${fieldBorder(isFieldError(phone))} rounded-lg p-3 text-slate-900 dark:text-white`}
+                placeholder="600000000"
+                placeholderTextColor="#9ca3af"
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="numeric"
+              />
+              <Text className="text-slate-400 text-[10px] mt-1 italic">
+                Solo visible para el organizador del partido.
+              </Text>
             </View>
 
             {/* Email */}

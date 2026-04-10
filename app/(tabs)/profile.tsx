@@ -29,11 +29,32 @@ export default function ProfileScreen() {
   const [preferredPosition, setPreferredPosition] = useState(profile?.preferred_position || '');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [phone, setPhone] = useState('');
+  const [loadingPhone, setLoadingPhone] = useState(false);
 
   // Campos de cuenta
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [showAccountSection, setShowAccountSection] = useState(false);
+
+  const fetchPhone = async () => {
+    if (!user) return;
+    setLoadingPhone(true);
+    const { data, error } = await supabase
+      .from('user_private_data')
+      .select('phone')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    
+    if (!error && data) {
+      setPhone(data.phone || '');
+    }
+    setLoadingPhone(false);
+  };
+
+  React.useEffect(() => {
+    fetchPhone();
+  }, [user]);
 
   if (!profile || !user) return <View className="flex-1 bg-white dark:bg-neutral-950 justify-center items-center"><ActivityIndicator size="large" color="#22C55E" /></View>;
 
@@ -82,11 +103,10 @@ export default function ProfileScreen() {
       setUploading(false);
     }
   };
-
   const handleSave = async () => {
     setSaving(true);
     try {
-      const { error } = await supabase
+      const { error: errorUsers } = await supabase
         .from('users')
         .update({
           full_name: fullName,
@@ -95,7 +115,17 @@ export default function ProfileScreen() {
         })
         .eq('id', user.id);
 
-      if (error) throw error;
+      if (errorUsers) throw errorUsers;
+
+      const { error: errorPhone } = await supabase
+        .from('user_private_data')
+        .upsert({ 
+          user_id: user.id, 
+          phone: phone,
+          updated_at: new Date().toISOString()
+        });
+
+      if (errorPhone) throw errorPhone;
       
       await refreshProfile();
       setIsEditing(false);
@@ -234,6 +264,16 @@ export default function ProfileScreen() {
                 value={username}
                 onChangeText={setUsername}
                 autoCapitalize="none"
+              />
+            </View>
+            <View>
+              <Text className="text-slate-500 text-xs mb-1">Teléfono (Privado)</Text>
+              <TextInput 
+                className="w-full bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-lg p-3 text-slate-900 dark:text-white"
+                value={phone}
+                onChangeText={(val) => setPhone(val.replace(/[^0-9]/g, ''))}
+                keyboardType="numeric"
+                placeholder="Ej: 600123456"
               />
             </View>
             <View>

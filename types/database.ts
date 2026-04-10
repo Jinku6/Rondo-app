@@ -25,6 +25,13 @@ export interface UserProfile {
   created_at: string;
 }
 
+export interface UserPrivateData {
+  user_id: string;
+  phone: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface Match {
   id: string;
   organizer_id: string;

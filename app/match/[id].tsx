@@ -29,7 +29,7 @@ export default function MatchDetailScreen() {
   async function fetchMatchDetails() {
     const { data: matchData, error: matchError } = await supabase
       .from('matches')
-      .select('*, organizer:users(*)')
+      .select('*, organizer:users(*, phone_data:user_private_data(phone))')
       .eq('id', id)
       .single();
 
@@ -43,7 +43,7 @@ export default function MatchDetailScreen() {
 
     const { data: partData, error: partError } = await supabase
       .from('match_participants')
-      .select('*, user:users(*)')
+      .select('*, user:users(*, phone_data:user_private_data(phone))')
       .eq('match_id', id);
 
     if (partError) {
@@ -229,6 +229,16 @@ export default function MatchDetailScreen() {
               <View className="flex-1">
                 <Text className="font-bold text-slate-900 dark:text-white">{match.organizer?.full_name}</Text>
                 <Text className="text-slate-500 dark:text-slate-400 text-xs">@{match.organizer?.username}</Text>
+                {/* @ts-ignore - phone_data injected via join */}
+                {match.organizer?.phone_data?.[0]?.phone && (
+                  <View className="flex-row items-center mt-1">
+                    <Ionicons name="call-outline" size={12} color="#22C55E" />
+                    <Text className="text-green-600 dark:text-green-400 text-xs font-bold ml-1">
+                      {/* @ts-ignore */}
+                      {match.organizer.phone_data[0].phone}
+                    </Text>
+                  </View>
+                )}
               </View>
               <Ionicons name="chevron-forward" size={18} color="#9ca3af" />
             </TouchableOpacity>
@@ -375,6 +385,16 @@ export default function MatchDetailScreen() {
                       Posición: {p.user.preferred_position}
                     </Text>
                   )}
+                  {/* @ts-ignore */}
+                  {p.user?.phone_data?.[0]?.phone && (
+                    <View className="flex-row items-center mt-1">
+                      <Ionicons name="call" size={12} color="#22C55E" />
+                      <Text className="text-green-600 dark:text-green-400 text-xs font-bold ml-1">
+                        {/* @ts-ignore */}
+                        {p.user.phone_data[0].phone}
+                      </Text>
+                    </View>
+                  )}
                 </View>
                 <View className="items-end">
                   {(p.user?.reliability_score ?? 0) > 0 && (
@@ -423,6 +443,16 @@ export default function MatchDetailScreen() {
             <View className="flex-1">
               <Text className="font-bold text-slate-900 dark:text-white">{p.user?.full_name}</Text>
               <Text className="text-slate-500 dark:text-slate-400 text-sm">@{p.user?.username}</Text>
+              {/* @ts-ignore */}
+              {p.user?.phone_data?.[0]?.phone && (
+                <View className="flex-row items-center mt-1">
+                  <Ionicons name="call-outline" size={12} color="#22C55E" />
+                  <Text className="text-green-600 dark:text-green-400 text-xs font-bold ml-1">
+                    {/* @ts-ignore */}
+                    {p.user.phone_data[0].phone}
+                  </Text>
+                </View>
+              )}
             </View>
             {p.user?.preferred_position && (
               <View className="bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">

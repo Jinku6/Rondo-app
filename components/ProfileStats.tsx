@@ -1,7 +1,7 @@
-import React from 'react';
-import { View, Text } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
 import { UserProfile } from '@/types/database';
+import { Ionicons } from '@expo/vector-icons';
+import React from 'react';
+import { Text, View } from 'react-native';
 
 interface ProfileStatsProps {
   profile: UserProfile;
@@ -66,12 +66,12 @@ export function ProfileStats({ profile }: ProfileStatsProps) {
               </View>
               <Ionicons name="speedometer-outline" size={36} color="#fbbf24" style={{ opacity: 0.8 }} />
             </View>
-            
+
             <View className="h-px bg-slate-100 dark:bg-gray-800 w-full mb-6" />
 
             <View className="flex-row justify-between items-center">
               <View>
-                <Text className="text-slate-500 dark:text-slate-400 text-sm font-semibold uppercase mb-1">Actitud en pista</Text>
+                <Text className="text-slate-500 dark:text-slate-400 text-sm font-semibold uppercase mb-1">Actitud</Text>
                 <Text className="text-2xl">{getAttitudeEmojis(profile.average_attitude)}</Text>
               </View>
               <Ionicons name="happy-outline" size={36} color="#fbbf24" style={{ opacity: 0.8 }} />
