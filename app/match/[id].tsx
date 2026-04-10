@@ -240,12 +240,12 @@ export default function MatchDetailScreen() {
           <View>
             {!myParticipation ? (
               <TouchableOpacity
-                className={`w-full p-4 rounded-xl items-center shadow-sm ${isFull ? 'bg-slate-400' : 'bg-green-500'}`} style={{ minHeight: 48 }}
-                onPress={handleJoin}
+                className={`w-full p-4 rounded-xl items-center shadow-sm ${isFull ? 'bg-slate-300 dark:bg-slate-800' : 'bg-green-500'}`} style={{ minHeight: 48 }}
+                onPress={isFull ? undefined : handleJoin}
                 disabled={actionLoading || isFull}
               >
                 {actionLoading ? <ActivityIndicator color="#fff" /> :
-                  <Text className="text-white font-bold text-lg">{isFull ? 'Partido Lleno' : (match.requires_approval ? 'Solicitar Unirse' : '¡Unirse al Partido!')}</Text>
+                  <Text className={`${isFull ? 'text-slate-500 dark:text-slate-400' : 'text-white'} font-bold text-lg`}>{isFull ? 'Partido Completo' : (match.requires_approval ? 'Solicitar Unirse' : '¡Unirse al Partido!')}</Text>
                 }
               </TouchableOpacity>
             ) : myParticipation.status === 'pending' ? (
@@ -319,7 +319,7 @@ export default function MatchDetailScreen() {
                             }
 
                             Alert.alert('✅ Partido finalizado', 'Se han enviado las notificaciones de valoración.');
-                            fetchMatchDetails();
+                            router.replace(`/match/review-organizer/${match.id}` as any);
                           } catch (error: any) {
                             Alert.alert('Error', error.message);
                           } finally {

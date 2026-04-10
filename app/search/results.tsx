@@ -16,7 +16,7 @@ export default function SearchResultsScreen() {
   async function fetchMatches() {
     let query = supabase
       .from('matches')
-      .select('*, organizer:users(*)')
+      .select('*, organizer:users(*), participants:match_participants(status)')
       .eq('status', 'open')
       .order('date_time', { ascending: true });
 
@@ -38,7 +38,6 @@ export default function SearchResultsScreen() {
         }
       }
       
-      // Prevent showing past matches (e.g. today at 10:00 AM when it's 2:00 PM)
       const now = new Date();
       const filterStart = startOfTarget < now ? now : startOfTarget;
       
@@ -52,17 +51,15 @@ export default function SearchResultsScreen() {
     const { data, error } = await query;
 
     if (!error && data) {
-      // 2. Client-side position filtering
-      // Since JSONB filtering in Supabase client could be tricky depending on schema
       let filteredData = data as Match[];
 
       const targetPosition = Array.isArray(position) ? position[0] : position;
 
+      // Note: We leave the position filter here active as per instructions.
+      // But we removed explicit positions requirement inside DB logic.
       if (targetPosition && targetPosition !== 'cualquiera') {
         filteredData = filteredData.filter(m => {
           if (!m.requested_positions) return false;
-          // We check if the match explicitly requested this position and > 0
-          // OR if it requested 'cualquiera' > 0
           const rq = m.requested_positions as any;
           return (rq[targetPosition] && rq[targetPosition] > 0) || (rq['cualquiera'] && rq['cualquiera'] > 0);
         });
@@ -83,7 +80,7 @@ export default function SearchResultsScreen() {
     fetchMatches();
   };
 
-  const renderMatchCard = ({ item }: { item: Match }) => {
+  const renderMatchCard = ({ item }: { item: Match & { participants?: any[] } }) => {
     const d = new Date(item.date_time);
     const dateString = d.toLocaleDateString('es-ES', { weekday: 'short', month: 'short', day: 'numeric' });
     const timeString = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
@@ -91,6 +88,9 @@ export default function SearchResultsScreen() {
     const maxPlayers = item.requested_positions 
       ? Object.values(item.requested_positions).reduce((a: any, b: any) => a + b, 0) 
       : 0;
+
+    const approvedCount = item.participants?.filter(p => p.status === 'approved').length || 0;
+    const isFull = approvedCount >= maxPlayers;
 
     return (
       <TouchableOpacity 
@@ -103,8 +103,10 @@ export default function SearchResultsScreen() {
             {item.team_a_color && <View className="w-3 h-3 rounded-full" style={{ backgroundColor: item.team_a_color }} />}
             {item.team_b_color && <View className="w-3 h-3 rounded-full" style={{ backgroundColor: item.team_b_color }} />}
           </View>
-          <View className="bg-green-100 dark:bg-green-900 px-3 py-1 rounded-full">
-            <Text className="text-green-800 dark:text-green-200 font-medium">Abierto</Text>
+          <View className={`px-3 py-1 rounded-full ${isFull ? 'bg-slate-200 dark:bg-slate-800' : 'bg-green-100 dark:bg-green-900'}`}>
+            <Text className={`font-medium ${isFull ? 'text-slate-600 dark:text-slate-400' : 'text-green-800 dark:text-green-200'}`}>
+              {isFull ? 'Completo' : 'Abierto'}
+            </Text>
           </View>
         </View>
 

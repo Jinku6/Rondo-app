@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { PendingReviewsAlert } from '@/components/PendingReviewsAlert';
 import { decode } from 'base64-arraybuffer';
+import { ProfileStats } from '@/components/ProfileStats';
 
 const POSITIONS = ['portero', 'defensa', 'mediocentro', 'delantero'];
 
@@ -34,38 +35,6 @@ export default function ProfileScreen() {
   const [showAccountSection, setShowAccountSection] = useState(false);
 
   if (!profile || !user) return <View className="flex-1 bg-white dark:bg-neutral-950" />;
-
-  const getAttitudeEmojis = (rating: number) => {
-    if (rating === 0) return 'Sin valorar';
-    if (rating >= 4) return '🤩'; // Dominante positiva
-    if (rating >= 2.5) return '😐'; // Dominante neutra 
-    return '😠'; // Dominante negativa
-  };
-
-  const getAttendanceLabel = (score: number) => {
-    if (score === 100) return 'Siempre asiste';
-    if (score >= 90) return 'Casi siempre asiste';
-    if (score >= 75) return 'Irregular (falla a veces)';
-    return 'Poco fiable';
-  };
-
-  const renderLevelStars = (rating: number) => {
-    if (rating === 0) return <Text className="text-slate-400">N/A</Text>;
-    const fullStars = Math.round(rating);
-    return (
-      <View className="flex-row">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <Ionicons
-            key={star}
-            name={fullStars >= star ? 'star' : 'star-outline'}
-            size={24}
-            color={fullStars >= star ? '#eab308' : '#cbd5e1'}
-          />
-        ))}
-      </View>
-    );
-  };
-
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -291,41 +260,7 @@ export default function ProfileScreen() {
         )}
 
         {/* Stats */}
-        {profile.matches_played < 3 ? (
-          <View className="w-full mt-6 flex-col items-center p-6 bg-green-500/10 border border-green-500/20 rounded-2xl">
-            <Text className="text-4xl mb-2">🌱</Text>
-            <Text className="text-xl font-bold text-green-600 dark:text-green-400 mb-1">Jugador Nuevo</Text>
-            <Text className="text-slate-500 dark:text-slate-400 text-center text-sm">
-              Las estadísticas permanecerán ocultas hasta completar al menos 3 partidos valorados. ({profile.matches_played}/3)
-            </Text>
-          </View>
-        ) : (
-          <>
-            <View className="flex-row w-full justify-around border-t border-gray-200 dark:border-gray-800 pt-6 mt-6">
-              <View className="items-center">
-                <Text className="text-3xl font-bold text-slate-900 dark:text-white">{profile.matches_played}</Text>
-                <Text className="text-slate-500 dark:text-slate-400 text-xs uppercase mt-1">Partidos</Text>
-              </View>
-              <View className="items-center justify-center">
-                <Text className={`text-xl font-bold ${profile.reliability_score >= 90 ? 'text-emerald-500' : profile.reliability_score >= 75 ? 'text-amber-500' : 'text-red-500'}`}>
-                  {getAttendanceLabel(profile.reliability_score)}
-                </Text>
-                <Text className="text-slate-500 dark:text-slate-400 text-xs uppercase mt-1">Asistencia</Text>
-              </View>
-            </View>
-            
-            <View className="flex-row w-full justify-around mt-6 bg-slate-50 dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-              <View className="items-center justify-center">
-                <Text className="text-emerald-600 dark:text-emerald-400 font-bold mb-2">Nivel</Text>
-                {renderLevelStars(profile.average_level)}
-              </View>
-              <View className="items-center justify-center">
-                <Text className="text-amber-600 dark:text-amber-400 font-bold mb-1">Actitud</Text>
-                <Text className="text-3xl mt-1">{getAttitudeEmojis(profile.average_attitude)}</Text>
-              </View>
-            </View>
-          </>
-        )}
+        <ProfileStats profile={profile} />
       </View>
 
       {/* Account Settings */}

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, Switch, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, Switch, ActivityIndicator, Platform, Modal } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
+import { useRouter, useLocalSearchParams, Stack, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
@@ -16,6 +16,7 @@ export default function EditMatchScreen() {
   const { id } = useLocalSearchParams();
   const { user } = useAuth();
   const router = useRouter();
+  const navigation = useNavigation();
 
   const [loadingData, setLoadingData] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -46,6 +47,9 @@ export default function EditMatchScreen() {
   const [price, setPrice] = useState('0');
   const [requiresApproval, setRequiresApproval] = useState(false);
 
+  // Track initial state to detect unsaved changes
+  const [initialStateStr, setInitialStateStr] = useState<string>('');
+
   useEffect(() => {
     async function loadMatch() {
       if (!id) return;
@@ -56,7 +60,6 @@ export default function EditMatchScreen() {
         return;
       }
       
-      // Check auth
       if (data.organizer_id !== user?.id) {
         Alert.alert('No autorizado', 'No puedes editar un partido que no organizaste');
         router.back();
@@ -82,16 +85,68 @@ export default function EditMatchScreen() {
       const dd = String(dt.getDate()).padStart(2, '0');
       const mm = String(dt.getMonth() + 1).padStart(2, '0');
       const yyyy = dt.getFullYear();
-      setDateText(`${dd}/${mm}/${yyyy}`);
+      const loadedDateText = `${dd}/${mm}/${yyyy}`;
+      setDateText(loadedDateText);
       
       const hh = String(dt.getHours()).padStart(2, '0');
       const min = String(dt.getMinutes()).padStart(2, '0');
-      setTimeText(`${hh}:${min}`);
+      const loadedTimeText = `${hh}:${min}`;
+      setTimeText(loadedTimeText);
+
+      // Save initial state fingerprint
+      setInitialStateStr(JSON.stringify({
+        title: data.title,
+        location: data.location,
+        description: data.description || '',
+        level: data.level || 'medio',
+        teamAColor: data.team_a_color || '#EF4444',
+        teamBColor: data.team_b_color || '#3B82F6',
+        price: String(data.price_per_player || 0),
+        requiresApproval: data.requires_approval || false,
+        positions: data.requested_positions || { portero: 0, defensa: 0, mediocentro: 0, delantero: 0, cualquiera: 0 },
+        dateText: loadedDateText,
+        timeText: loadedTimeText
+      }));
 
       setLoadingData(false);
     }
     loadMatch();
   }, [id, user]);
+
+  useEffect(() => {
+    const beforeRemoveListener = (e: any) => {
+      // Don't intercept if we're loading or deleting or successfully updating
+      if (loadingData || loading) return;
+
+      const currentStateStr = JSON.stringify({
+        title, location, description, level, teamAColor, teamBColor, price, requiresApproval, positions, dateText, timeText
+      });
+
+      if (currentStateStr === initialStateStr) {
+        return; // No unsaved changes
+      }
+
+      // Prevent default behavior of leaving the screen
+      e.preventDefault();
+
+      Alert.alert(
+        'Descartar cambios',
+        'Tienes cambios sin guardar. ¿Estás seguro de que quieres salir?',
+        [
+          { text: 'Cancelar', style: 'cancel', onPress: () => {} },
+          {
+            text: 'Salir sin guardar',
+            style: 'destructive',
+            onPress: () => navigation.dispatch(e.data.action),
+          },
+        ]
+      );
+    };
+
+    navigation.addListener('beforeRemove', beforeRemoveListener);
+    return () => navigation.removeListener('beforeRemove', beforeRemoveListener);
+  }, [navigation, loadingData, loading, initialStateStr, title, location, description, level, teamAColor, teamBColor, price, requiresApproval, positions, dateText, timeText]);
+
 
   const handleDateChangeText = (text: string) => {
     let cleaned = text.replace(/[^0-9]/g, '');
@@ -117,18 +172,22 @@ export default function EditMatchScreen() {
   };
 
   const onDatePickerChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
-    setShowDatePicker(false);
+    if (Platform.OS === 'android') setShowDatePicker(false);
     if (selectedDate) {
       setDateObj(selectedDate);
-      setDateText(`${String(selectedDate.getDate()).padStart(2,'0')}/${String(selectedDate.getMonth()+1).padStart(2,'0')}/${selectedDate.getFullYear()}`);
+      if (Platform.OS === 'android') {
+        setDateText(`${String(selectedDate.getDate()).padStart(2,'0')}/${String(selectedDate.getMonth()+1).padStart(2,'0')}/${selectedDate.getFullYear()}`);
+      }
     }
   };
 
   const onTimePickerChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
-    setShowTimePicker(false);
+    if (Platform.OS === 'android') setShowTimePicker(false);
     if (selectedDate) {
       setDateObj(selectedDate);
-      setTimeText(`${String(selectedDate.getHours()).padStart(2,'0')}:${String(selectedDate.getMinutes()).padStart(2,'0')}`);
+      if (Platform.OS === 'android') {
+        setTimeText(`${String(selectedDate.getHours()).padStart(2,'0')}:${String(selectedDate.getMinutes()).padStart(2,'0')}`);
+      }
     }
   };
 
@@ -174,6 +233,12 @@ export default function EditMatchScreen() {
         .eq('id', id);
 
       if (error) throw error;
+      
+      // Update string to prevent unsaved changes dialog since we just saved successfully
+      setInitialStateStr(JSON.stringify({
+        title, location, description, level, teamAColor, teamBColor, price, requiresApproval, positions, dateText, timeText
+      }));
+
       Alert.alert('¡Actualizado!', 'Los cambios del partido se guardaron correctamente.', [
         { text: 'Volver', onPress: () => router.back() }
       ]);
@@ -278,8 +343,46 @@ export default function EditMatchScreen() {
           </View>
         </View>
 
-        {Platform.OS !== 'web' && showDatePicker && <DateTimePicker value={dateObj} mode="date" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={onDatePickerChange} minimumDate={new Date()} locale="es-ES" />}
-        {Platform.OS !== 'web' && showTimePicker && <DateTimePicker value={dateObj} mode="time" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={onTimePickerChange} is24Hour={true} />}
+        {Platform.OS === 'android' && showDatePicker && <DateTimePicker value={dateObj} mode="date" display="default" onChange={onDatePickerChange} minimumDate={new Date()} locale="es-ES" />}
+        {Platform.OS === 'android' && showTimePicker && <DateTimePicker value={dateObj} mode="time" display="default" onChange={onTimePickerChange} is24Hour={true} />}
+
+        {Platform.OS === 'ios' && showDatePicker && (
+          <Modal transparent animationType="slide" visible={showDatePicker}>
+            <View className="flex-1 justify-end bg-black/60">
+              <View className="bg-white dark:bg-gray-900 pb-10 pt-4 px-6 rounded-t-3xl shadow-xl">
+                <View className="flex-row justify-between mb-4 border-b border-gray-100 dark:border-gray-800 pb-2">
+                  <TouchableOpacity onPress={() => setShowDatePicker(false)}>
+                    <Text className="text-red-500 font-medium text-lg">Cancelar</Text>
+                  </TouchableOpacity>
+                  <Text className="text-slate-800 dark:text-slate-100 font-bold text-lg">Fecha</Text>
+                  <TouchableOpacity onPress={() => { setShowDatePicker(false); setDateText(`${String(dateObj.getDate()).padStart(2,'0')}/${String(dateObj.getMonth()+1).padStart(2,'0')}/${dateObj.getFullYear()}`); }}>
+                    <Text className="text-emerald-500 font-bold text-lg">Confirmar</Text>
+                  </TouchableOpacity>
+                </View>
+                <DateTimePicker value={dateObj} mode="date" display="spinner" onChange={onDatePickerChange} minimumDate={new Date()} locale="es-ES" />
+              </View>
+            </View>
+          </Modal>
+        )}
+
+        {Platform.OS === 'ios' && showTimePicker && (
+          <Modal transparent animationType="slide" visible={showTimePicker}>
+            <View className="flex-1 justify-end bg-black/60">
+              <View className="bg-white dark:bg-gray-900 pb-10 pt-4 px-6 rounded-t-3xl shadow-xl">
+                <View className="flex-row justify-between mb-4 border-b border-gray-100 dark:border-gray-800 pb-2">
+                  <TouchableOpacity onPress={() => setShowTimePicker(false)}>
+                    <Text className="text-red-500 font-medium text-lg">Cancelar</Text>
+                  </TouchableOpacity>
+                  <Text className="text-slate-800 dark:text-slate-100 font-bold text-lg">Hora</Text>
+                  <TouchableOpacity onPress={() => { setShowTimePicker(false); setTimeText(`${String(dateObj.getHours()).padStart(2,'0')}:${String(dateObj.getMinutes()).padStart(2,'0')}`); }}>
+                    <Text className="text-emerald-500 font-bold text-lg">Confirmar</Text>
+                  </TouchableOpacity>
+                </View>
+                <DateTimePicker value={dateObj} mode="time" display="spinner" onChange={onTimePickerChange} is24Hour={true} />
+              </View>
+            </View>
+          </Modal>
+        )}
 
         <View className="bg-slate-800 p-4 rounded-xl border border-slate-700">
           <Text className="text-slate-300 font-bold mb-3 text-lg">Jugadores necesarios</Text>

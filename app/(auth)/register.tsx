@@ -90,6 +90,15 @@ export default function RegisterScreen() {
     }
 
     setLoading(true);
+    
+    // #3 Validar pre-existencia de email
+    const { data: emailExists } = await supabase.rpc('email_exists', { search_email: email.toLowerCase() });
+    if (emailExists) {
+      setLoading(false);
+      showAlert('Error', 'Este correo electrónico ya está registrado.');
+      return;
+    }
+
     const { error } = await signUp(email, password, username.toLowerCase(), fullName, preferredPosition);
     setLoading(false);
 
