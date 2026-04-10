@@ -109,9 +109,12 @@ export default function RegisterScreen() {
   const pwdValidation = validatePassword(password);
   const fieldBorder = (hasError: boolean) => hasError ? 'border-red-500' : 'border-slate-200 dark:border-slate-700';
 
+  const TouchWrapper: any = Platform.OS === 'web' ? View : TouchableWithoutFeedback;
+  const touchProps = Platform.OS === 'web' ? { style: {flex: 1} } : { onPress: Keyboard.dismiss, accessible: false, style: {flex: 1} };
+
   return (
     <KeyboardAvoidingView className="flex-1" behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <TouchWrapper {...touchProps}>
         <ScrollView 
           className="flex-1 bg-white dark:bg-neutral-950 p-6" 
           contentContainerStyle={{ flexGrow: 1, paddingBottom: 60 }}
@@ -261,7 +264,7 @@ export default function RegisterScreen() {
             </TouchableOpacity>
           </View>
         </ScrollView>
-      </TouchableWithoutFeedback>
+      </TouchWrapper>
     </KeyboardAvoidingView>
   );
 }

@@ -7,6 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { z } from 'zod';
 import type { MatchLevel, PositionKey } from '@/types/database';
+import { containsProfanity } from '@/lib/profanityFilter';
 
 const CreateMatchSchema = z.object({
   title: z.string().min(3, 'El título debe tener al menos 3 caracteres'),
@@ -170,6 +171,11 @@ export default function CreateMatchScreen() {
     }
     if (!user) {
       Alert.alert('Error', 'No estás autenticado');
+      return;
+    }
+
+    if (containsProfanity(title) || containsProfanity(description) || containsProfanity(location)) {
+      Alert.alert('Vocabulario no permitido', 'Por favor, utiliza palabras respetuosas en el título, ubicación y descripción.');
       return;
     }
 

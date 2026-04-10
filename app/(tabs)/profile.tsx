@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { PendingReviewsAlert } from '@/components/PendingReviewsAlert';
+import { decode } from 'base64-arraybuffer';
 
 const POSITIONS = ['portero', 'defensa', 'mediocentro', 'delantero'];
 
@@ -72,26 +73,28 @@ export default function ProfileScreen() {
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.5,
+      base64: true,
     });
 
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      await uploadAvatar(result.assets[0].uri);
+      if (result.assets[0].base64) {
+        await uploadAvatar(result.assets[0].base64, result.assets[0].uri);
+      } else {
+        showAlert('Error', 'No se generó el buffer de imagen.');
+      }
     }
   };
 
-  const uploadAvatar = async (uri: string) => {
+  const uploadAvatar = async (base64String: string, uri: string) => {
     setUploading(true);
     try {
-      const response = await fetch(uri);
-      const blob = await response.blob();
-      
       const fileExt = uri.split('.').pop()?.split('?')[0] || 'jpg';
-      // Use user.id as folder prefix to match RLS policy
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
       
-      const { error } = await supabase.storage.from('avatars').upload(fileName, blob, {
+      const { error } = await supabase.storage.from('avatars').upload(fileName, decode(base64String), {
         cacheControl: '3600',
         upsert: true,
+        contentType: 'image/jpeg'
       });
 
       if (error) throw error;

@@ -3,6 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, Acti
 import { useAuth } from '@/contexts/AuthContext';
 import { Link, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { supabase } from '@/lib/supabase';
 import { z } from 'zod';
 
 const LoginSchema = z.object({
@@ -66,12 +67,15 @@ export default function LoginScreen() {
     }
   }
 
+  const TouchWrapper: any = Platform.OS === 'web' ? View : TouchableWithoutFeedback;
+  const touchProps = Platform.OS === 'web' ? { style: {flex: 1} } : { onPress: Keyboard.dismiss, accessible: false, style: {flex: 1} };
+
   return (
     <KeyboardAvoidingView 
       className="flex-1" 
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+      <TouchWrapper {...touchProps}>
         <ScrollView 
           className="flex-1 bg-white dark:bg-neutral-950" 
           contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24 }}
@@ -146,7 +150,7 @@ export default function LoginScreen() {
             </View>
           </View>
         </ScrollView>
-      </TouchableWithoutFeedback>
+      </TouchWrapper>
     </KeyboardAvoidingView>
   );
 }

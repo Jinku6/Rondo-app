@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { EmptyState } from '@/components/ui/empty-state';
 
 export default function SearchResultsScreen() {
-  const { location, date } = useLocalSearchParams();
+  const { location, date, position } = useLocalSearchParams();
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -25,31 +25,50 @@ export default function SearchResultsScreen() {
     }
 
     if (date && typeof date === 'string') {
-      const startDate = new Date();
-      if (date === 'today') {
-        // Filter from now to avoid showing past matches today
-      } else {
-        // Expected format DD/MM/YYYY
+      const startOfTarget = new Date();
+      startOfTarget.setHours(0, 0, 0, 0);
+      let endOfTarget = new Date();
+      endOfTarget.setHours(23, 59, 59, 999);
+
+      if (date !== 'today') {
         const [day, month, year] = date.split('/');
         if (day && month && year) {
-          startDate.setFullYear(parseInt(year), parseInt(month) - 1, parseInt(day));
-          startDate.setHours(0, 0, 0, 0);
+          startOfTarget.setFullYear(parseInt(year), parseInt(month) - 1, parseInt(day));
+          endOfTarget.setFullYear(parseInt(year), parseInt(month) - 1, parseInt(day));
         }
       }
       
-      // Always exclude past matches even if a past date was somehow selected
+      // Prevent showing past matches (e.g. today at 10:00 AM when it's 2:00 PM)
       const now = new Date();
-      const filterDate = startDate < now ? now : startDate;
-      query = query.gte('date_time', filterDate.toISOString());
+      const filterStart = startOfTarget < now ? now : startOfTarget;
+      
+      query = query
+        .gte('date_time', filterStart.toISOString())
+        .lte('date_time', endOfTarget.toISOString());
     } else {
-      // If no date specified, search from now onwards
       query = query.gte('date_time', new Date().toISOString());
     }
 
     const { data, error } = await query;
 
     if (!error && data) {
-      setMatches(data as Match[]);
+      // 2. Client-side position filtering
+      // Since JSONB filtering in Supabase client could be tricky depending on schema
+      let filteredData = data as Match[];
+
+      const targetPosition = Array.isArray(position) ? position[0] : position;
+
+      if (targetPosition && targetPosition !== 'cualquiera') {
+        filteredData = filteredData.filter(m => {
+          if (!m.requested_positions) return false;
+          // We check if the match explicitly requested this position and > 0
+          // OR if it requested 'cualquiera' > 0
+          const rq = m.requested_positions as any;
+          return (rq[targetPosition] && rq[targetPosition] > 0) || (rq['cualquiera'] && rq['cualquiera'] > 0);
+        });
+      }
+
+      setMatches(filteredData);
     }
     setLoading(false);
     setRefreshing(false);

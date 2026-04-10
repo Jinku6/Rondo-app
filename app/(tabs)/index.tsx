@@ -11,24 +11,21 @@ export default function SearchScreen() {
   const { profile } = useAuth();
   
   const [location, setLocation] = useState('');
+  const [position, setPosition] = useState('cualquiera'); // cualquiera, portero, defensa, mediocentro, delantero
   
-  // Opciones de Fecha: 'today' o fecha específica
-  const [dateType, setDateType] = useState('any'); // any, today, custom
-  const [customDate, setCustomDate] = useState(new Date());
+  const [searchDate, setSearchDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const handleSearch = () => {
     let params: any = {};
     if (location.trim()) params.location = location;
+    if (position !== 'cualquiera') params.position = position;
     
-    if (dateType === 'today') {
-      params.date = 'today';
-    } else if (dateType === 'custom') {
-      const dd = String(customDate.getDate()).padStart(2, '0');
-      const mm = String(customDate.getMonth() + 1).padStart(2, '0');
-      const yyyy = customDate.getFullYear();
-      params.date = `${dd}/${mm}/${yyyy}`;
-    }
+    // Convert to DD/MM/YYYY for the results page
+    const dd = String(searchDate.getDate()).padStart(2, '0');
+    const mm = String(searchDate.getMonth() + 1).padStart(2, '0');
+    const yyyy = searchDate.getFullYear();
+    params.date = `${dd}/${mm}/${yyyy}`;
 
     router.push({
       pathname: '/search/results',
@@ -37,19 +34,12 @@ export default function SearchScreen() {
   };
 
   const onDateChange = (_: DateTimePickerEvent, selectedDate?: Date) => {
-    setShowDatePicker(false);
-    if (selectedDate) {
-      setCustomDate(selectedDate);
-      setDateType('custom');
-    }
+    if (Platform.OS === 'android') setShowDatePicker(false);
+    if (selectedDate) setSearchDate(selectedDate);
   };
 
   const getDateDisplayText = () => {
-    if (dateType === 'any') return 'Cualquier fecha';
-    if (dateType === 'today') return 'Hoy';
-    const dd = String(customDate.getDate()).padStart(2, '0');
-    const mm = String(customDate.getMonth() + 1).padStart(2, '0');
-    return `${dd}/${mm}/${customDate.getFullYear()}`;
+    return searchDate.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
   };
 
   return (
@@ -86,51 +76,52 @@ export default function SearchScreen() {
           />
         </View>
 
-        {/* Cesta de Fechas */}
-        <View className="flex-row mt-4">
-          <TouchableOpacity 
-            className={`flex-1 flex-row items-center p-3 rounded-xl border ${dateType === 'today' ? 'border-green-500 bg-green-500/10' : 'border-gray-800 bg-gray-900/50'}`}
-            onPress={() => setDateType('today')}
-          >
-            <Ionicons name="calendar-clear-outline" size={20} color={dateType === 'today' ? '#22C55E' : '#94a3b8'} />
-            <Text className={`ml-3 font-medium ${dateType === 'today' ? 'text-green-500' : 'text-slate-300'}`}>Hoy</Text>
-          </TouchableOpacity>
+        {/* Filtro Posicion */}
+        <View className="flex-row items-center pt-2 pb-4 border-b border-gray-800">
+          <Ionicons name="shirt-outline" size={24} color="#94a3b8" />
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} className="ml-4 flex-row">
+            {['cualquiera', 'portero', 'defensa', 'mediocentro', 'delantero'].map(pos => (
+              <TouchableOpacity 
+                key={pos}
+                onPress={() => setPosition(pos)}
+                className={`mr-2 px-4 py-2 rounded-full border ${position === pos ? 'bg-green-500/20 border-green-500' : 'bg-gray-800 border-gray-700'}`}
+              >
+                <Text className={`capitalize font-medium ${position === pos ? 'text-green-500' : 'text-slate-300'}`}>
+                  {pos === 'cualquiera' ? 'Cualquier posición' : pos}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
 
-          <View className="w-3" />
-
+        {/* Date Selector Only */}
+        <View className="mt-4">
           <TouchableOpacity 
-            className={`flex-1 flex-row items-center p-3 rounded-xl border ${dateType === 'custom' || dateType === 'any' ? 'border-green-500 bg-green-500/10' : 'border-gray-800 bg-gray-900/50'}`}
-            onPress={() => {
-              if (Platform.OS !== 'web') {
-                setShowDatePicker(true);
-              } else {
-                setDateType(dateType === 'any' ? 'today' : 'any');
-              }
-            }}
+            className="w-full flex-row items-center p-4 rounded-xl border border-gray-800 bg-gray-900/50"
+            onPress={() => setShowDatePicker(true)}
           >
-            <Ionicons name="calendar-outline" size={20} color={dateType === 'custom' || dateType === 'any' ? '#22C55E' : '#94a3b8'} />
-            <Text className={`ml-3 font-medium ${dateType === 'custom' || dateType === 'any' ? 'text-green-500' : 'text-slate-300'}`} numberOfLines={1}>
-              {getDateDisplayText()}
-            </Text>
+            <Ionicons name="calendar-outline" size={24} color="#22C55E" />
+            <Text className="ml-3 font-medium text-slate-300 text-lg capitalize">{getDateDisplayText()}</Text>
           </TouchableOpacity>
         </View>
 
         {/* Date Picker Nativo */}
         {Platform.OS !== 'web' && showDatePicker && (
           <DateTimePicker
-            value={customDate}
+            value={searchDate}
             mode="date"
             display={Platform.OS === 'ios' ? 'spinner' : 'default'}
             onChange={onDateChange}
             minimumDate={new Date()}
+            locale="es-ES"
           />
         )}
-
-        <View className="flex-row mt-3 items-center justify-center pt-2">
-           <TouchableOpacity onPress={() => setDateType('any')}>
-             <Text className="text-slate-400 text-sm underline">O buscar en cualquier fecha</Text>
-           </TouchableOpacity>
-        </View>
+        
+        {Platform.OS === 'ios' && showDatePicker && (
+          <TouchableOpacity className="mt-2 bg-slate-800 py-2 rounded-lg items-center" onPress={() => setShowDatePicker(false)}>
+            <Text className="text-green-400 font-bold">Aceptar Fecha</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Botón Buscar Grande */}
         <TouchableOpacity 
@@ -144,17 +135,17 @@ export default function SearchScreen() {
       {/* Banner promocional debajo */}
       <View className="mx-4 mt-6 bg-emerald-900/40 rounded-3xl p-5 border border-emerald-500/30 overflow-hidden mb-10">
         <View className="bg-emerald-500 self-start px-3 py-1 rounded-full mb-3">
-          <Text className="text-white font-bold text-xs uppercase">Promoción Rondo</Text>
+        <Text className="text-white font-bold text-xs uppercase">Conecta y Juega</Text>
         </View>
-        <Text className="text-white text-2xl font-bold mb-2">Organiza partidos y juega gratis</Text>
+        <Text className="text-white text-2xl font-bold mb-2">¿No encuentras lo que buscas?</Text>
         <Text className="text-emerald-100/80 mb-4">
-          Si organizas el partido utilizando nuestro sistema de gestión, tus plazas te salen totalmente gratuitas. ¡Anímate!
+          Organiza tu propio partido, elige el nivel y nosotros te ayudamos a encontrar a los jugadores que faltan para completarlo.
         </Text>
         <TouchableOpacity className="bg-emerald-600/30 flex-row justify-between items-center p-4 rounded-2xl border border-emerald-500/50" onPress={() => router.push('/(tabs)/create')}>
           <Text className="text-white font-bold">¡Publicar un partido ahora!</Text>
           <Ionicons name="chevron-forward" size={20} color="white" />
         </TouchableOpacity>
-        <Ionicons name="football-outline" size={120} color="rgba(16, 185, 129, 0.1)" className="absolute -right-5 -bottom-5" style={{ position: 'absolute', right: -20, bottom: -20 }} />
+        <Ionicons name="football-outline" size={120} color="rgba(16, 185, 129, 0.1)" style={{ position: 'absolute', right: -20, bottom: -20 }} />
       </View>
 
     </ScrollView>
