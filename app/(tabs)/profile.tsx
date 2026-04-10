@@ -35,7 +35,7 @@ export default function ProfileScreen() {
   const [newPassword, setNewPassword] = useState('');
   const [showAccountSection, setShowAccountSection] = useState(false);
 
-  if (!profile || !user) return <View className="flex-1 bg-white dark:bg-neutral-950" />;
+  if (!profile || !user) return <View className="flex-1 bg-white dark:bg-neutral-950 justify-center items-center"><ActivityIndicator size="large" color="#22C55E" /></View>;
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -222,7 +222,7 @@ export default function ProfileScreen() {
             <View>
               <Text className="text-slate-500 text-xs mb-1">Nombre Completo</Text>
               <TextInput 
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-slate-900 dark:text-white"
+                className="w-full bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-lg p-3 text-slate-900 dark:text-white"
                 value={fullName}
                 onChangeText={setFullName}
               />
@@ -230,7 +230,7 @@ export default function ProfileScreen() {
             <View>
               <Text className="text-slate-500 text-xs mb-1">Usuario</Text>
               <TextInput 
-                className="w-full bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-slate-900 dark:text-white"
+                className="w-full bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-lg p-3 text-slate-900 dark:text-white"
                 value={username}
                 onChangeText={setUsername}
                 autoCapitalize="none"
@@ -285,7 +285,7 @@ export default function ProfileScreen() {
             <Text className="text-slate-400 text-xs mb-2">Email actual: {user.email}</Text>
             <View className="flex-row items-center">
               <TextInput
-                className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-slate-900 dark:text-white mr-2"
+                className="flex-1 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-lg p-3 text-slate-900 dark:text-white mr-2"
                 placeholder="nuevo@email.com"
                 placeholderTextColor="#9ca3af"
                 value={newEmail}
@@ -304,7 +304,7 @@ export default function ProfileScreen() {
             <Text className="text-slate-600 dark:text-slate-400 font-medium mb-2">Cambiar Contraseña</Text>
             <View className="flex-row items-center">
               <TextInput
-                className="flex-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-slate-900 dark:text-white mr-2"
+                className="flex-1 bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-lg p-3 text-slate-900 dark:text-white mr-2"
                 placeholder="Nueva contraseña"
                 placeholderTextColor="#9ca3af"
                 value={newPassword}

@@ -16,7 +16,7 @@ export function ProfileStats({ profile }: ProfileStatsProps) {
   };
 
   const getAttendanceLabel = (score: number) => {
-    if (score >= 90) return { label: 'Nunca falta', icon: '✅', color: 'text-emerald-500 dark:text-emerald-400' };
+    if (score >= 90) return { label: 'Nunca falta', icon: '✅', color: 'text-green-500 dark:text-green-400' };
     if (score >= 75) return { label: 'Casi nunca falta', icon: '🌟', color: 'text-amber-500 dark:text-amber-400' };
     if (score >= 50) return { label: 'Falta con frecuencia', icon: '⚠️', color: 'text-orange-500 dark:text-orange-400' };
     return { label: 'Falta casi siempre', icon: '🚫', color: 'text-red-600 dark:text-red-500' };
@@ -25,9 +25,9 @@ export function ProfileStats({ profile }: ProfileStatsProps) {
   return (
     <View className="w-full space-y-4">
       {profile.matches_played < 3 ? (
-        <View className="w-full mt-2 flex-col items-center p-6 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl">
+        <View className="w-full mt-2 flex-col items-center p-6 bg-green-500/10 border border-green-500/20 rounded-2xl">
           <Text className="text-4xl mb-2">🌱</Text>
-          <Text className="text-xl font-bold text-emerald-700 dark:text-emerald-400 mb-1">Jugador Nuevo</Text>
+          <Text className="text-xl font-bold text-green-700 dark:text-green-400 mb-1">Jugador Nuevo</Text>
           <Text className="text-slate-600 dark:text-slate-400 text-center text-sm">
             Las estadísticas permanecerán ocultas hasta completar al menos 3 partidos valorados. ({profile.matches_played}/3)
           </Text>

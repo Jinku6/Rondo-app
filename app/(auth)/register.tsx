@@ -116,7 +116,7 @@ export default function RegisterScreen() {
   }
 
   const pwdValidation = validatePassword(password);
-  const fieldBorder = (hasError: boolean) => hasError ? 'border-red-500' : 'border-slate-200 dark:border-slate-700';
+  const fieldBorder = (hasError: boolean) => hasError ? 'border-red-500' : 'border-slate-200 dark:border-gray-800';
 
   const TouchWrapper: any = Platform.OS === 'web' ? View : TouchableWithoutFeedback;
   const touchProps = Platform.OS === 'web' ? { style: {flex: 1} } : { onPress: Keyboard.dismiss, accessible: false, style: {flex: 1} };
@@ -147,7 +147,7 @@ export default function RegisterScreen() {
                 Nombre Completo {isFieldError(fullName) && '*'}
               </Text>
               <TextInput
-                className={`w-full bg-slate-50 dark:bg-slate-800 border ${fieldBorder(isFieldError(fullName))} rounded-lg p-3 text-slate-900 dark:text-white`}
+                className={`w-full bg-slate-50 dark:bg-gray-900 border ${fieldBorder(isFieldError(fullName))} rounded-lg p-3 text-slate-900 dark:text-white`}
                 placeholder="Juan Pérez"
                 placeholderTextColor="#9ca3af"
                 value={fullName}
@@ -163,7 +163,7 @@ export default function RegisterScreen() {
               </Text>
               <View className="relative justify-center">
                 <TextInput
-                  className={`w-full bg-slate-50 dark:bg-slate-800 border ${fieldBorder(isFieldError(username) || !!usernameError)} rounded-lg p-3 text-slate-900 dark:text-white`}
+                  className={`w-full bg-slate-50 dark:bg-gray-900 border ${fieldBorder(isFieldError(username) || !!usernameError)} rounded-lg p-3 text-slate-900 dark:text-white`}
                   placeholder="juanp"
                   placeholderTextColor="#9ca3af"
                   value={username}
@@ -172,7 +172,7 @@ export default function RegisterScreen() {
                 />
                 <View className="absolute right-3">
                   {usernameChecking && <ActivityIndicator size="small" color="#64748b" />}
-                  {!usernameChecking && username.length >= 3 && !usernameError && <Ionicons name="checkmark-circle" size={20} color="#10b981" />}
+                  {!usernameChecking && username.length >= 3 && !usernameError && <Ionicons name="checkmark-circle" size={20} color="#22C55E" />}
                   {!usernameChecking && usernameError !== '' && <Ionicons name="close-circle" size={20} color="#ef4444" />}
                 </View>
               </View>
@@ -193,8 +193,8 @@ export default function RegisterScreen() {
                       preferredPosition === pos 
                         ? 'bg-green-500 border-green-500' 
                         : submitted && !preferredPosition 
-                          ? 'bg-slate-100 dark:bg-slate-800 border-red-500' 
-                          : 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700'
+                          ? 'bg-slate-100 dark:bg-gray-900 border-red-500' 
+                          : 'bg-slate-100 dark:bg-gray-900 border-slate-200 dark:border-gray-800'
                     }`}>
                     <Text className={`capitalize font-medium ${preferredPosition === pos ? 'text-white' : 'text-slate-700 dark:text-slate-300'}`}>{pos}</Text>
                   </TouchableOpacity>
@@ -208,7 +208,7 @@ export default function RegisterScreen() {
                 Email {isFieldError(email) && '*'}
               </Text>
               <TextInput
-                className={`w-full bg-slate-50 dark:bg-slate-800 border ${fieldBorder(isFieldError(email))} rounded-lg p-3 text-slate-900 dark:text-white`}
+                className={`w-full bg-slate-50 dark:bg-gray-900 border ${fieldBorder(isFieldError(email))} rounded-lg p-3 text-slate-900 dark:text-white`}
                 placeholder="tu@email.com"
                 placeholderTextColor="#9ca3af"
                 value={email}
@@ -224,7 +224,7 @@ export default function RegisterScreen() {
                 Contraseña {isFieldError(password) && '*'}
               </Text>
               <TextInput
-                className={`w-full bg-slate-50 dark:bg-slate-800 border ${fieldBorder(isFieldError(password))} rounded-lg p-3 mb-2 text-slate-900 dark:text-white`}
+                className={`w-full bg-slate-50 dark:bg-gray-900 border ${fieldBorder(isFieldError(password))} rounded-lg p-3 mb-2 text-slate-900 dark:text-white`}
                 placeholder="Introduce tu contraseña"
                 placeholderTextColor="#9ca3af"
                 value={password}
@@ -233,15 +233,15 @@ export default function RegisterScreen() {
               />
               <View className="flex-row items-center mb-1">
                 <Ionicons name={pwdValidation.minLength ? "checkmark-circle" : "ellipse-outline"} size={14} color={pwdValidation.minLength ? "#10b981" : submitted && !pwdValidation.minLength ? "#ef4444" : "#9ca3af"} />
-                <Text className={`text-xs ml-1 ${pwdValidation.minLength ? 'text-emerald-500' : submitted && !pwdValidation.minLength ? 'text-red-500' : 'text-slate-500'}`}>Mínimo 6 caracteres</Text>
+                <Text className={`text-xs ml-1 ${pwdValidation.minLength ? 'text-green-500' : submitted && !pwdValidation.minLength ? 'text-red-500' : 'text-slate-500'}`}>Mínimo 6 caracteres</Text>
               </View>
               <View className="flex-row items-center mb-1">
                 <Ionicons name={pwdValidation.hasUpperCase ? "checkmark-circle" : "ellipse-outline"} size={14} color={pwdValidation.hasUpperCase ? "#10b981" : submitted && !pwdValidation.hasUpperCase ? "#ef4444" : "#9ca3af"} />
-                <Text className={`text-xs ml-1 ${pwdValidation.hasUpperCase ? 'text-emerald-500' : submitted && !pwdValidation.hasUpperCase ? 'text-red-500' : 'text-slate-500'}`}>Una letra mayúscula</Text>
+                <Text className={`text-xs ml-1 ${pwdValidation.hasUpperCase ? 'text-green-500' : submitted && !pwdValidation.hasUpperCase ? 'text-red-500' : 'text-slate-500'}`}>Una letra mayúscula</Text>
               </View>
               <View className="flex-row items-center">
                 <Ionicons name={pwdValidation.hasNumber ? "checkmark-circle" : "ellipse-outline"} size={14} color={pwdValidation.hasNumber ? "#10b981" : submitted && !pwdValidation.hasNumber ? "#ef4444" : "#9ca3af"} />
-                <Text className={`text-xs ml-1 ${pwdValidation.hasNumber ? 'text-emerald-500' : submitted && !pwdValidation.hasNumber ? 'text-red-500' : 'text-slate-500'}`}>Un número</Text>
+                <Text className={`text-xs ml-1 ${pwdValidation.hasNumber ? 'text-green-500' : submitted && !pwdValidation.hasNumber ? 'text-red-500' : 'text-slate-500'}`}>Un número</Text>
               </View>
             </View>
 

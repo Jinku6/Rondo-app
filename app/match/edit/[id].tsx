@@ -7,7 +7,7 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
 const LEVELS = [
-  { key: 'tranquilo', label: 'Tranquilo', emoji: '😌', color: 'bg-emerald-100 border-emerald-400', activeColor: 'bg-emerald-500 border-emerald-500', text: 'text-emerald-700', activeText: 'text-white' },
+  { key: 'tranquilo', label: 'Tranquilo', emoji: '😌', color: 'bg-green-100 border-green-400', activeColor: 'bg-green-500 border-green-500', text: 'text-green-700', activeText: 'text-white' },
   { key: 'medio', label: 'Medio', emoji: '⚽', color: 'bg-amber-100 border-amber-400', activeColor: 'bg-amber-500 border-amber-500', text: 'text-amber-700', activeText: 'text-white' },
   { key: 'competitivo', label: 'Competitivo', emoji: '🔥', color: 'bg-red-100 border-red-400', activeColor: 'bg-red-500 border-red-500', text: 'text-red-700', activeText: 'text-white' },
 ];
@@ -314,7 +314,7 @@ export default function EditMatchScreen() {
                 onPress={() => { if (Platform.OS !== 'web') setShowDatePicker(true); }}
               >
                 {Platform.OS !== 'web' ? (
-                  <><Text className="text-white">{dateText || 'DD/MM/YYYY'}</Text><Ionicons name="calendar-outline" size={20} color="#3b82f6" /></>
+                  <><Text className="text-white">{dateText || 'DD/MM/YYYY'}</Text><Ionicons name="calendar-outline" size={20} color="#22C55E" /></>
                 ) : (
                   <TextInput className="flex-1 text-white" value={dateText} onChangeText={handleDateChangeText} keyboardType="numeric" maxLength={10} />
                 )}
@@ -327,7 +327,7 @@ export default function EditMatchScreen() {
                 onPress={() => { if (Platform.OS !== 'web') setShowTimePicker(true); }}
               >
                 {Platform.OS !== 'web' ? (
-                  <><Text className="text-white">{timeText || 'HH:MM'}</Text><Ionicons name="time-outline" size={20} color="#3b82f6" /></>
+                  <><Text className="text-white">{timeText || 'HH:MM'}</Text><Ionicons name="time-outline" size={20} color="#22C55E" /></>
                 ) : (
                   <TextInput className="flex-1 text-white" value={timeText} onChangeText={handleTimeChangeText} onBlur={handleTimeBlur} keyboardType="numeric" maxLength={5} />
                 )}
@@ -349,7 +349,7 @@ export default function EditMatchScreen() {
                   </TouchableOpacity>
                   <Text className="text-slate-800 dark:text-slate-100 font-bold text-lg">Fecha</Text>
                   <TouchableOpacity onPress={() => { setShowDatePicker(false); setDateText(`${String(dateObj.getDate()).padStart(2,'0')}/${String(dateObj.getMonth()+1).padStart(2,'0')}/${dateObj.getFullYear()}`); }}>
-                    <Text className="text-emerald-500 font-bold text-lg">Confirmar</Text>
+                    <Text className="text-green-500 font-bold text-lg">Confirmar</Text>
                   </TouchableOpacity>
                 </View>
                 <DateTimePicker value={dateObj} mode="date" display="spinner" onChange={onDatePickerChange} minimumDate={new Date()} locale="es-ES" />
@@ -368,7 +368,7 @@ export default function EditMatchScreen() {
                   </TouchableOpacity>
                   <Text className="text-slate-800 dark:text-slate-100 font-bold text-lg">Hora</Text>
                   <TouchableOpacity onPress={() => { setShowTimePicker(false); setTimeText(`${String(dateObj.getHours()).padStart(2,'0')}:${String(dateObj.getMinutes()).padStart(2,'0')}`); }}>
-                    <Text className="text-emerald-500 font-bold text-lg">Confirmar</Text>
+                    <Text className="text-green-500 font-bold text-lg">Confirmar</Text>
                   </TouchableOpacity>
                 </View>
                 <DateTimePicker value={dateObj} mode="time" display="spinner" onChange={onTimePickerChange} is24Hour={true} />

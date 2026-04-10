@@ -1,6 +1,14 @@
 /**
  * Rondo Design System — constants/theme.ts
  * Colors and typography aligned with estilos.md
+ *
+ * Tailwind class mapping:
+ *   Brand primary  = green-500 (#22C55E) — use `green-*` classes, NOT emerald/teal
+ *   Main BG (dark) = neutral-950 (#0A0A0A)
+ *   Card/Input BG (dark) = gray-900 (#111827)
+ *   Borders (dark) = gray-800 (#1F2937)
+ *   Warning        = amber-* classes
+ *   Error          = red-* classes
  */
 
 import { Platform } from 'react-native';
@@ -28,6 +36,7 @@ export const Colors = {
     secondaryBackground: '#F9FAFB',
     tint: Brand.primary,
     icon: '#6B7280',
+    secondaryIcon: '#64748b',
     tabIconDefault: '#6B7280',
     tabIconSelected: Brand.primary,
     card: '#FFFFFF',
@@ -40,6 +49,7 @@ export const Colors = {
     secondaryBackground: '#111827',
     tint: Brand.primary,
     icon: '#9BA1A6',
+    secondaryIcon: '#94a3b8',
     tabIconDefault: '#9BA1A6',
     tabIconSelected: Brand.primary,
     card: '#111827',

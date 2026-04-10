@@ -111,10 +111,10 @@ export default function SearchResultsScreen() {
         <View className="flex-row justify-between items-start mb-3">
           <Text className="text-xl font-bold text-slate-900 dark:text-white flex-1">{item.title}</Text>
           <View className="flex-row gap-1 mr-2 items-center">
-            {item.team_a_color && <View className="w-3 h-3 rounded-full" style={{ backgroundColor: item.team_a_color }} />}
-            {item.team_b_color && <View className="w-3 h-3 rounded-full" style={{ backgroundColor: item.team_b_color }} />}
+            {item.team_a_color && <View className="w-4 h-4 rounded-full" style={{ backgroundColor: item.team_a_color }} />}
+            {item.team_b_color && <View className="w-4 h-4 rounded-full" style={{ backgroundColor: item.team_b_color }} />}
           </View>
-          <View className={`px-3 py-1 rounded-full ${isFull ? 'bg-slate-200 dark:bg-slate-800' : 'bg-green-100 dark:bg-green-900'}`}>
+          <View className={`px-3 py-1 rounded-full ${isFull ? 'bg-slate-200 dark:bg-gray-900' : 'bg-green-100 dark:bg-green-900'}`}>
             <Text className={`font-medium ${isFull ? 'text-slate-600 dark:text-slate-400' : 'text-green-800 dark:text-green-200'}`}>
               {isFull ? 'Completo' : 'Abierto'}
             </Text>
@@ -136,7 +136,7 @@ export default function SearchResultsScreen() {
           </View>
         </View>
 
-        <View className="flex-row justify-between items-center border-t border-slate-100 dark:border-slate-700 pt-3">
+        <View className="flex-row justify-between items-center border-t border-slate-100 dark:border-gray-800 pt-3">
           <View className="flex-row items-center">
             <View className="w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-600 justify-center items-center mr-2">
               <Text className="font-bold text-slate-500 dark:text-slate-400">
@@ -147,8 +147,8 @@ export default function SearchResultsScreen() {
               Org: {item.organizer?.full_name || item.organizer?.username}
             </Text>
           </View>
-          <Text className="font-bold text-emerald-600 dark:text-emerald-400">
-            {item.price_per_player > 0 ? `$${item.price_per_player}` : 'Gratis'}
+          <Text className="font-bold text-green-600 dark:text-green-400">
+            {item.price_per_player > 0 ? `${item.price_per_player}€` : 'Gratis'}
           </Text>
         </View>
       </TouchableOpacity>

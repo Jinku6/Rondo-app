@@ -177,7 +177,7 @@ export default function SearchScreen() {
                   </TouchableOpacity>
                   <Text className="text-slate-800 dark:text-slate-100 font-bold text-lg">Fecha de partido</Text>
                   <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                    <Text className="text-emerald-500 font-bold text-lg">Confirmar</Text>
+                    <Text className="text-green-500 font-bold text-lg">Confirmar</Text>
                   </TouchableOpacity>
                 </View>
                 <DateTimePicker
@@ -203,19 +203,19 @@ export default function SearchScreen() {
       </View>
 
       {/* Banner promocional debajo */}
-      <View className="mx-4 mt-6 bg-emerald-900/40 rounded-3xl p-5 border border-emerald-500/30 overflow-hidden mb-10">
-        <View className="bg-emerald-500 self-start px-3 py-1 rounded-full mb-3">
+      <View className="mx-4 mt-6 bg-green-900/40 rounded-3xl p-5 border border-green-500/30 overflow-hidden mb-10">
+        <View className="bg-green-500 self-start px-3 py-1 rounded-full mb-3">
         <Text className="text-white font-bold text-xs uppercase">Conecta y Juega</Text>
         </View>
         <Text className="text-white text-2xl font-bold mb-2">¿No encuentras lo que buscas?</Text>
-        <Text className="text-emerald-100/80 mb-4">
+        <Text className="text-green-100/80 mb-4">
           Organiza tu propio partido, elige el nivel y nosotros te ayudamos a encontrar a los jugadores que faltan para completarlo.
         </Text>
-        <TouchableOpacity className="bg-emerald-600/30 flex-row justify-between items-center p-4 rounded-2xl border border-emerald-500/50" onPress={() => router.push('/(tabs)/create')}>
+        <TouchableOpacity className="bg-green-600/30 flex-row justify-between items-center p-4 rounded-2xl border border-green-500/50" onPress={() => router.push('/(tabs)/create')}>
           <Text className="text-white font-bold">¡Publicar un partido ahora!</Text>
           <Ionicons name="chevron-forward" size={20} color="white" />
         </TouchableOpacity>
-        <Ionicons name="football-outline" size={120} color="rgba(16, 185, 129, 0.1)" style={{ position: 'absolute', right: -20, bottom: -20 }} />
+        <Ionicons name="football-outline" size={120} color="rgba(34, 197, 94, 0.1)" style={{ position: 'absolute', right: -20, bottom: -20 }} />
       </View>
 
       </ScrollView>

@@ -7,7 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 
 const LEVEL_CONFIG: Record<string, { label: string; emoji: string; color: string }> = {
-  tranquilo: { label: 'Tranquilo',   emoji: '😌', color: 'text-emerald-600' },
+  tranquilo: { label: 'Tranquilo',   emoji: '😌', color: 'text-green-600' },
   medio:     { label: 'Medio',       emoji: '⚽', color: 'text-amber-600'   },
   competitivo:{ label: 'Competitivo', emoji: '🔥', color: 'text-red-600'     },
 };
@@ -132,7 +132,7 @@ export default function MatchDetailScreen() {
         title: 'Detalles del Partido',
         headerRight: () => isOrganizer ? (
           <TouchableOpacity onPress={() => router.push(`/match/edit/${match.id}` as any)} className="mr-4">
-            <Ionicons name="pencil-outline" size={22} color="#3b82f6" />
+            <Ionicons name="pencil-outline" size={22} color="#22C55E" />
           </TouchableOpacity>
         ) : null,
       }} />
@@ -156,13 +156,13 @@ export default function MatchDetailScreen() {
         <View className="space-y-3 mb-5">
           <View className="flex-row items-center">
             <View className="w-10 h-10 bg-slate-100 dark:bg-slate-700 rounded-full justify-center items-center mr-3">
-              <Ionicons name="location" size={20} color="#3b82f6" />
+              <Ionicons name="location" size={20} color="#22C55E" />
             </View>
             <Text className="text-lg text-slate-700 dark:text-slate-300 flex-1">{match.location}</Text>
           </View>
           <View className="flex-row items-center">
             <View className="w-10 h-10 bg-slate-100 dark:bg-slate-700 rounded-full justify-center items-center mr-3">
-              <Ionicons name="calendar" size={20} color="#3b82f6" />
+              <Ionicons name="calendar" size={20} color="#22C55E" />
             </View>
             <View>
               <Text className="text-lg text-slate-700 dark:text-slate-300 capitalize">{dateString}</Text>
@@ -172,10 +172,10 @@ export default function MatchDetailScreen() {
         </View>
 
         {/* Stats bar */}
-        <View className="bg-slate-50 dark:bg-slate-900 p-4 rounded-xl border border-slate-200 dark:border-slate-700 flex-row justify-between items-center mb-5">
+        <View className="bg-slate-50 dark:bg-gray-900 p-4 rounded-xl border border-slate-200 dark:border-gray-800 flex-row justify-between items-center mb-5">
           <View className="items-center">
             <Text className="text-xs text-slate-500 dark:text-slate-400 mb-1">Precio</Text>
-            <Text className="text-lg font-bold text-emerald-600 dark:text-emerald-400">
+            <Text className="text-lg font-bold text-green-600 dark:text-green-400">
               {match.price_per_player > 0 ? `${match.price_per_player}€` : 'Gratis'}
             </Text>
           </View>
@@ -240,7 +240,7 @@ export default function MatchDetailScreen() {
           <View>
             {!myParticipation ? (
               <TouchableOpacity
-                className={`w-full p-4 rounded-xl items-center shadow-sm ${isFull ? 'bg-slate-300 dark:bg-slate-800' : 'bg-green-500'}`} style={{ minHeight: 48 }}
+                className={`w-full p-4 rounded-xl items-center shadow-sm ${isFull ? 'bg-slate-300 dark:bg-gray-900' : 'bg-green-500'}`} style={{ minHeight: 48 }}
                 onPress={isFull ? undefined : handleJoin}
                 disabled={actionLoading || isFull}
               >
@@ -257,10 +257,10 @@ export default function MatchDetailScreen() {
               </View>
             ) : (
               <View>
-                <View className="bg-emerald-100 dark:bg-emerald-900/30 p-4 rounded-t-xl border border-emerald-200 dark:border-emerald-800 border-b-0">
-                  <Text className="text-emerald-800 dark:text-emerald-400 font-semibold text-center">✅ ¡Estás dentro del partido!</Text>
+                <View className="bg-green-100 dark:bg-green-900/30 p-4 rounded-t-xl border border-green-200 dark:border-green-800 border-b-0">
+                  <Text className="text-green-800 dark:text-green-400 font-semibold text-center">✅ ¡Estás dentro del partido!</Text>
                 </View>
-                <TouchableOpacity className="bg-white dark:bg-slate-800 p-3 rounded-b-xl border border-emerald-200 dark:border-emerald-800 items-center" onPress={handleLeave} disabled={actionLoading}>
+                <TouchableOpacity className="bg-white dark:bg-gray-900 p-3 rounded-b-xl border border-green-200 dark:border-green-800 items-center" onPress={handleLeave} disabled={actionLoading}>
                   <Text className="text-red-500 font-medium">Darme de baja</Text>
                 </TouchableOpacity>
               </View>
@@ -270,8 +270,8 @@ export default function MatchDetailScreen() {
 
         {/* Panel organizador */}
         {isOrganizer && (
-          <View className="bg-purple-100 dark:bg-purple-900/30 p-4 rounded-xl border border-purple-200 dark:border-purple-800">
-            <Text className="text-purple-800 dark:text-purple-300 font-bold text-center mb-3">👑 Eres el organizador</Text>
+          <View className="bg-green-100 dark:bg-green-900/30 p-4 rounded-xl border border-green-200 dark:border-green-800">
+            <Text className="text-green-800 dark:text-green-300 font-bold text-center mb-3">👑 Eres el organizador</Text>
             
             {(match.status === 'open' || match.status === 'full') && (
               <TouchableOpacity
@@ -378,7 +378,7 @@ export default function MatchDetailScreen() {
                 </View>
                 <View className="items-end">
                   {(p.user?.reliability_score ?? 0) > 0 && (
-                    <Text className="text-xs font-bold text-emerald-600">{p.user?.reliability_score}% fiab.</Text>
+                    <Text className="text-xs font-bold text-green-600">{p.user?.reliability_score}% Fiabilidad</Text>
                   )}
                   {(p.user?.matches_played ?? 0) > 0 && (
                     <Text className="text-xs text-slate-400">{p.user?.matches_played} partidos</Text>

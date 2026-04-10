@@ -82,13 +82,13 @@ export default function MyMatchesScreen() {
         className="bg-white dark:bg-gray-900 rounded-xl mb-4 shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden"
       >
         {/* Role stripe */}
-        <View className={`h-1.5 w-full ${isOrganizer ? 'bg-purple-500' : 'bg-emerald-500'}`} />
+        <View className={`h-1.5 w-full ${isOrganizer ? 'bg-green-700' : 'bg-green-500'}`} />
 
         <View className="p-4">
           <View className="flex-row justify-between items-start mb-3">
             <Text className="text-xl font-bold text-slate-900 dark:text-white flex-1 mr-3">{item.title}</Text>
-            <View className={`px-3 py-1 rounded-full ${isOrganizer ? 'bg-purple-100 dark:bg-purple-900/40' : 'bg-emerald-100 dark:bg-emerald-900/40'}`}>
-              <Text className={`text-xs font-bold ${isOrganizer ? 'text-purple-700 dark:text-purple-300' : 'text-emerald-700 dark:text-emerald-300'}`}>
+            <View className={`px-3 py-1 rounded-full ${isOrganizer ? 'bg-green-100 dark:bg-green-900/40' : 'bg-green-100 dark:bg-green-900/40'}`}>
+              <Text className={`text-xs font-bold ${isOrganizer ? 'text-green-700 dark:text-green-300' : 'text-green-700 dark:text-green-300'}`}>
                 {isOrganizer ? '👑 Organizador' : '⚽ Jugador'}
               </Text>
             </View>
@@ -105,7 +105,7 @@ export default function MyMatchesScreen() {
             </View>
           </View>
 
-          <View className="flex-row justify-between items-center border-t border-slate-100 dark:border-slate-700 pt-3">
+          <View className="flex-row justify-between items-center border-t border-slate-100 dark:border-gray-800 pt-3">
             <View className="flex-row items-center gap-2">
               {item.team_a_color && <View className="w-4 h-4 rounded-full border border-slate-200" style={{ backgroundColor: item.team_a_color }} />}
               {item.team_b_color && <View className="w-4 h-4 rounded-full border border-slate-200" style={{ backgroundColor: item.team_b_color }} />}
@@ -147,17 +147,17 @@ export default function MyMatchesScreen() {
                   )}
                </View>
                <View className="flex-row gap-4">
-                  <TouchableOpacity onPress={() => setFilter(filter === 'organizer' ? 'all' : 'organizer')} className={`flex-1 border rounded-xl p-3 items-center ${filter === 'organizer' ? 'bg-purple-500 border-purple-500' : 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800'}`}>
-                    <Text className={`text-2xl font-bold ${filter === 'organizer' ? 'text-white' : 'text-purple-700 dark:text-purple-300'}`}>
+                  <TouchableOpacity onPress={() => setFilter(filter === 'organizer' ? 'all' : 'organizer')} className={`flex-1 border rounded-xl p-3 items-center ${filter === 'organizer' ? 'bg-green-700 border-green-700' : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'}`}>
+                    <Text className={`text-2xl font-bold ${filter === 'organizer' ? 'text-white' : 'text-green-700 dark:text-green-300'}`}>
                       {matches.filter(m => m._role === 'organizer').length}
                     </Text>
-                    <Text className={`text-xs mt-1 ${filter === 'organizer' ? 'text-white/80' : 'text-purple-600 dark:text-purple-400'}`}>Organizo</Text>
+                    <Text className={`text-xs mt-1 ${filter === 'organizer' ? 'text-white/80' : 'text-green-600 dark:text-green-400'}`}>Organizo</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity onPress={() => setFilter(filter === 'player' ? 'all' : 'player')} className={`flex-1 border rounded-xl p-3 items-center ${filter === 'player' ? 'bg-emerald-500 border-emerald-500' : 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800'}`}>
-                    <Text className={`text-2xl font-bold ${filter === 'player' ? 'text-white' : 'text-emerald-700 dark:text-emerald-300'}`}>
+                  <TouchableOpacity onPress={() => setFilter(filter === 'player' ? 'all' : 'player')} className={`flex-1 border rounded-xl p-3 items-center ${filter === 'player' ? 'bg-green-500 border-green-500' : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'}`}>
+                    <Text className={`text-2xl font-bold ${filter === 'player' ? 'text-white' : 'text-green-700 dark:text-green-300'}`}>
                       {matches.filter(m => m._role === 'player').length}
                     </Text>
-                    <Text className={`text-xs mt-1 ${filter === 'player' ? 'text-white/80' : 'text-emerald-600 dark:text-emerald-400'}`}>Apuntado</Text>
+                    <Text className={`text-xs mt-1 ${filter === 'player' ? 'text-white/80' : 'text-green-600 dark:text-green-400'}`}>Apuntado</Text>
                   </TouchableOpacity>
                </View>
             </View>

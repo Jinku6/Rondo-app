@@ -62,7 +62,7 @@ export function PendingReviewsAlert() {
           className="bg-amber-100 dark:bg-amber-900/40 p-4 rounded-xl flex-row items-center border border-amber-300 dark:border-amber-700 mb-2 shadow-sm"
         >
           <View className="bg-amber-200 dark:bg-amber-800 w-10 h-10 rounded-full justify-center items-center mr-3">
-            <Ionicons name="alert-circle" size={24} color="#D97706" />
+            <Ionicons name="alert-circle" size={24} color="#F59E0B" />
           </View>
           <View className="flex-1">
             <Text className="text-amber-900 dark:text-amber-100 font-bold text-base">
@@ -72,7 +72,7 @@ export function PendingReviewsAlert() {
               Partido: {notif.match?.title || 'Anterior'}
             </Text>
           </View>
-          <Ionicons name="chevron-forward" size={20} color="#D97706" />
+          <Ionicons name="chevron-forward" size={20} color="#F59E0B" />
         </TouchableOpacity>
       ))}
     </View>

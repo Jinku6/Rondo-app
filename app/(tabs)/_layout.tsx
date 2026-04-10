@@ -1,23 +1,27 @@
 import { Tabs } from 'expo-router';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { MaterialIcons, Ionicons } from '@expo/vector-icons';
+import { Colors, Brand } from '@/constants/theme';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const theme = isDark ? Colors.dark : Colors.light;
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#22C55E',
+        tabBarActiveTintColor: Brand.primary,
+        tabBarInactiveTintColor: theme.tabIconDefault,
         tabBarStyle: {
-          backgroundColor: colorScheme === 'dark' ? '#0A0A0A' : '#ffffff',
-          borderTopColor: colorScheme === 'dark' ? '#111827' : '#E5E7EB',
+          backgroundColor: theme.background,
+          borderTopColor: isDark ? theme.secondaryBackground : theme.divider,
         },
         headerStyle: {
-          backgroundColor: colorScheme === 'dark' ? '#0A0A0A' : '#ffffff',
+          backgroundColor: theme.background,
         },
-        headerTintColor: colorScheme === 'dark' ? '#ffffff' : '#111827',
+        headerTintColor: theme.text,
       }}>
       <Tabs.Screen
         name="index"

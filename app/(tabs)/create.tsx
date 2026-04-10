@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, Switch, ActivityIndicator, Platform, Modal } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
@@ -19,7 +20,7 @@ const CreateMatchSchema = z.object({
 });
 
 const LEVELS = [
-  { key: 'tranquilo', label: 'Tranquilo', emoji: '😌', color: 'bg-emerald-100 border-emerald-400', activeColor: 'bg-emerald-500 border-emerald-500', text: 'text-emerald-700', activeText: 'text-white' },
+  { key: 'tranquilo', label: 'Tranquilo', emoji: '😌', color: 'bg-green-100 border-green-400', activeColor: 'bg-green-500 border-green-500', text: 'text-green-700', activeText: 'text-white' },
   { key: 'medio', label: 'Medio', emoji: '⚽', color: 'bg-amber-100 border-amber-400', activeColor: 'bg-amber-500 border-amber-500', text: 'text-amber-700', activeText: 'text-white' },
   { key: 'competitivo', label: 'Competitivo', emoji: '🔥', color: 'bg-red-100 border-red-400', activeColor: 'bg-red-500 border-red-500', text: 'text-red-700', activeText: 'text-white' },
 ];
@@ -243,7 +244,7 @@ export default function CreateMatchScreen() {
           <View className="mb-4">
             <Text className="text-slate-600 dark:text-slate-400 font-medium mb-1">Título del Partido</Text>
             <TextInput
-              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-slate-900 dark:text-white"
+              className="w-full bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-lg p-3 text-slate-900 dark:text-white"
               placeholder="Fútbol-7 Jueves Tarde"
               placeholderTextColor="#9ca3af"
               value={title}
@@ -253,7 +254,7 @@ export default function CreateMatchScreen() {
           <View className="mb-4">
             <Text className="text-slate-600 dark:text-slate-400 font-medium mb-1">Ubicación</Text>
             <TextInput
-              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-slate-900 dark:text-white"
+              className="w-full bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-lg p-3 text-slate-900 dark:text-white"
               placeholder="Dirección o Instalación..."
               placeholderTextColor="#9ca3af"
               value={location}
@@ -263,7 +264,7 @@ export default function CreateMatchScreen() {
           <View>
             <Text className="text-slate-600 dark:text-slate-400 font-medium mb-1">Descripción</Text>
             <TextInput
-              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-slate-900 dark:text-white"
+              className="w-full bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-lg p-3 text-slate-900 dark:text-white"
               placeholder="Buen ambiente, nivel medio, cervezas después de jugar"
               placeholderTextColor="#9ca3af"
               value={description}
@@ -302,7 +303,7 @@ export default function CreateMatchScreen() {
             <View className="flex-1 mr-2">
               <Text className="text-slate-600 dark:text-slate-400 font-medium mb-1">Día</Text>
               <TouchableOpacity
-                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 flex-row items-center justify-between"
+                className="w-full bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-lg p-3 flex-row items-center justify-between"
                 onPress={() => { if (Platform.OS !== 'web') setShowDatePicker(true); }}
                 activeOpacity={Platform.OS === 'web' ? 1 : 0.7}
               >
@@ -311,7 +312,7 @@ export default function CreateMatchScreen() {
                     <Text className={dateText ? 'text-slate-900 dark:text-white' : 'text-slate-400'}>
                       {dateText || 'DD/MM/YYYY'}
                     </Text>
-                    <Ionicons name="calendar-outline" size={20} color="#3b82f6" />
+                    <Ionicons name="calendar-outline" size={20} color="#22C55E" />
                   </>
                 ) : (
                   <TextInput
@@ -329,7 +330,7 @@ export default function CreateMatchScreen() {
             <View className="flex-1 ml-2">
               <Text className="text-slate-600 dark:text-slate-400 font-medium mb-1">Hora</Text>
               <TouchableOpacity
-                className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 flex-row items-center justify-between"
+                className="w-full bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-lg p-3 flex-row items-center justify-between"
                 onPress={() => { if (Platform.OS !== 'web') setShowTimePicker(true); }}
                 activeOpacity={Platform.OS === 'web' ? 1 : 0.7}
               >
@@ -338,7 +339,7 @@ export default function CreateMatchScreen() {
                     <Text className={timeText ? 'text-slate-900 dark:text-white' : 'text-slate-400'}>
                       {timeText || 'HH:MM'}
                     </Text>
-                    <Ionicons name="time-outline" size={20} color="#3b82f6" />
+                    <Ionicons name="time-outline" size={20} color="#22C55E" />
                   </>
                 ) : (
                   <TextInput
@@ -378,7 +379,7 @@ export default function CreateMatchScreen() {
                   </TouchableOpacity>
                   <Text className="text-slate-800 dark:text-slate-100 font-bold text-lg">Fecha del partido</Text>
                   <TouchableOpacity onPress={confirmDateIOS}>
-                    <Text className="text-emerald-500 font-bold text-lg">Confirmar</Text>
+                    <Text className="text-green-500 font-bold text-lg">Confirmar</Text>
                   </TouchableOpacity>
                 </View>
                 <DateTimePicker
@@ -414,7 +415,7 @@ export default function CreateMatchScreen() {
                   </TouchableOpacity>
                   <Text className="text-slate-800 dark:text-slate-100 font-bold text-lg">Hora del partido</Text>
                   <TouchableOpacity onPress={confirmTimeIOS}>
-                    <Text className="text-emerald-500 font-bold text-lg">Confirmar</Text>
+                    <Text className="text-green-500 font-bold text-lg">Confirmar</Text>
                   </TouchableOpacity>
                 </View>
                 <DateTimePicker
@@ -440,7 +441,7 @@ export default function CreateMatchScreen() {
             { key: 'delantero', label: 'Delanteros', icon: 'flash-outline' },
             { key: 'cualquiera', label: 'Cualquier Posición', icon: 'people-outline' },
           ].map((pos) => (
-            <View key={pos.key} className="flex-row justify-between items-center mb-3 p-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-100 dark:border-slate-800">
+            <View key={pos.key} className="flex-row justify-between items-center mb-3 p-2 bg-white dark:bg-gray-900 rounded-lg border border-slate-100 dark:border-slate-800">
               <View className="flex-row items-center">
                 <Ionicons name={pos.icon as any} size={20} color="#64748b" />
                 <Text className="ml-3 text-slate-700 dark:text-slate-300 font-medium">{pos.label}</Text>
@@ -456,7 +457,7 @@ export default function CreateMatchScreen() {
               </View>
             </View>
           ))}
-          <View className="mt-2 pt-3 border-t border-slate-200 dark:border-slate-700 flex-row justify-between items-center">
+          <View className="mt-2 pt-3 border-t border-slate-200 dark:border-gray-800 flex-row justify-between items-center">
             <Text className="text-slate-500 font-medium">Total jugadores:</Text>
             <View className="bg-green-500 px-4 py-1 rounded-full">
               <Text className="font-bold text-white text-lg">{totalPlayers}</Text>
@@ -509,7 +510,7 @@ export default function CreateMatchScreen() {
           <View>
             <Text className="text-slate-600 dark:text-slate-400 font-medium mb-1">Precio por persona (€)</Text>
             <TextInput
-              className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg p-3 text-slate-900 dark:text-white"
+              className="w-full bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-lg p-3 text-slate-900 dark:text-white"
               value={price}
               onChangeText={setPrice}
               keyboardType="numeric"
@@ -528,14 +529,14 @@ export default function CreateMatchScreen() {
 
         <View className="flex-row items-center mt-2">
           <TouchableOpacity
-            className="flex-1 bg-slate-100 dark:bg-slate-800 rounded-xl p-4 items-center mr-2 border border-slate-200 dark:border-slate-700"
+            className="flex-1 bg-slate-100 dark:bg-gray-900 rounded-xl p-4 items-center mr-2 border border-slate-200 dark:border-gray-800"
             onPress={() => router.back()}
             disabled={loading}
           >
             <Text className="text-slate-700 dark:text-slate-300 font-bold text-lg">Cancelar</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            className="flex-[2] bg-emerald-600 rounded-xl p-4 items-center shadow-lg ml-2"
+            className="flex-[2] bg-green-500 rounded-xl p-4 items-center shadow-lg ml-2"
             onPress={handleCreate}
             disabled={loading}
           >
