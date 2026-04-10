@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { Match } from '@/types/database';
@@ -82,14 +82,14 @@ export default function MyMatchesScreen() {
         className="bg-white dark:bg-gray-900 rounded-xl mb-4 shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden"
       >
         {/* Role stripe */}
-        <View className={`h-1.5 w-full ${isOrganizer ? 'bg-green-700' : 'bg-green-500'}`} />
+        <View className={`h-1.5 w-full ${isOrganizer ? 'bg-purple-600' : 'bg-green-500'}`} />
 
         <View className="p-4">
           <View className="flex-row justify-between items-start mb-3">
             <Text className="text-xl font-bold text-slate-900 dark:text-white flex-1 mr-3">{item.title}</Text>
-            <View className={`px-3 py-1 rounded-full ${isOrganizer ? 'bg-green-100 dark:bg-green-900/40' : 'bg-green-100 dark:bg-green-900/40'}`}>
-              <Text className={`text-xs font-bold ${isOrganizer ? 'text-green-700 dark:text-green-300' : 'text-green-700 dark:text-green-300'}`}>
-                {isOrganizer ? '👑 Organizador' : '⚽ Jugador'}
+            <View className={`px-3 py-1 rounded-full ${isOrganizer ? 'bg-purple-100 dark:bg-purple-900/40' : 'bg-green-100 dark:bg-green-900/40'}`}>
+              <Text className={`text-xs font-bold ${isOrganizer ? 'text-purple-700 dark:text-purple-300' : 'text-green-700 dark:text-green-300'}`}>
+                {isOrganizer ? 'Organizador' : 'Jugador'}
               </Text>
             </View>
           </View>
@@ -146,12 +146,12 @@ export default function MyMatchesScreen() {
                     </TouchableOpacity>
                   )}
                </View>
-               <View className="flex-row gap-4">
-                  <TouchableOpacity onPress={() => setFilter(filter === 'organizer' ? 'all' : 'organizer')} className={`flex-1 border rounded-xl p-3 items-center ${filter === 'organizer' ? 'bg-green-700 border-green-700' : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'}`}>
-                    <Text className={`text-2xl font-bold ${filter === 'organizer' ? 'text-white' : 'text-green-700 dark:text-green-300'}`}>
+                <View className="flex-row gap-4">
+                  <TouchableOpacity onPress={() => setFilter(filter === 'organizer' ? 'all' : 'organizer')} className={`flex-1 border rounded-xl p-3 items-center ${filter === 'organizer' ? 'bg-purple-600 border-purple-600' : 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800'}`}>
+                    <Text className={`text-2xl font-bold ${filter === 'organizer' ? 'text-white' : 'text-purple-700 dark:text-purple-300'}`}>
                       {matches.filter(m => m._role === 'organizer').length}
                     </Text>
-                    <Text className={`text-xs mt-1 ${filter === 'organizer' ? 'text-white/80' : 'text-green-600 dark:text-green-400'}`}>Organizo</Text>
+                    <Text className={`text-xs mt-1 ${filter === 'organizer' ? 'text-white/80' : 'text-purple-600 dark:text-purple-400'}`}>Organizo</Text>
                   </TouchableOpacity>
                   <TouchableOpacity onPress={() => setFilter(filter === 'player' ? 'all' : 'player')} className={`flex-1 border rounded-xl p-3 items-center ${filter === 'player' ? 'bg-green-500 border-green-500' : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'}`}>
                     <Text className={`text-2xl font-bold ${filter === 'player' ? 'text-white' : 'text-green-700 dark:text-green-300'}`}>
@@ -159,7 +159,7 @@ export default function MyMatchesScreen() {
                     </Text>
                     <Text className={`text-xs mt-1 ${filter === 'player' ? 'text-white/80' : 'text-green-600 dark:text-green-400'}`}>Apuntado</Text>
                   </TouchableOpacity>
-               </View>
+                </View>
             </View>
           ) : null
         }
