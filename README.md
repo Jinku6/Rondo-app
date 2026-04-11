@@ -1,75 +1,92 @@
 # Rondo ⚽
 
-Rondo es una plataforma profesional diseñada para organizar y encontrar partidos de fútbol de manera rápida, segura y transparente. Nuestra misión es eliminar la fricción en la organización de partidos amateur, priorizando la velocidad de acción y la confianza entre jugadores.
+**Organiza partidos sin perder la pelota.** Rondo es la plataforma que faltaba para armar tu equipo de fútbol sin drama, sin desinformación y sin que alguien no se presente a último momento.
+
+Nuestra misión: **eliminar la fricción**, porque el fútbol amateur ya es suficientemente complicado sin tener que estar persiguiendo a 22 jugadores por WhatsApp.
 
 ## 🚀 Filosofía de Diseño
-Nos basamos en tres pilares fundamentales:
-1. **Velocidad sobre Estética**: Acciones inmediatas para crear o unirse a un partido en pasos mínimos.
-2. **Claridad Inmediata**: Toda la información crítica (ubicación, cupos, nivel) es visible sin interacciones innecesarias.
-3. **Confianza Visual**: Visibilidad total de la asistencia y actitud de los jugadores para garantizar partidos de calidad.
+Tres pilares que no negociamos:
+
+1. **⚡ Velocidad sobre Estética**: Crea o únete a un partido en menos clics que lo que tarda en llegar una pelota desde media cancha.
+2. **👀 Claridad Inmediata**: Toda la info que importa (dónde, cuándo, nivel, cupos) visible sin tener que hacer scroll de tu vida.
+3. **🤝 Confianza Visual**: Ves quién falta, quién es de fiar y quién probablemente mande un "no puedo" a las 3 de la tarde.
 
 ## ✨ Características Principales
 
 ### 🏟️ Organización de Partidos
-- **Creación Rápida**: Define ubicación (integrado con mapas), fecha, hora y nivel del partido en segundos.
-- **Gestión de Posiciones**: Filtra y especifica las posiciones necesarias para completar tu equipo.
-- **Geolocalización**: Búsqueda inteligente de partidos por ciudad y radio de cercanía.
+- **Creación Rápida** ⚡: Ubica el partido, elige fecha y hora, define el nivel. Ya tienes tu partido publicado en segundos.
+- **Gestión de Posiciones**: Especifica si necesitas defensas, mediocampistas o alguien que sea capaz de marcar un gol (sin pedir milagros). Si cualquier jugador te vale, ¡también puedes ponerlo!
+- **Geolocalización Inteligente**: Busca partidos por tu barrio y radio de cercanía. Nada de "quedamos en X" sin saber dónde es.
 
 ### 🤝 Sistema de Confianza (Trust Score)
-- **Porcentaje de Asistencia**: Indicadores visuales de fiabilidad (Verde >85%, Ámbar 60-85%, Rojo <60%).
-- **Calificaciones de Actitud**: Feedback post-partido para premiar el buen comportamiento y la puntualidad.
-- **Perfiles Detallados**: Nivel de juego, etiquetas de jugador "fiable" y estadísticas históricas.
+El sistema que por fin te dice quién es confiable sin tener que adivinar:
+
+- **Asistencia**: 
+Hemos diseñado un sistema que evalúa la asistencia de los jugadores a los partidos, clasificándolos en:
+  - ✅ **Nunca falta**: Es leyenda, va siempre.
+  - 🌟 **Casi nunca falta**: El que avisa con tiempo que no va.
+  - ⚠️ **Falta con frecuencia**: "Te dije que sí pero me quede dormido"
+  - 🚫 **Falta casi siempre**: No te puedes fiar de este jugador.
+  
+- **Calificaciones de Actitud**: Feedback post-partido que premia a los que llegan puntual, tienen buen compañerismo, no pelean y se quedan a las cervezas de después.
+- **Perfiles Detallados**: Nivel de juego, etiquetas y estadísticas que hablan por sí solas.
 
 ### 💬 Comunicación Directa
-- **Chat por Partido**: Espacios privados para coordinar con todos los asistentes confirmados.
-- **Contacto con Organizador**: Canal directo para resolver dudas rápidas antes de unirse.
-- **Notificaciones Real-time**: Alertas sobre nuevos partidos y cambios de estado en tus reservas.
+- **Contacto con Organizador**: Pregunta directamente sin incómodas rondas de mensajes.
+- **Notificaciones Real-time**: Entérate al instante de nuevos partidos, cambios de planes o si alguien dijo que sí pero cambió de opinión.
 
 ### 🔒 Privacidad y Seguridad
-- **Protección de Datos**: Los números de teléfono solo son visibles para el organizador y compañeros confirmados mediante políticas de *Row Level Security* (RLS).
-- **Control de Acceso**: Sistema robusto de autenticación para asegurar la integridad de la comunidad.
+- **Tus números protegidos**: Solo quien confirma ve tu teléfono (el organizador y tus compañeros). Nada de listas públicas.
+- **Control de Acceso Robusto**: Autenticación fuerte para que solo vengan los que queres.
 
 ## 🛠️ Stack Tecnológico
 
-- **Frontend**: [React Native](https://reactnative.dev/) con [Expo SDK](https://expo.dev/).
-- **Enrutamiento**: [Expo Router](https://docs.expo.dev/router/introduction/) para navegación basada en archivos.
-- **Estilos**: [NativeWind](https://www.nativewind.dev/) (Tailwind CSS para React Native) siguiendo el manual de estilo propio.
-- **Backend as a Service**: [Supabase](https://supabase.com/) (PostgreSQL, Auth, Edge Functions, Storage).
-- **Validación**: [Zod](https://zod.dev/) para esquemas de datos robustos y seguros.
-- **Automatización**: *Supabase pg_cron* para la finalización automática de partidos y gestión de estados.
+Construido con herramientas que no dejan tirado:
+
+- **Frontend**: [React Native](https://reactnative.dev/) + [Expo SDK](https://expo.dev/) — funciona en iOS y Android.
+- **Enrutamiento**: [Expo Router](https://docs.expo.dev/router/introduction/) — navegación organizada como un esquema de juego.
+- **Estilos**: [NativeWind](https://www.nativewind.dev/) (Tailwind para React Native) siguiendo nuestro manual propio.
+- **Backend**: [Supabase](https://supabase.com/) (PostgreSQL + Auth + Edge Functions) — todo lo que necesitas sin excusas.
+- **Validación**: [Zod](https://zod.dev/) — esquemas de datos que funcionan como una defensa organizada.
+- **Automatización**: *Supabase pg_cron* — finaliza partidos y gestiona estados sin que tengas que hacer nada.
 
 ## 📦 Configuración del Proyecto
 
 ### Requisitos Previos
 - Node.js (v18 o superior)
-- Expo Go en tu dispositivo móvil o emulador configurado.
+- Expo Go instalado en tu dispositivo o emulador lista.
 
 ### Instalación
-1. Clona el repositorio:
+1. **Clona el repositorio**:
    ```bash
    git clone [url-del-repo]
    cd futbol
    ```
-2. Instala las dependencias:
+
+2. **Instala las dependencias**:
    ```bash
    npm install
    ```
-3. Configura las variables de entorno:
-   Crea un archivo `.env` en la raíz con tus credenciales de Supabase:
+
+3. **Configura el `.env`** en la raíz del proyecto:
    ```env
    EXPO_PUBLIC_SUPABASE_URL=tu_url_aqui
    EXPO_PUBLIC_SUPABASE_ANON_KEY=tu_key_aqui
    ```
-4. Inicia la aplicación:
+
+4. **Arranca la aplicación**:
    ```bash
    npx expo start
    ```
 
 ## 🎨 Sistema de Estilos
-El proyecto sigue estrictamente las guías definidas en [`estilos.md`](./estilos.md).
-- **Color Primario**: Green 500 (#22C55E)
-- **Fondos**: Dark Mode (#0A0A0A / #111827)
-- **Tipografía**: Inter (Weights: 400, 500, 600, 700)
+Seguimos las guías de [`estilos.md`](./estilos.md) al pie de la letra.
+- **Color Primario**: Verde (#22C55E) — el del pasto, qué si no.
+- **Fondos**: Dark Mode (#0A0A0A / #111827) — menos quemón en los ojos.
+- **Tipografía**: Inter (Weights: 400, 500, 600, 700) — limpia y sin vueltas.
 
 ---
-Desarrollado con ❤️ para la comunidad futbolera.
+
+**Desarrollado con ❤️ para los que aman jugar, no complicarse.** 
+
+*P.D.: Si tu Trust Score es rojo, empezá por llegar a tiempo.* ⚽
