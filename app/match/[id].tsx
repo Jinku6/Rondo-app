@@ -1,13 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { Image, View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Platform, Linking, ActionSheetIOS } from 'react-native';
+import { Image, View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Platform, Linking, ActionSheetIOS, Modal } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Match, MatchParticipant } from '@/types/database';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 
-function abrirGPS(lat: number, lng: number, _nombre: string) {
-  const opciones = [
+interface MapOption { titulo: string; url: string; nativo: string }
+
+function buildMapOptions(lat: number, lng: number): MapOption[] {
+  return [
     {
       titulo: 'Google Maps',
       url: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
@@ -22,34 +25,11 @@ function abrirGPS(lat: number, lng: number, _nombre: string) {
       ? [{ titulo: 'Apple Maps', url: `maps://?daddr=${lat},${lng}&dirflg=d`, nativo: `maps://?daddr=${lat},${lng}&dirflg=d` }]
       : []),
   ];
+}
 
-  const abrirOpcion = async (opcion: typeof opciones[0]) => {
-    const soportado = await Linking.canOpenURL(opcion.nativo);
-    Linking.openURL(soportado ? opcion.nativo : opcion.url);
-  };
-
-  if (Platform.OS === 'ios') {
-    ActionSheetIOS.showActionSheetWithOptions(
-      {
-        options: [...opciones.map(o => o.titulo), 'Cancelar'],
-        cancelButtonIndex: opciones.length,
-        title: 'Abrir en...',
-      },
-      (index) => {
-        if (index < opciones.length) abrirOpcion(opciones[index]);
-      }
-    );
-  } else {
-    // Android: Alert con botones
-    Alert.alert(
-      'Abrir en...',
-      undefined,
-      [
-        ...opciones.map(o => ({ text: o.titulo, onPress: () => abrirOpcion(o) })),
-        { text: 'Cancelar', style: 'cancel' as const },
-      ]
-    );
-  }
+async function abrirOpcionMapa(opcion: MapOption) {
+  const soportado = await Linking.canOpenURL(opcion.nativo);
+  Linking.openURL(soportado ? opcion.nativo : opcion.url);
 }
 
 const LEVEL_CONFIG: Record<string, { label: string; emoji: string; color: string }> = {
@@ -71,6 +51,8 @@ export default function MatchDetailScreen() {
   const [participants, setParticipants] = useState<MatchParticipant[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [mapModalVisible, setMapModalVisible] = useState(false);
+  const [mapOptions, setMapOptions] = useState<MapOption[]>([]);
 
   async function fetchMatchDetails() {
     const { data: matchData, error: matchError } = await supabase
@@ -121,12 +103,42 @@ export default function MatchDetailScreen() {
 
   const handleLeave = async () => {
     if (!user || !match) return;
-    setActionLoading(true);
-    const { error } = await supabase.from('match_participants').delete()
-      .eq('match_id', match.id).eq('user_id', user.id);
-    setActionLoading(false);
-    if (error) Alert.alert('Error', error.message);
-    else { Alert.alert('Aviso', 'Has abandonado el partido'); fetchMatchDetails(); }
+
+    const matchTime = new Date(match.date_time).getTime();
+    const now = Date.now();
+    const minutesUntilMatch = (matchTime - now) / 60000;
+
+    if (minutesUntilMatch > 0 && minutesUntilMatch < 90) {
+      Alert.alert(
+        '⚠️ Baja tardía',
+        'El partido empieza en menos de 1h 30min. Si te das de baja ahora, este partido contará como NO ASISTIDO y afectará a tu puntuación de fiabilidad.\n\n¿Confirmas la baja?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Darme de baja',
+            style: 'destructive',
+            onPress: async () => {
+              setActionLoading(true);
+              const { error } = await supabase
+                .from('match_participants')
+                .update({ status: 'dropped', attended: false })
+                .eq('match_id', match.id)
+                .eq('user_id', user.id);
+              setActionLoading(false);
+              if (error) Alert.alert('Error', error.message);
+              else { Alert.alert('Baja registrada', 'Se ha registrado como no asistencia.'); fetchMatchDetails(); }
+            },
+          },
+        ]
+      );
+    } else {
+      setActionLoading(true);
+      const { error } = await supabase.from('match_participants').delete()
+        .eq('match_id', match.id).eq('user_id', user.id);
+      setActionLoading(false);
+      if (error) Alert.alert('Error', error.message);
+      else { Alert.alert('Aviso', 'Has abandonado el partido'); fetchMatchDetails(); }
+    }
   };
 
   const handleApprove = async (participantId: string, _userId: string) => {
@@ -173,6 +185,41 @@ export default function MatchDetailScreen() {
   const levelInfo = LEVEL_CONFIG[match.level] || LEVEL_CONFIG.medio;
 
   return (
+    <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top']}>
+      {/* Android: custom map picker modal */}
+      <Modal
+        visible={mapModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setMapModalVisible(false)}
+      >
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}
+          activeOpacity={1}
+          onPress={() => setMapModalVisible(false)}
+        >
+          <View style={{ backgroundColor: '#111827', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 }}>
+            <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' }}>Abrir en...</Text>
+            {mapOptions.map((op) => (
+              <TouchableOpacity
+                key={op.titulo}
+                style={{ backgroundColor: '#1f2937', borderRadius: 12, padding: 16, marginBottom: 10, flexDirection: 'row', alignItems: 'center' }}
+                onPress={() => { setMapModalVisible(false); abrirOpcionMapa(op); }}
+              >
+                <Ionicons name="navigate-circle-outline" size={22} color="#22C55E" style={{ marginRight: 12 }} />
+                <Text style={{ color: '#fff', fontSize: 15, fontWeight: '600' }}>{op.titulo}</Text>
+              </TouchableOpacity>
+            ))}
+            <TouchableOpacity
+              style={{ backgroundColor: '#374151', borderRadius: 12, padding: 14, marginTop: 4, alignItems: 'center' }}
+              onPress={() => setMapModalVisible(false)}
+            >
+              <Text style={{ color: '#9ca3af', fontWeight: '600' }}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
     <ScrollView className="flex-1 bg-slate-50 dark:bg-neutral-950">
       <Stack.Screen options={{
         title: 'Detalles del Partido',
@@ -203,7 +250,18 @@ export default function MatchDetailScreen() {
           {match.location_lat && match.location_lng ? (
             <TouchableOpacity
               className="flex-row items-center"
-              onPress={() => abrirGPS(match.location_lat!, match.location_lng!, match.location)}
+              onPress={() => {
+                const opciones = buildMapOptions(match.location_lat!, match.location_lng!);
+                if (Platform.OS === 'ios') {
+                  ActionSheetIOS.showActionSheetWithOptions(
+                    { options: [...opciones.map(o => o.titulo), 'Cancelar'], cancelButtonIndex: opciones.length, title: 'Abrir en...' },
+                    (index) => { if (index < opciones.length) abrirOpcionMapa(opciones[index]); }
+                  );
+                } else {
+                  setMapOptions(opciones);
+                  setMapModalVisible(true);
+                }
+              }}
             >
               <View className="w-10 h-10 bg-green-50 dark:bg-green-900/30 rounded-full justify-center items-center mr-3">
                 <Ionicons name="navigate" size={20} color="#22C55E" />
@@ -324,7 +382,7 @@ export default function MatchDetailScreen() {
                 {match.organizer && (
                   <TouchableOpacity
                     className="w-full p-3 rounded-xl items-center border border-green-500 flex-row justify-center"
-                    onPress={() => router.push(`/chat/${match.id}/${user.id}` as any)}
+                    onPress={() => router.push(`/chat/${match.id}/${user!.id}` as any)}
                   >
                     <Ionicons name="chatbubbles-outline" size={20} color="#22C55E" style={{ marginRight: 8 }} />
                     <Text className="text-green-600 dark:text-green-500 font-bold">Chatear con {match.organizer.full_name?.split(' ')[0]}</Text>
@@ -332,11 +390,22 @@ export default function MatchDetailScreen() {
                 )}
               </View>
             ) : myParticipation.status === 'pending' ? (
-              <View className="bg-amber-100 dark:bg-amber-900/30 p-4 rounded-xl border border-amber-200 dark:border-amber-700">
-                <Text className="text-amber-800 dark:text-amber-400 font-semibold text-center">⏳ Solicitud pendiente de aprobación</Text>
-                <TouchableOpacity className="mt-3 py-2" onPress={handleLeave}>
-                  <Text className="text-red-500 font-medium text-center">Cancelar solicitud</Text>
-                </TouchableOpacity>
+              <View>
+                <View className="bg-amber-100 dark:bg-amber-900/30 p-4 rounded-xl border border-amber-200 dark:border-amber-700 mb-3">
+                  <Text className="text-amber-800 dark:text-amber-400 font-semibold text-center">⏳ Solicitud pendiente de aprobación</Text>
+                  <TouchableOpacity className="mt-3 py-2" onPress={handleLeave}>
+                    <Text className="text-red-500 font-medium text-center">Cancelar solicitud</Text>
+                  </TouchableOpacity>
+                </View>
+                {match.organizer && (
+                  <TouchableOpacity
+                    className="w-full p-3 rounded-xl items-center border border-green-500 flex-row justify-center"
+                    onPress={() => router.push(`/chat/${match.id}/${user!.id}` as any)}
+                  >
+                    <Ionicons name="chatbubbles-outline" size={20} color="#22C55E" style={{ marginRight: 8 }} />
+                    <Text className="text-green-600 dark:text-green-500 font-bold">Chatear con {match.organizer.full_name?.split(' ')[0]}</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             ) : (
               <View>
@@ -346,7 +415,7 @@ export default function MatchDetailScreen() {
                 <View className="flex-row">
                   <TouchableOpacity 
                     className="flex-1 bg-white dark:bg-gray-900 p-3 rounded-bl-xl border border-green-200 dark:border-green-800 items-center justify-center flex-row" 
-                    onPress={() => router.push(`/chat/${match.id}/${user.id}` as any)}
+                    onPress={() => router.push(`/chat/${match.id}/${user!.id}` as any)}
                   >
                     <Ionicons name="chatbubbles-outline" size={18} color="#22C55E" style={{ marginRight: 6 }} />
                     <Text className="text-green-600 dark:text-green-400 font-medium">Chat</Text>
@@ -568,5 +637,6 @@ export default function MatchDetailScreen() {
         )}
       </View>
     </ScrollView>
+    </SafeAreaView>
   );
 }

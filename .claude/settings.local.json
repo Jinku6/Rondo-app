@@ -15,7 +15,9 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"https://photon.komoot.io/api/?q=Valencia&limit=5&bbox=-9.3,35.9,4.3,43.8\")",
       "Bash(curl -s \"https://photon.komoot.io/api/?q=Valencia&limit=3&bbox=-9.3,35.9,4.3,43.8\")",
       "mcp__claude_ai_Supabase__list_projects",
-      "Bash(npx expo:*)"
+      "Bash(npx expo:*)",
+      "Bash(xargs grep:*)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

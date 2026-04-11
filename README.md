@@ -1,8 +1,8 @@
 # Rondo ⚽
 
-**Organiza partidos sin perder la pelota.** Rondo es la plataforma que faltaba para armar tu equipo de fútbol sin drama, sin desinformación y sin que alguien no se presente a último momento.
+**Organiza partidos sin perder la pelota.** Rondo es la plataforma que faltaba para encontrar a ese jugador que faltaba para el partido
 
-Nuestra misión: **eliminar la fricción**, porque el fútbol amateur ya es suficientemente complicado sin tener que estar persiguiendo a 22 jugadores por WhatsApp.
+Nuestra misión: **eliminar la fricción**, porque el fútbol ya es suficientemente complicado sin tener que estar persiguiendo a 22 jugadores por WhatsApp.
 
 ## 🚀 Filosofía de Diseño
 Tres pilares que no negociamos:

@@ -7,7 +7,7 @@ import { useRouter, useFocusEffect, Stack } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 
-type MyMatch = Match & { _role: 'organizer' | 'player' };
+type MyMatch = Match & { _role: 'organizer' | 'player'; _pendingCount?: number };
 
 const ACTIVE_STATUSES = ['open', 'full'];
 const ARCHIVED_STATUSES = ['completed', 'cancelled'];
@@ -30,14 +30,25 @@ export default function MyMatchesScreen() {
       .eq('organizer_id', user.id)
       .order('date_time', { ascending: true });
 
-    const { data: participations } = await supabase
-      .from('match_participants')
-      .select('match_id')
-      .eq('user_id', user.id)
-      .in('status', ['joined', 'approved', 'pending']);
+    const organizedList = (organized as Match[] || []);
 
-    const participatedIds = (participations || []).map(p => p.match_id);
-    const organizedIds = (organized || []).map(m => m.id);
+    const [participations, pendingData] = await Promise.all([
+      supabase
+        .from('match_participants')
+        .select('match_id')
+        .eq('user_id', user.id)
+        .in('status', ['joined', 'approved', 'pending']),
+      organizedList.length > 0
+        ? supabase
+            .from('match_participants')
+            .select('match_id')
+            .in('match_id', organizedList.map(m => m.id))
+            .eq('status', 'pending')
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    const participatedIds = (participations.data || []).map(p => p.match_id);
+    const organizedIds = organizedList.map(m => m.id);
     const onlyParticipatedIds = participatedIds.filter(pid => !organizedIds.includes(pid));
 
     let played: Match[] = [];
@@ -50,7 +61,12 @@ export default function MyMatchesScreen() {
       played = (data as Match[]) || [];
     }
 
-    const organizedTagged: MyMatch[] = (organized as Match[] || []).map(m => ({ ...m, _role: 'organizer' }));
+    const pendingCountMap: Record<string, number> = {};
+    (pendingData.data || []).forEach(p => {
+      pendingCountMap[p.match_id] = (pendingCountMap[p.match_id] || 0) + 1;
+    });
+
+    const organizedTagged: MyMatch[] = organizedList.map(m => ({ ...m, _role: 'organizer', _pendingCount: pendingCountMap[m.id] || 0 }));
     const playedTagged: MyMatch[] = played.map(m => ({ ...m, _role: 'player' }));
 
     const combined = [...organizedTagged, ...playedTagged].sort(
@@ -98,10 +114,17 @@ export default function MyMatchesScreen() {
         <View className="p-4">
           <View className="flex-row justify-between items-start mb-3">
             <Text className="text-xl font-bold text-slate-900 dark:text-white flex-1 mr-3">{item.title}</Text>
-            <View className={`px-3 py-1 rounded-full ${isOrganizer ? 'bg-purple-100 dark:bg-purple-900/40' : 'bg-green-100 dark:bg-green-900/40'}`}>
-              <Text className={`text-xs font-bold ${isOrganizer ? 'text-purple-700 dark:text-purple-300' : 'text-green-700 dark:text-green-300'}`}>
-                {isOrganizer ? 'Organizador' : 'Jugador'}
-              </Text>
+            <View className="flex-row items-center gap-2">
+              {isOrganizer && (item._pendingCount ?? 0) > 0 && (
+                <View className="bg-red-500 rounded-full min-w-[22px] h-[22px] justify-center items-center px-1.5">
+                  <Text className="text-white text-xs font-bold">{item._pendingCount}</Text>
+                </View>
+              )}
+              <View className={`px-3 py-1 rounded-full ${isOrganizer ? 'bg-purple-100 dark:bg-purple-900/40' : 'bg-green-100 dark:bg-green-900/40'}`}>
+                <Text className={`text-xs font-bold ${isOrganizer ? 'text-purple-700 dark:text-purple-300' : 'text-green-700 dark:text-green-300'}`}>
+                  {isOrganizer ? 'Organizador' : 'Jugador'}
+                </Text>
+              </View>
             </View>
           </View>
 

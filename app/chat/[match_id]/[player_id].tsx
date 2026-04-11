@@ -81,7 +81,14 @@ export default function ChatScreen() {
         const newMsg = payload.new as ChatMessage;
         if (newMsg.player_id === player_id) {
           setMessages((prev) => {
-            if (prev.find((m) => m.id === newMsg.id)) return prev;
+            // Single pass: find existing real ID or matching temp (optimistic dedup)
+            let tempIdx = -1;
+            for (let i = 0; i < prev.length; i++) {
+              const m = prev[i];
+              if (m.id === newMsg.id) return prev;
+              if (tempIdx === -1 && m.id.startsWith('temp_') && m.sender_id === newMsg.sender_id && m.content === newMsg.content) tempIdx = i;
+            }
+            if (tempIdx !== -1) return prev.map((m, i) => i === tempIdx ? newMsg : m);
             return [...prev, newMsg];
           });
           // If the screen is active and the message is from the other person, mark as read immediately
@@ -123,13 +130,32 @@ export default function ChatScreen() {
 
     setSending(true);
     setInputText('');
-    const { error } = await supabase.from('chat_messages').insert({
+
+    const tempId = `temp_${Date.now()}`;
+    const optimisticMsg: ChatMessage = {
+      id: tempId,
       match_id: match_id as string,
       player_id: player_id as string,
       sender_id: user.id,
       content: processedText,
-    });
-    if (error) Alert.alert('Error al enviar', error.message);
+      created_at: new Date().toISOString(),
+      is_read: true,
+    };
+    setMessages(prev => [...prev, optimisticMsg]);
+
+    const { data, error } = await supabase.from('chat_messages').insert({
+      match_id: match_id as string,
+      player_id: player_id as string,
+      sender_id: user.id,
+      content: processedText,
+    }).select().single();
+
+    if (error) {
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      Alert.alert('Error al enviar', error.message);
+    } else if (data) {
+      setMessages(prev => prev.map(m => m.id === tempId ? (data as ChatMessage) : m));
+    }
     setSending(false);
   };
 
@@ -141,31 +167,31 @@ export default function ChatScreen() {
       : null;
 
     return (
-      <View className="flex-row items-center flex-1 gap-2">
+      <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 8, overflow: 'hidden' }}>
         {/* Avatar + nombre → perfil */}
         <TouchableOpacity
-          className="flex-row items-center flex-1"
+          style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 }}
           activeOpacity={0.7}
           onPress={() => router.push(`/user/${otherUser.id}` as any)}
         >
           {otherUser.avatar_url ? (
             <Image
               source={{ uri: `${otherUser.avatar_url}?t=${Date.now()}` }}
-              style={{ width: 38, height: 38, borderRadius: 19 }}
+              style={{ width: 36, height: 36, borderRadius: 18, flexShrink: 0 }}
             />
           ) : (
-            <View className="w-[38px] h-[38px] bg-green-100 dark:bg-green-900/50 rounded-full justify-center items-center">
-              <Text className="font-bold text-green-600 dark:text-green-400 text-base">
+            <View style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: '#dcfce7', justifyContent: 'center', alignItems: 'center', flexShrink: 0 }}>
+              <Text style={{ fontWeight: 'bold', color: '#16a34a', fontSize: 15 }}>
                 {otherUser.full_name?.charAt(0).toUpperCase() || '?'}
               </Text>
             </View>
           )}
-          <View className="ml-2.5 flex-1">
-            <Text className="font-bold text-[15px] text-slate-900 dark:text-white leading-tight" numberOfLines={1}>
+          <View style={{ marginLeft: 8, flex: 1, minWidth: 0 }}>
+            <Text style={{ fontWeight: 'bold', fontSize: 14, color: undefined, lineHeight: 18 }} numberOfLines={1}>
               {otherUser.full_name}
             </Text>
             {otherUser.username && (
-              <Text className="text-slate-400 dark:text-slate-500 text-[11px] leading-tight">
+              <Text style={{ fontSize: 11, color: '#9ca3af', lineHeight: 15 }} numberOfLines={1}>
                 @{otherUser.username}
               </Text>
             )}
@@ -177,15 +203,14 @@ export default function ChatScreen() {
           <TouchableOpacity
             onPress={() => router.push(`/match/${matchDetails.id}` as any)}
             activeOpacity={0.7}
-            className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700/50 rounded-xl px-2.5 py-1.5 items-center"
-            style={{ maxWidth: 110 }}
+            style={{ backgroundColor: '#f0fdf4', borderColor: '#bbf7d0', borderWidth: 1, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 5, alignItems: 'center', flexShrink: 0, maxWidth: 100 }}
           >
             <Ionicons name="football-outline" size={11} color="#16a34a" />
-            <Text className="text-green-700 dark:text-green-400 text-[10px] font-bold mt-0.5 text-center" numberOfLines={1}>
+            <Text style={{ color: '#15803d', fontSize: 10, fontWeight: 'bold', marginTop: 2, textAlign: 'center' }} numberOfLines={1}>
               {matchDetails.title}
             </Text>
             {matchDate && (
-              <Text className="text-green-600/70 dark:text-green-500/70 text-[9px] text-center" numberOfLines={1}>
+              <Text style={{ color: '#16a34a', fontSize: 9, textAlign: 'center', opacity: 0.7 }} numberOfLines={1}>
                 {matchDate}
               </Text>
             )}
@@ -219,8 +244,8 @@ export default function ChatScreen() {
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-slate-50 dark:bg-neutral-950"
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 60}
     >
       <Stack.Screen
         options={{
