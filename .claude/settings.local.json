@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__claude_ai_Supabase__apply_migration",
+      "mcp__claude_ai_Supabase__execute_sql",
+      "Bash(curl -s -H \"User-Agent: RondoApp/1.0\" \"https://nominatim.openstreetmap.org/search?q=Valencia&format=json&limit=8&countrycodes=es&addressdetails=1&accept-language=es&featuretype=city\")",
+      "Bash(curl -s -H \"User-Agent: RondoApp/1.0\" \"https://nominatim.openstreetmap.org/search?q=Los+molinos+almeria&format=json&limit=6&countrycodes=es&addressdetails=1&accept-language=es\")",
+      "Bash(python3 -c \"import sys,json; data=json.load\\(sys.stdin\\); [print\\(d.get\\('display_name',''\\), '|', d.get\\('lat'\\), d.get\\('lon'\\)\\) for d in data]\")",
+      "Bash(curl -s -H \"User-Agent: RondoApp/1.0\" \"https://nominatim.openstreetmap.org/search?q=Pate&format=json&limit=8&countrycodes=es&addressdetails=1&accept-language=es&featuretype=city\")",
+      "Bash(node -e ':*)",
+      "Bash(curl -s -H \"User-Agent: RondoApp/1.0\" \"https://nominatim.openstreetmap.org/search?q=Paterna&format=json&limit=8&countrycodes=es&addressdetails=1&accept-language=es\")",
+      "Bash(curl -s -H \"User-Agent: RondoApp/1.0\" \"https://nominatim.openstreetmap.org/search?q=Mad&format=json&limit=8&countrycodes=es&addressdetails=1&accept-language=es\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" \"https://photon.komoot.io/api/?q=Valencia&limit=5\")",
+      "Bash(curl -s \"https://photon.komoot.io/api/?q=Valencia&limit=3\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"https://photon.komoot.io/api/?q=Valencia&limit=5&bbox=-9.3,35.9,4.3,43.8\")",
+      "Bash(curl -s \"https://photon.komoot.io/api/?q=Valencia&limit=3&bbox=-9.3,35.9,4.3,43.8\")",
+      "mcp__claude_ai_Supabase__list_projects",
+      "Bash(npx expo:*)"
+    ]
+  }
+}

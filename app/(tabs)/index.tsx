@@ -1,51 +1,69 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Platform, Image, Modal } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, ScrollView, Platform, Image, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import * as Location from 'expo-location';
 import { useAuth } from '@/contexts/AuthContext';
 import { PendingReviewsAlert } from '@/components/PendingReviewsAlert';
+import { CiudadInput } from '@/components/CiudadInput';
+import { reverseGeocodeCiudad, type GeoResult } from '@/lib/geocoding';
 
 export default function SearchScreen() {
   const router = useRouter();
   const { profile } = useAuth();
-  
-  const [location, setLocation] = useState('');
-  const [position, setPosition] = useState('cualquiera'); // cualquiera, portero, defensa, mediocentro, delantero
-  
+
+  const [ciudadLabel, setCiudadLabel] = useState('');
+  const [ciudadLat, setCiudadLat] = useState<number | null>(null);
+  const [ciudadLng, setCiudadLng] = useState<number | null>(null);
+  const [ciudadPreset, setCiudadPreset] = useState<GeoResult | null>(null);
+  const [position, setPosition] = useState('cualquiera');
+
   const [searchDate, setSearchDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
 
+  // Obtener ubicación GPS al montar la pantalla
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return;
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const resultado = await reverseGeocodeCiudad(loc.coords.latitude, loc.coords.longitude);
+      if (resultado) {
+        setCiudadLabel(resultado.ciudad);
+        setCiudadLat(resultado.lat);
+        setCiudadLng(resultado.lng);
+        setCiudadPreset(resultado);
+      }
+    })();
+  }, []);
+
   const handleSearch = (presetDate?: Date) => {
     let params: any = {};
-    if (location.trim()) params.location = location;
+    if (ciudadLat && ciudadLng) {
+      params.lat = String(ciudadLat);
+      params.lng = String(ciudadLng);
+      params.ciudad = ciudadLabel;
+    }
     if (position !== 'cualquiera') params.position = position;
-    
+
     const targetDate = presetDate || searchDate;
     const dd = String(targetDate.getDate()).padStart(2, '0');
     const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
     const yyyy = targetDate.getFullYear();
     params.date = `${dd}/${mm}/${yyyy}`;
 
-    router.push({
-      pathname: '/search/results',
-      params
-    });
+    router.push({ pathname: '/search/results', params });
   };
 
   const handleQuickAction = (daysToAdd: number, toEndOfWeek: boolean = false) => {
     const today = new Date();
     if (toEndOfWeek) {
-      // De hoy hasta el domingo
-      router.push({
-        pathname: '/search/results',
-        params: {
-          location: location.trim() || undefined,
-          position: position !== 'cualquiera' ? position : undefined,
-          dateRange: 'this_week'
-        }
-      });
+      let params: any = { dateRange: 'this_week' };
+      if (ciudadLat && ciudadLng) { params.lat = String(ciudadLat); params.lng = String(ciudadLng); params.ciudad = ciudadLabel; }
+      if (position !== 'cualquiera') params.position = position;
+      router.push({ pathname: '/search/results', params });
     } else {
       const target = new Date();
       target.setDate(today.getDate() + daysToAdd);
@@ -64,8 +82,9 @@ export default function SearchScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top']}>
-      <ScrollView className="flex-1 border-t border-slate-200 dark:border-neutral-950" 
-        contentContainerStyle={{ flexGrow: 1 }}>
+      <ScrollView className="flex-1 border-t border-slate-200 dark:border-neutral-950"
+        contentContainerStyle={{ flexGrow: 1 }}
+        keyboardShouldPersistTaps="handled">
       
       {/* Cabecera BlaBlaCar style */}
       <View className="px-6 pt-10 pb-4 flex-row items-center">
@@ -93,14 +112,22 @@ export default function SearchScreen() {
       <View className="mx-4 bg-white dark:bg-gray-900 rounded-2xl p-5 border border-slate-200 dark:border-green-500/30 shadow-sm">
         
         {/* Campo Ubicación */}
-        <View className="flex-row items-center pb-4 border-b border-slate-100 dark:border-gray-800">
-          <Ionicons name="location-outline" size={24} color="#94a3b8" />
-          <TextInput
-            className="flex-1 ml-4 text-slate-900 dark:text-white text-lg font-medium"
-            placeholder="¿Dónde quieres jugar?"
-            placeholderTextColor="#94a3b8"
-            value={location}
-            onChangeText={setLocation}
+        <View className="pb-4 border-b border-slate-100 dark:border-gray-800">
+          <CiudadInput
+            value={ciudadLabel}
+            presetResult={ciudadPreset}
+            onSelect={(r: GeoResult) => {
+              setCiudadLabel(r.ciudad);
+              setCiudadLat(r.lat);
+              setCiudadLng(r.lng);
+              setCiudadPreset(null);
+            }}
+            onClear={() => {
+              setCiudadLabel('');
+              setCiudadLat(null);
+              setCiudadLng(null);
+              setCiudadPreset(null);
+            }}
           />
         </View>
 
@@ -196,7 +223,7 @@ export default function SearchScreen() {
         {/* Botón Buscar Grande */}
         <TouchableOpacity 
           className="w-full bg-green-500 rounded-2xl p-4 mt-6 items-center shadow-lg" style={{ minHeight: 48 }}
-          onPress={handleSearch}
+          onPress={() => handleSearch()}
         >
           <Text className="text-white font-bold text-xl">Buscar Partidos</Text>
         </TouchableOpacity>

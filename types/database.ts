@@ -37,6 +37,9 @@ export interface Match {
   organizer_id: string;
   title: string;
   location: string;
+  location_lat: number | null;
+  location_lng: number | null;
+  location_city: string | null;
   date_time: string;
   requested_positions: RequestedPositions;
   team_a_color: string | null;

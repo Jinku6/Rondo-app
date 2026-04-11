@@ -5,6 +5,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, useLocalSearchParams, Stack, useNavigation } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { UbicacionInput } from '@/components/UbicacionInput';
+import type { GeoResult } from '@/lib/geocoding';
 
 const LEVELS = [
   { key: 'tranquilo', label: 'Tranquilo', emoji: '😌', color: 'bg-green-100 border-green-400', activeColor: 'bg-green-500 border-green-500', text: 'text-green-700', activeText: 'text-white' },
@@ -24,6 +26,9 @@ export default function EditMatchScreen() {
   // Form State
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
+  const [locationLat, setLocationLat] = useState<number | null>(null);
+  const [locationLng, setLocationLng] = useState<number | null>(null);
+  const [locationCity, setLocationCity] = useState<string | null>(null);
   const [description, setDescription] = useState('');
   const [level, setLevel] = useState<'tranquilo' | 'medio' | 'competitivo'>('medio');
 
@@ -68,6 +73,9 @@ export default function EditMatchScreen() {
 
       setTitle(data.title);
       setLocation(data.location);
+      setLocationLat((data as any).location_lat ?? null);
+      setLocationLng((data as any).location_lng ?? null);
+      setLocationCity((data as any).location_city ?? null);
       setDescription(data.description || '');
       setLevel(data.level as any || 'medio');
       setTeamAColor(data.team_a_color || '#EF4444');
@@ -189,6 +197,9 @@ export default function EditMatchScreen() {
         .update({
           title,
           location,
+          location_lat: locationLat,
+          location_lng: locationLng,
+          location_city: locationCity,
           description,
           level,
           date_time: finalDateObj.toISOString(),
@@ -271,9 +282,16 @@ export default function EditMatchScreen() {
           </View>
           <View className="mb-4">
             <Text className="text-slate-400 font-medium mb-1">Ubicación</Text>
-            <TextInput
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white"
-              value={location} onChangeText={setLocation}
+            <UbicacionInput
+              value={location}
+              onChangeText={setLocation}
+              onSelect={(r: GeoResult) => {
+                const label = [r.nombre, r.direccion, r.ciudad].filter(Boolean).join(', ');
+                setLocation(label);
+                setLocationLat(r.lat);
+                setLocationLng(r.lng);
+                setLocationCity(r.ciudad);
+              }}
             />
           </View>
           <View>

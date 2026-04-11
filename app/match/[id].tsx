@@ -1,10 +1,56 @@
 import React, { useEffect, useState } from 'react';
-import { Image, View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert } from 'react-native';
+import { Image, View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Platform, Linking, ActionSheetIOS } from 'react-native';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Match, MatchParticipant } from '@/types/database';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+
+function abrirGPS(lat: number, lng: number, _nombre: string) {
+  const opciones = [
+    {
+      titulo: 'Google Maps',
+      url: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
+      nativo: `comgooglemaps://?daddr=${lat},${lng}&directionsmode=driving`,
+    },
+    {
+      titulo: 'Waze',
+      url: `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`,
+      nativo: `waze://?ll=${lat},${lng}&navigate=yes`,
+    },
+    ...(Platform.OS === 'ios'
+      ? [{ titulo: 'Apple Maps', url: `maps://?daddr=${lat},${lng}&dirflg=d`, nativo: `maps://?daddr=${lat},${lng}&dirflg=d` }]
+      : []),
+  ];
+
+  const abrirOpcion = async (opcion: typeof opciones[0]) => {
+    const soportado = await Linking.canOpenURL(opcion.nativo);
+    Linking.openURL(soportado ? opcion.nativo : opcion.url);
+  };
+
+  if (Platform.OS === 'ios') {
+    ActionSheetIOS.showActionSheetWithOptions(
+      {
+        options: [...opciones.map(o => o.titulo), 'Cancelar'],
+        cancelButtonIndex: opciones.length,
+        title: 'Abrir en...',
+      },
+      (index) => {
+        if (index < opciones.length) abrirOpcion(opciones[index]);
+      }
+    );
+  } else {
+    // Android: Alert con botones
+    Alert.alert(
+      'Abrir en...',
+      undefined,
+      [
+        ...opciones.map(o => ({ text: o.titulo, onPress: () => abrirOpcion(o) })),
+        { text: 'Cancelar', style: 'cancel' as const },
+      ]
+    );
+  }
+}
 
 const LEVEL_CONFIG: Record<string, { label: string; emoji: string; color: string }> = {
   tranquilo: { label: 'Tranquilo',   emoji: '😌', color: 'text-green-600' },
@@ -154,12 +200,27 @@ export default function MatchDetailScreen() {
         ) : null}
 
         <View className="space-y-3 mb-5">
-          <View className="flex-row items-center">
-            <View className="w-10 h-10 bg-slate-100 dark:bg-slate-700 rounded-full justify-center items-center mr-3">
-              <Ionicons name="location" size={20} color="#22C55E" />
+          {match.location_lat && match.location_lng ? (
+            <TouchableOpacity
+              className="flex-row items-center"
+              onPress={() => abrirGPS(match.location_lat!, match.location_lng!, match.location)}
+            >
+              <View className="w-10 h-10 bg-green-50 dark:bg-green-900/30 rounded-full justify-center items-center mr-3">
+                <Ionicons name="navigate" size={20} color="#22C55E" />
+              </View>
+              <View className="flex-1">
+                <Text className="text-lg text-slate-700 dark:text-slate-300">{match.location}</Text>
+                <Text className="text-xs text-green-600 dark:text-green-500 mt-0.5">Toca para abrir en mapas →</Text>
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <View className="flex-row items-center">
+              <View className="w-10 h-10 bg-slate-100 dark:bg-slate-700 rounded-full justify-center items-center mr-3">
+                <Ionicons name="location" size={20} color="#22C55E" />
+              </View>
+              <Text className="text-lg text-slate-700 dark:text-slate-300 flex-1">{match.location}</Text>
             </View>
-            <Text className="text-lg text-slate-700 dark:text-slate-300 flex-1">{match.location}</Text>
-          </View>
+          )}
           <View className="flex-row items-center">
             <View className="w-10 h-10 bg-slate-100 dark:bg-slate-700 rounded-full justify-center items-center mr-3">
               <Ionicons name="calendar" size={20} color="#22C55E" />
@@ -422,9 +483,17 @@ export default function MatchDetailScreen() {
                   )}
                 </View>
                 <View className="items-end">
-                  {(p.user?.reliability_score ?? 0) > 0 && (
-                    <Text className="text-xs font-bold text-green-600">{p.user?.reliability_score}% Fiabilidad</Text>
-                  )}
+                  {(p.user?.reliability_score ?? 0) > 0 && (() => {
+                    const s = p.user!.reliability_score!;
+                    const { label, icon, color } =
+                      s >= 90 ? { label: 'Nunca falta',        icon: '✅', color: 'text-green-500'  } :
+                      s >= 75 ? { label: 'Casi nunca falta',   icon: '🌟', color: 'text-amber-500'  } :
+                      s >= 50 ? { label: 'Falta con frecuencia', icon: '⚠️', color: 'text-orange-500' } :
+                                { label: 'Falta casi siempre', icon: '🚫', color: 'text-red-600'    };
+                    return (
+                      <Text className={`text-xs font-bold ${color}`}>{icon} {label}</Text>
+                    );
+                  })()}
                   {(p.user?.matches_played ?? 0) > 0 && (
                     <Text className="text-xs text-slate-400">{p.user?.matches_played} partidos</Text>
                   )}

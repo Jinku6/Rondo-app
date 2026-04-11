@@ -7,21 +7,39 @@ import { Ionicons } from '@expo/vector-icons';
 import { EmptyState } from '@/components/ui/empty-state';
 
 export default function SearchResultsScreen() {
-  const { location, date, position, dateRange } = useLocalSearchParams();
+  const { lat, lng, ciudad, date, position, dateRange } = useLocalSearchParams();
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const router = useRouter();
 
   async function fetchMatches() {
+    // Si hay coordenadas de ciudad, primero obtenemos los IDs cercanos (radio 30km)
+    let nearbyIds: string[] | null = null;
+    if (lat && lng && typeof lat === 'string' && typeof lng === 'string') {
+      const { data: rpcData } = await supabase.rpc('partidos_cerca', {
+        lat: parseFloat(lat),
+        lng: parseFloat(lng),
+        radio_km: 30,
+      });
+      nearbyIds = (rpcData || []).map((r: { id: string }) => r.id);
+      // Si no hay partidos cercanos, devolvemos vacío directamente
+      if (nearbyIds.length === 0) {
+        setMatches([]);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
+    }
+
     let query = supabase
       .from('matches')
       .select('*, organizer:users(*), participants:match_participants(status)')
       .eq('status', 'open')
       .order('date_time', { ascending: true });
 
-    if (location && typeof location === 'string') {
-      query = query.ilike('location', `%${location}%`);
+    if (nearbyIds !== null) {
+      query = query.in('id', nearbyIds);
     }
 
     if (dateRange === 'this_week') {
@@ -84,7 +102,7 @@ export default function SearchResultsScreen() {
 
   useEffect(() => {
     fetchMatches();
-  }, [location, date, dateRange]);
+  }, [lat, lng, date, dateRange]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -157,7 +175,7 @@ export default function SearchResultsScreen() {
 
   return (
     <View className="flex-1 bg-slate-50 dark:bg-neutral-950">
-      <Stack.Screen options={{ title: 'Resultados de búsqueda' }} />
+      <Stack.Screen options={{ title: ciudad ? `Partidos en ${ciudad}` : 'Resultados de búsqueda' }} />
       {loading ? (
         <View className="flex-1 justify-center items-center"><ActivityIndicator size="large" /></View>
       ) : (

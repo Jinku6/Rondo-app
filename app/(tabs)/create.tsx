@@ -9,6 +9,8 @@ import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/dat
 import { z } from 'zod';
 import type { MatchLevel, PositionKey } from '@/types/database';
 import { containsProfanity } from '@/lib/profanityFilter';
+import { UbicacionInput } from '@/components/UbicacionInput';
+import type { GeoResult } from '@/lib/geocoding';
 
 const CreateMatchSchema = z.object({
   title: z.string().min(3, 'El título debe tener al menos 3 caracteres'),
@@ -31,6 +33,9 @@ export default function CreateMatchScreen() {
 
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
+  const [locationLat, setLocationLat] = useState<number | null>(null);
+  const [locationLng, setLocationLng] = useState<number | null>(null);
+  const [locationCity, setLocationCity] = useState<string | null>(null);
   const [description, setDescription] = useState('');
   const [level, setLevel] = useState<MatchLevel>('medio');
 
@@ -175,6 +180,11 @@ export default function CreateMatchScreen() {
       return;
     }
 
+    if (!locationLat || !locationLng || !locationCity) {
+      Alert.alert('Ubicación sin geolocalizar', 'Selecciona la ubicación desde el desplegable de sugerencias para que los jugadores puedan encontrarte en el mapa.');
+      return;
+    }
+
     if (containsProfanity(title) || containsProfanity(description) || containsProfanity(location)) {
       Alert.alert('Vocabulario no permitido', 'Por favor, utiliza palabras respetuosas en el título, ubicación y descripción.');
       return;
@@ -188,6 +198,9 @@ export default function CreateMatchScreen() {
           organizer_id: user.id,
           title,
           location,
+          location_lat: locationLat,
+          location_lng: locationLng,
+          location_city: locationCity,
           description,
           level,
           date_time: finalDateObj.toISOString(),
@@ -210,6 +223,9 @@ export default function CreateMatchScreen() {
 
       setTitle('');
       setLocation('');
+      setLocationLat(null);
+      setLocationLng(null);
+      setLocationCity(null);
       setDescription('');
       setLevel('medio');
       setDateText('');
@@ -255,12 +271,16 @@ export default function CreateMatchScreen() {
           </View>
           <View className="mb-4">
             <Text className="text-slate-600 dark:text-slate-400 font-medium mb-1">Ubicación</Text>
-            <TextInput
-              className="w-full bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-lg p-3 text-slate-900 dark:text-white"
-              placeholder="Dirección o Instalación..."
-              placeholderTextColor="#9ca3af"
+            <UbicacionInput
               value={location}
               onChangeText={setLocation}
+              onSelect={(r: GeoResult) => {
+                const label = [r.nombre, r.direccion, r.ciudad].filter(Boolean).join(', ');
+                setLocation(label);
+                setLocationLat(r.lat);
+                setLocationLng(r.lng);
+                setLocationCity(r.ciudad);
+              }}
             />
           </View>
           <View>
