@@ -14,6 +14,8 @@ CREATE TABLE IF NOT EXISTS public.users (
   reliability_score NUMERIC NOT NULL DEFAULT 100,
   average_level NUMERIC NOT NULL DEFAULT 0,
   average_attitude NUMERIC NOT NULL DEFAULT 0,
+  matches_archived INTEGER NOT NULL DEFAULT 0,
+  attended_archived INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -161,7 +163,7 @@ CREATE OR REPLACE TRIGGER on_review_created
 
 -- ================================================
 -- FUNCTION: Actualizar fiabilidad (% asistencia)
--- Se ejecuta cuando el organizador marca asistencia
+-- Incluye partidos archivados para preservar historial completo
 -- ================================================
 
 CREATE OR REPLACE FUNCTION public.update_reliability()
@@ -169,17 +171,29 @@ RETURNS trigger AS $$
 DECLARE
   total INTEGER;
   attended_count INTEGER;
+  archived_total INTEGER;
+  archived_attended INTEGER;
 BEGIN
+  -- Participaciones activas (en BD)
   SELECT COUNT(*), COUNT(*) FILTER (WHERE attended = true)
   INTO total, attended_count
   FROM public.match_participants
   WHERE user_id = NEW.user_id AND attended IS NOT NULL;
 
-  IF total > 0 THEN
+  -- Participaciones archivadas (de partidos ya eliminados)
+  SELECT matches_archived, attended_archived
+  INTO archived_total, archived_attended
+  FROM public.users
+  WHERE id = NEW.user_id;
+
+  IF (total + COALESCE(archived_total, 0)) > 0 THEN
     UPDATE public.users
     SET
-      reliability_score = ROUND((attended_count::NUMERIC / total::NUMERIC) * 100, 1),
-      matches_played = total
+      reliability_score = ROUND(
+        ((attended_count + COALESCE(archived_attended, 0))::NUMERIC /
+         (total + COALESCE(archived_total, 0))::NUMERIC) * 100, 1
+      ),
+      matches_played = total + COALESCE(archived_total, 0)
     WHERE id = NEW.user_id;
   END IF;
 
@@ -202,7 +216,6 @@ CREATE TABLE IF NOT EXISTS public.chat_messages (
   sender_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
   is_read BOOLEAN NOT NULL DEFAULT false,
-  archived BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -239,6 +252,25 @@ FOR UPDATE USING (
 ALTER TABLE public.chat_messages REPLICA IDENTITY FULL;
 
 -- ================================================
+-- TRIGGER: Eliminar mensajes al finalizar/cancelar un partido
+-- ================================================
+
+CREATE OR REPLACE FUNCTION public.delete_chats_on_match_end()
+RETURNS trigger AS $$
+BEGIN
+  IF (NEW.status = 'completed' OR NEW.status = 'cancelled') AND
+     (OLD.status IS DISTINCT FROM NEW.status) THEN
+    DELETE FROM public.chat_messages WHERE match_id = NEW.id;
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE TRIGGER on_match_ended
+  AFTER UPDATE OF status ON public.matches
+  FOR EACH ROW EXECUTE FUNCTION public.delete_chats_on_match_end();
+
+-- ================================================
 -- REALTIME: Habilitar para chat_messages
 -- ================================================
 
@@ -273,7 +305,7 @@ BEGIN
       c.is_read,
       ROW_NUMBER() OVER (PARTITION BY c.match_id, c.player_id ORDER BY c.created_at DESC) as rn
     FROM public.chat_messages c
-    WHERE c.player_id = auth.uid() 
+    WHERE c.player_id = auth.uid()
        OR c.match_id IN (SELECT m.id FROM public.matches m WHERE m.organizer_id = auth.uid())
   )
   SELECT 
@@ -292,6 +324,77 @@ BEGIN
   JOIN public.users u ON u.id = CASE WHEN auth.uid() = t.player_id THEN m.organizer_id ELSE t.player_id END
   WHERE t.rn = 1
   ORDER BY t.created_at DESC;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ================================================
+-- FUNCTION: Limpiar partidos antiguos (> 2 años)
+-- Preserva estadísticas acumulando historial en users
+-- ================================================
+
+CREATE OR REPLACE FUNCTION public.cleanup_old_matches()
+RETURNS TABLE(deleted_matches_count INTEGER, affected_users_count INTEGER) AS $$
+DECLARE
+  match_count INTEGER;
+  user_count INTEGER;
+BEGIN
+  -- Contar partidos y usuarios afectados
+  SELECT COUNT(*) INTO match_count
+  FROM public.matches
+  WHERE date_time < (now() - interval '2 years');
+
+  SELECT COUNT(DISTINCT mp.user_id) INTO user_count
+  FROM public.match_participants mp
+  JOIN public.matches m ON m.id = mp.match_id
+  WHERE m.date_time < (now() - interval '2 years')
+    AND mp.attended IS NOT NULL;
+
+  -- Paso 1: Acumular historial en users ANTES de borrar
+  UPDATE public.users u
+  SET
+    matches_archived  = u.matches_archived  + sub.total,
+    attended_archived = u.attended_archived + sub.attended_count
+  FROM (
+    SELECT
+      mp.user_id,
+      COUNT(*)                                   AS total,
+      COUNT(*) FILTER (WHERE mp.attended = true) AS attended_count
+    FROM public.match_participants mp
+    JOIN public.matches m ON m.id = mp.match_id
+    WHERE m.date_time < (now() - interval '2 years')
+      AND mp.attended IS NOT NULL
+    GROUP BY mp.user_id
+  ) sub
+  WHERE u.id = sub.user_id;
+
+  -- Paso 2: Eliminar partidos (CASCADE elimina participantes y mensajes)
+  DELETE FROM public.matches
+  WHERE date_time < (now() - interval '2 years');
+
+  -- Paso 3: Recalcular reliability_score y matches_played con historial preservado
+  UPDATE public.users u
+  SET
+    matches_played    = COALESCE(active.total, 0) + u.matches_archived,
+    reliability_score = CASE
+      WHEN (COALESCE(active.total, 0) + u.matches_archived) = 0 THEN 100
+      ELSE ROUND(
+        ((COALESCE(active.attended, 0) + u.attended_archived)::NUMERIC /
+         (COALESCE(active.total, 0) + u.matches_archived)::NUMERIC) * 100, 1
+      )
+    END
+  FROM (
+    SELECT
+      mp.user_id,
+      COUNT(*)                                   AS total,
+      COUNT(*) FILTER (WHERE mp.attended = true) AS attended
+    FROM public.match_participants mp
+    WHERE mp.attended IS NOT NULL
+    GROUP BY mp.user_id
+  ) active
+  WHERE u.id = active.user_id
+    AND u.matches_archived > 0;
+
+  RETURN QUERY SELECT match_count, user_count;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
