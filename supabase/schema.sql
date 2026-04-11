@@ -190,3 +190,125 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE TRIGGER on_attendance_updated
   AFTER UPDATE OF attended ON public.match_participants
   FOR EACH ROW EXECUTE FUNCTION public.update_reliability();
+
+-- ================================================
+-- 5. Tabla de mensajes de chat
+-- ================================================
+
+CREATE TABLE IF NOT EXISTS public.chat_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  match_id UUID NOT NULL REFERENCES public.matches(id) ON DELETE CASCADE,
+  player_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  sender_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+  content TEXT NOT NULL,
+  is_read BOOLEAN NOT NULL DEFAULT false,
+  archived BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ================================================
+-- ROW LEVEL SECURITY (RLS) FOR CHAT
+-- ================================================
+
+ALTER TABLE public.chat_messages ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Chats: read own match chats" ON public.chat_messages
+FOR SELECT USING (
+  auth.uid() = player_id OR 
+  auth.uid() IN (SELECT organizer_id FROM public.matches WHERE id = match_id)
+);
+
+CREATE POLICY "Chats: insert own match chats" ON public.chat_messages
+FOR INSERT WITH CHECK (
+  auth.uid() = sender_id AND
+  (
+    auth.uid() = player_id OR
+    auth.uid() IN (SELECT organizer_id FROM public.matches WHERE id = match_id)
+  )
+);
+
+CREATE POLICY "Chats: update is_read" ON public.chat_messages
+FOR UPDATE USING (
+  auth.uid() = player_id OR
+  auth.uid() IN (SELECT organizer_id FROM public.matches WHERE id = match_id)
+) WITH CHECK (
+  auth.uid() = player_id OR
+  auth.uid() IN (SELECT organizer_id FROM public.matches WHERE id = match_id)
+);
+
+ALTER TABLE public.chat_messages REPLICA IDENTITY FULL;
+
+-- ================================================
+-- REALTIME: Habilitar para chat_messages
+-- ================================================
+
+ALTER PUBLICATION supabase_realtime ADD TABLE public.chat_messages;
+
+-- ================================================
+-- RPC: Obtener hilos de chat del usuario actual
+-- ================================================
+
+CREATE OR REPLACE FUNCTION get_user_chat_threads()
+RETURNS TABLE (
+  match_id UUID,
+  player_id UUID,
+  organizer_id UUID,
+  match_title TEXT,
+  last_message TEXT,
+  last_message_at TIMESTAMPTZ,
+  sender_id UUID,
+  is_read BOOLEAN,
+  other_user_name TEXT,
+  other_user_avatar TEXT
+) AS $$
+BEGIN
+  RETURN QUERY
+  WITH thread_latest AS (
+    SELECT 
+      c.match_id, 
+      c.player_id, 
+      c.content, 
+      c.created_at, 
+      c.sender_id, 
+      c.is_read,
+      ROW_NUMBER() OVER (PARTITION BY c.match_id, c.player_id ORDER BY c.created_at DESC) as rn
+    FROM public.chat_messages c
+    WHERE c.player_id = auth.uid() 
+       OR c.match_id IN (SELECT m.id FROM public.matches m WHERE m.organizer_id = auth.uid())
+  )
+  SELECT 
+    t.match_id,
+    t.player_id,
+    m.organizer_id,
+    m.title AS match_title,
+    t.content AS last_message,
+    t.created_at AS last_message_at,
+    t.sender_id,
+    t.is_read,
+    u.full_name AS other_user_name,
+    u.avatar_url AS other_user_avatar
+  FROM thread_latest t
+  JOIN public.matches m ON m.id = t.match_id
+  JOIN public.users u ON u.id = CASE WHEN auth.uid() = t.player_id THEN m.organizer_id ELSE t.player_id END
+  WHERE t.rn = 1
+  ORDER BY t.created_at DESC;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to get unread message count specifically
+CREATE OR REPLACE FUNCTION get_unread_count()
+RETURNS INTEGER AS $$
+DECLARE
+  count_result INTEGER;
+BEGIN
+  SELECT count(*)::INTEGER INTO count_result
+  FROM public.chat_messages
+  WHERE is_read = false
+    AND sender_id != auth.uid()
+    AND (
+      player_id = auth.uid() OR
+      match_id IN (SELECT id FROM public.matches WHERE organizer_id = auth.uid())
+    );
+  RETURN count_result;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;

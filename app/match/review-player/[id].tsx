@@ -5,6 +5,15 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 
+interface PersonReview {
+  user_id: string;
+  name: string;
+  username: string;
+  isOrganizer: boolean;
+  levelRating: number;
+  attitude: string | null;
+}
+
 export default function ReviewPlayerScreen() {
   const { id } = useLocalSearchParams();
   const { user } = useAuth();
@@ -12,58 +21,107 @@ export default function ReviewPlayerScreen() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [match, setMatch] = useState<any>(null);
-  
-  const [attended, setAttended] = useState<boolean | null>(null);
-  const [levelRating, setLevelRating] = useState(0);
-  const [attitudeRating, setAttitudeRating] = useState(0);
+  const [matchTitle, setMatchTitle] = useState('');
+  const [people, setPeople] = useState<PersonReview[]>([]);
 
   useEffect(() => {
-    fetchMatchData();
+    fetchData();
   }, [id]);
 
-  const fetchMatchData = async () => {
-    const { data, error } = await supabase
+  const fetchData = async () => {
+    // Fetch match + organizer
+    const { data: match, error: matchError } = await supabase
       .from('matches')
-      .select('*, organizer:users(*)')
+      .select('title, organizer_id, organizer:users(full_name, username)')
       .eq('id', id)
       .single();
 
-    if (error || !data) {
+    if (matchError || !match) {
       Alert.alert('Error', 'No se pudo cargar el partido');
       router.back();
       return;
     }
-    setMatch(data);
+
+    setMatchTitle(match.title);
+
+    // Fetch participants (excluding current user)
+    const { data: participants, error: pError } = await supabase
+      .from('match_participants')
+      .select('user_id, user:users(full_name, username)')
+      .eq('match_id', id)
+      .in('status', ['joined', 'approved'])
+      .neq('user_id', user?.id);
+
+    if (pError) {
+      Alert.alert('Error', pError.message);
+      router.back();
+      return;
+    }
+
+    const organizer = match.organizer as any;
+    const list: PersonReview[] = [];
+
+    // Add organizer first (if not the current user)
+    if (match.organizer_id !== user?.id) {
+      list.push({
+        user_id: match.organizer_id,
+        name: organizer?.full_name || 'Organizador',
+        username: organizer?.username || '',
+        isOrganizer: true,
+        levelRating: 0,
+        attitude: null,
+      });
+    }
+
+    // Add other participants (skip organizer to avoid duplicates)
+    for (const p of participants || []) {
+      if (p.user_id === match.organizer_id) continue;
+      const u = p.user as any;
+      list.push({
+        user_id: p.user_id,
+        name: u?.full_name || 'Jugador',
+        username: u?.username || '',
+        isOrganizer: false,
+        levelRating: 0,
+        attitude: null,
+      });
+    }
+
+    setPeople(list);
     setLoading(false);
   };
 
+  const setLevel = (userId: string, val: number) => {
+    setPeople(prev => prev.map(p => p.user_id === userId ? { ...p, levelRating: val } : p));
+  };
+
+  const setAttitude = (userId: string, val: string) => {
+    setPeople(prev => prev.map(p => p.user_id === userId ? { ...p, attitude: val } : p));
+  };
+
   const handleSave = async () => {
-    if (attended === null) {
-      Alert.alert('Aviso', 'Por favor, indica si el organizador asistió al partido.');
+    const missing = people.find(p => p.levelRating === 0 || !p.attitude);
+    if (missing) {
+      Alert.alert('Aviso', 'Por favor, valora a todos los participantes antes de guardar.');
       return;
     }
 
-    if (attended === true && (levelRating === 0 || attitudeRating === 0)) {
-      Alert.alert('Aviso', 'Por favor, puntúa el nivel y la actitud antes de guardar.');
-      return;
-    }
-
-    if (!user || !match) return;
+    if (!user) return;
     setSaving(true);
 
     try {
-      // Create review for the organizer
-      await supabase.from('match_reviews').insert({
-        match_id: id,
-        reviewer_id: user.id,
-        reviewee_id: match.organizer_id,
-        level_rating: attended ? levelRating : null,
-        attitude_rating: attended ? attitudeRating : null,
-        attended: attended
-      });
+      for (const p of people) {
+        await supabase.from('match_reviews').insert({
+          match_id: id,
+          reviewer_id: user.id,
+          reviewee_id: p.user_id,
+          level_rating: p.levelRating,
+          attitude: p.attitude,
+          attended: true,
+        });
+      }
 
-      // Delete notification
+      // Mark notification as read
       await supabase
         .from('notifications')
         .update({ read: true })
@@ -71,7 +129,7 @@ export default function ReviewPlayerScreen() {
         .eq('match_id', id)
         .eq('type', 'pending_player_review');
 
-      Alert.alert('¡Gracias!', 'Has valorado este partido.');
+      Alert.alert('¡Gracias!', 'Has valorado a todos los participantes.');
       router.replace('/(tabs)');
     } catch (error: any) {
       Alert.alert('Error', error.message);
@@ -80,21 +138,19 @@ export default function ReviewPlayerScreen() {
     }
   };
 
-  const renderStars = (rating: number, onSelect: (val: number) => void) => {
-    return (
-      <View className="flex-row">
-        {[1, 2, 3, 4, 5].map((star) => (
-          <TouchableOpacity key={star} onPress={() => onSelect(star)} className="px-1">
-            <Ionicons
-              name={rating >= star ? 'star' : 'star-outline'}
-              size={40}
-              color={rating >= star ? '#eab308' : '#cbd5e1'}
-            />
-          </TouchableOpacity>
-        ))}
-      </View>
-    );
-  };
+  const renderStars = (rating: number, onSelect: (val: number) => void) => (
+    <View className="flex-row">
+      {[1, 2, 3, 4, 5].map((star) => (
+        <TouchableOpacity key={star} onPress={() => onSelect(star)} className="px-1">
+          <Ionicons
+            name={rating >= star ? 'star' : 'star-outline'}
+            size={30}
+            color={rating >= star ? '#eab308' : '#cbd5e1'}
+          />
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
 
   if (loading) {
     return (
@@ -108,89 +164,83 @@ export default function ReviewPlayerScreen() {
     <View className="flex-1 bg-slate-50 dark:bg-neutral-950">
       <Stack.Screen options={{ title: 'Valorar Partido' }} />
 
-      <ScrollView contentContainerStyle={{ padding: 20 }}>
-        <Text className="text-2xl font-bold text-slate-900 dark:text-white mb-2">
-          ¿Qué tal estuvo el partido?
+      <ScrollView contentContainerStyle={{ padding: 16 }}>
+        <Text className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
+          Valora a los participantes
         </Text>
-        <Text className="text-slate-500 dark:text-slate-400 mb-8">
-          Ayuda a mejorar la comunidad valorando el nivel general y la actitud de los organizadores y jugadores.
+        <Text className="text-slate-500 dark:text-slate-400 mb-6">
+          {matchTitle}
         </Text>
 
-        {/* 1. Asistencia */}
-        <View className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-800 mb-6">
-          <Text className="text-slate-700 dark:text-slate-300 font-bold text-lg mb-4 text-center">¿Asistió el organizador?</Text>
-          <View className="flex-row gap-3">
-            <TouchableOpacity
-              onPress={() => setAttended(true)}
-              className={`flex-1 px-4 py-3 rounded-xl border ${attended === true ? 'bg-green-500/20 border-green-500' : 'bg-transparent border-gray-200 dark:border-gray-700'} items-center`}
-            >
-              <Text className={`font-semibold ${attended === true ? 'text-green-600 dark:text-green-500' : 'text-slate-500 dark:text-slate-300'}`}>
-                ✅ Sí, asistió
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => {
-                setAttended(false);
-                setLevelRating(0);
-                setAttitudeRating(0);
-              }}
-              className={`flex-1 px-4 py-3 rounded-xl border ${attended === false ? 'bg-red-500/20 border-red-500' : 'bg-transparent border-gray-200 dark:border-gray-700'} items-center`}
-            >
-              <Text className={`font-semibold ${attended === false ? 'text-red-600 dark:text-red-500' : 'text-slate-500 dark:text-slate-300'}`}>
-                ❌ No apareció
-              </Text>
-            </TouchableOpacity>
+        {people.length === 0 ? (
+          <View className="bg-white dark:bg-gray-900 p-6 rounded-xl border border-gray-200 dark:border-gray-800 items-center">
+            <Text className="text-slate-500 dark:text-slate-400">No hay participantes que valorar.</Text>
           </View>
-        </View>
+        ) : (
+          people.map((p) => (
+            <View key={p.user_id} className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm mb-4">
+              {/* Header */}
+              <View className="flex-row items-center border-b border-gray-100 dark:border-gray-800 pb-3 mb-3">
+                <View className="w-10 h-10 bg-slate-200 dark:bg-slate-700 rounded-full justify-center items-center mr-3">
+                  <Text className="font-bold text-slate-500 dark:text-slate-400">
+                    {p.name.charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+                <View className="flex-1">
+                  <Text className="font-bold text-slate-900 dark:text-white text-base">{p.name}</Text>
+                  <Text className="text-slate-500 dark:text-slate-400 text-sm">
+                    @{p.username}
+                  </Text>
+                </View>
+              </View>
 
-        {/* 2. Nivel y actitud (solo si asistió) */}
-        {attended === true && (
-          <>
-            <View className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-800 items-center mb-6">
-              <Text className="text-slate-700 dark:text-slate-300 font-bold text-lg mb-4">Nivel del partido</Text>
-              {renderStars(levelRating, setLevelRating)}
-              <Text className="text-slate-400 dark:text-slate-500 text-sm mt-3 text-center">
-                {levelRating === 1 && "Muy bajo para lo prometido"}
-                {levelRating === 2 && "Bajo"}
-                {levelRating === 3 && "Correcto, en lo esperado"}
-                {levelRating === 4 && "Buen nivel"}
-                {levelRating === 5 && "Excelente, muy parejo"}
-              </Text>
+              {/* Stars */}
+              <View className="mb-3">
+                <Text className="text-slate-500 text-xs uppercase tracking-wider mb-2 font-bold">Nivel</Text>
+                {renderStars(p.levelRating, (val) => setLevel(p.user_id, val))}
+              </View>
+
+              {/* Attitude */}
+              <View>
+                <Text className="text-slate-500 text-xs uppercase tracking-wider mb-2 font-bold">Actitud</Text>
+                <View className="flex-row flex-wrap gap-2">
+                  {[
+                    { val: 'positive', label: '🤩 Positiva' },
+                    { val: 'neutral', label: '😐 Neutral' },
+                    { val: 'negative', label: '😠 Negativa' },
+                  ].map((opt) => {
+                    const isActive = p.attitude === opt.val;
+                    return (
+                      <TouchableOpacity
+                        key={opt.val}
+                        onPress={() => setAttitude(p.user_id, opt.val)}
+                        className={`px-3 py-2 rounded-full border ${isActive ? 'bg-green-500/20 border-green-500' : 'bg-transparent border-gray-200 dark:border-gray-700'}`}
+                      >
+                        <Text className={`font-semibold text-sm ${isActive ? 'text-green-600 dark:text-green-500' : 'text-slate-600 dark:text-slate-300'}`}>
+                          {opt.label}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
             </View>
-
-            <View className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-800 items-center">
-              <Text className="text-slate-700 dark:text-slate-300 font-bold text-lg mb-4">Actitud y deportividad</Text>
-              {renderStars(attitudeRating, setAttitudeRating)}
-              <Text className="text-slate-400 dark:text-slate-500 text-sm mt-3 text-center">
-                {attitudeRating === 1 && "Muy mala (conflictivo)"}
-                {attitudeRating === 2 && "Regular"}
-                {attitudeRating === 3 && "Normal"}
-                {attitudeRating === 4 && "Buena actitud"}
-                {attitudeRating === 5 && "Excepcional"}
-              </Text>
-            </View>
-          </>
-        )}
-
-        {/* Mensaje si no asistió */}
-        {attended === false && (
-          <View className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/30 rounded-2xl p-6 items-center">
-            <Text className="text-red-600 dark:text-red-400 text-center text-sm">
-              Se registrará la inasistencia del organizador.
-            </Text>
-          </View>
+          ))
         )}
       </ScrollView>
 
       <View className="p-4 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800">
-        <TouchableOpacity 
-          className="bg-green-500 rounded-xl p-4 items-center" 
+        <TouchableOpacity
+          className="bg-green-500 rounded-xl p-4 items-center flex-row justify-center"
           onPress={handleSave}
-          disabled={saving || attended === null}
-          style={{ minHeight: 48, opacity: attended === null ? 0.5 : 1 }}
+          disabled={saving}
+          style={{ minHeight: 48 }}
         >
           {saving ? <ActivityIndicator color="#fff" /> : (
-            <Text className="text-white font-bold text-lg">Enviar Valoración</Text>
+            <>
+              <Ionicons name="checkmark-circle-outline" size={24} color="#fff" style={{ marginRight: 8 }} />
+              <Text className="text-white font-bold text-lg">Enviar Valoraciones</Text>
+            </>
           )}
         </TouchableOpacity>
       </View>

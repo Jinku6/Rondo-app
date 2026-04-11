@@ -89,3 +89,15 @@ export interface Notification {
   match?: { title: string } | null;
 }
 
+export interface ChatMessage {
+  id: string;
+  match_id: string;
+  player_id: string;
+  sender_id: string;
+  content: string;
+  is_read: boolean;
+  created_at: string;
+  // Join opcional
+  sender?: UserProfile;
+}
+

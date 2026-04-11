@@ -336,7 +336,7 @@ export default function EditMatchScreen() {
           </View>
         </View>
 
-        {Platform.OS === 'android' && showDatePicker && <DateTimePicker value={dateObj} mode="date" display="default" onChange={onDatePickerChange} minimumDate={new Date()} locale="es-ES" />}
+        {Platform.OS === 'android' && showDatePicker && <DateTimePicker value={dateObj} mode="date" display="default" onChange={onDatePickerChange} locale="es-ES" />}
         {Platform.OS === 'android' && showTimePicker && <DateTimePicker value={dateObj} mode="time" display="default" onChange={onTimePickerChange} is24Hour={true} />}
 
         {Platform.OS === 'ios' && showDatePicker && (
@@ -352,7 +352,7 @@ export default function EditMatchScreen() {
                     <Text className="text-green-500 font-bold text-lg">Confirmar</Text>
                   </TouchableOpacity>
                 </View>
-                <DateTimePicker value={dateObj} mode="date" display="spinner" onChange={onDatePickerChange} minimumDate={new Date()} locale="es-ES" />
+                <DateTimePicker value={dateObj} mode="date" display="spinner" onChange={onDatePickerChange} locale="es-ES" />
               </View>
             </View>
           </Modal>

@@ -249,15 +249,27 @@ export default function MatchDetailScreen() {
         {!isOrganizer && (
           <View>
             {!myParticipation ? (
-              <TouchableOpacity
-                className={`w-full p-4 rounded-xl items-center shadow-sm ${isFull ? 'bg-slate-300 dark:bg-gray-900' : 'bg-green-500'}`} style={{ minHeight: 48 }}
-                onPress={isFull ? undefined : handleJoin}
-                disabled={actionLoading || isFull}
-              >
-                {actionLoading ? <ActivityIndicator color="#fff" /> :
-                  <Text className={`${isFull ? 'text-slate-500 dark:text-slate-400' : 'text-white'} font-bold text-lg`}>{isFull ? 'Partido Completo' : (match.requires_approval ? 'Solicitar Unirse' : '¡Unirse al Partido!')}</Text>
-                }
-              </TouchableOpacity>
+              <View className="space-y-3">
+                <TouchableOpacity
+                  className={`w-full p-4 rounded-xl items-center shadow-sm ${isFull ? 'bg-slate-300 dark:bg-gray-900' : 'bg-green-500'}`} style={{ minHeight: 48 }}
+                  onPress={isFull ? undefined : handleJoin}
+                  disabled={actionLoading || isFull}
+                >
+                  {actionLoading ? <ActivityIndicator color="#fff" /> :
+                    <Text className={`${isFull ? 'text-slate-500 dark:text-slate-400' : 'text-white'} font-bold text-lg`}>{isFull ? 'Partido Completo' : (match.requires_approval ? 'Solicitar Unirse' : '¡Unirse al Partido!')}</Text>
+                  }
+                </TouchableOpacity>
+
+                {match.organizer && (
+                  <TouchableOpacity
+                    className="w-full p-3 rounded-xl items-center border border-green-500 flex-row justify-center"
+                    onPress={() => router.push(`/chat/${match.id}/${user.id}` as any)}
+                  >
+                    <Ionicons name="chatbubbles-outline" size={20} color="#22C55E" style={{ marginRight: 8 }} />
+                    <Text className="text-green-600 dark:text-green-500 font-bold">Chatear con {match.organizer.full_name?.split(' ')[0]}</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             ) : myParticipation.status === 'pending' ? (
               <View className="bg-amber-100 dark:bg-amber-900/30 p-4 rounded-xl border border-amber-200 dark:border-amber-700">
                 <Text className="text-amber-800 dark:text-amber-400 font-semibold text-center">⏳ Solicitud pendiente de aprobación</Text>
@@ -270,9 +282,22 @@ export default function MatchDetailScreen() {
                 <View className="bg-green-100 dark:bg-green-900/30 p-4 rounded-t-xl border border-green-200 dark:border-green-800 border-b-0">
                   <Text className="text-green-800 dark:text-green-400 font-semibold text-center">✅ ¡Estás dentro del partido!</Text>
                 </View>
-                <TouchableOpacity className="bg-white dark:bg-gray-900 p-3 rounded-b-xl border border-green-200 dark:border-green-800 items-center" onPress={handleLeave} disabled={actionLoading}>
-                  <Text className="text-red-500 font-medium">Darme de baja</Text>
-                </TouchableOpacity>
+                <View className="flex-row">
+                  <TouchableOpacity 
+                    className="flex-1 bg-white dark:bg-gray-900 p-3 rounded-bl-xl border border-green-200 dark:border-green-800 items-center justify-center flex-row" 
+                    onPress={() => router.push(`/chat/${match.id}/${user.id}` as any)}
+                  >
+                    <Ionicons name="chatbubbles-outline" size={18} color="#22C55E" style={{ marginRight: 6 }} />
+                    <Text className="text-green-600 dark:text-green-400 font-medium">Chat</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    className="flex-1 bg-white dark:bg-gray-900 p-3 rounded-br-xl border-t border-b border-r border-green-200 dark:border-green-800 items-center justify-center" 
+                    onPress={handleLeave} 
+                    disabled={actionLoading}
+                  >
+                    <Text className="text-red-500 font-medium">Darme de baja</Text>
+                  </TouchableOpacity>
+                </View>
               </View>
             )}
           </View>
@@ -458,6 +483,14 @@ export default function MatchDetailScreen() {
               <View className="bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">
                 <Text className="text-xs font-medium text-slate-500 dark:text-slate-300 capitalize">{p.user.preferred_position}</Text>
               </View>
+            )}
+            {isOrganizer && (
+              <TouchableOpacity 
+                className="ml-3 p-2 bg-green-50 dark:bg-green-900/20 rounded-full"
+                onPress={() => router.push(`/chat/${match.id}/${p.user_id}` as any)}
+              >
+                <Ionicons name="chatbubble-ellipses" size={22} color="#22C55E" />
+              </TouchableOpacity>
             )}
           </TouchableOpacity>
         ))}

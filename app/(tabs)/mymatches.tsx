@@ -3,7 +3,7 @@ import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshContr
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { Match } from '@/types/database';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, Stack } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -129,6 +129,7 @@ export default function MyMatchesScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top']}>
+      <Stack.Screen options={{ headerShown: false }} />
       <FlatList
         data={matches.filter(m => filter === 'all' || m._role === filter)}
         keyExtractor={item => item.id + item._role}
@@ -138,8 +139,8 @@ export default function MyMatchesScreen() {
         ListHeaderComponent={
           matches.length > 0 ? (
             <View className="mb-5">
-               <View className="flex-row justify-between items-center mb-3">
-                  <Text className="text-slate-700 dark:text-slate-300 font-bold ml-1">Tus Partidos Rondo</Text>
+                <View className="flex-row justify-between items-center mb-5">
+                  <Text className="text-3xl font-bold text-slate-900 dark:text-white">Tus Partidos Rondo</Text>
                   {filter !== 'all' && (
                     <TouchableOpacity onPress={() => setFilter('all')} className="bg-slate-200 dark:bg-slate-700 px-3 py-1 rounded-full">
                       <Text className="text-xs font-semibold text-slate-700 dark:text-slate-300">Quitar Filtro ✕</Text>

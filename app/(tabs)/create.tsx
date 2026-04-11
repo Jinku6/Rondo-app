@@ -3,7 +3,7 @@ import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, Switch, Act
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'expo-router';
+import { useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { z } from 'zod';
@@ -235,7 +235,9 @@ export default function CreateMatchScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top']}>
+      <Stack.Screen options={{ headerShown: false }} />
       <ScrollView className="flex-1 bg-slate-50 dark:bg-neutral-950 p-4" keyboardShouldPersistTaps="handled">
+        <Text className="text-3xl font-bold text-slate-900 dark:text-white mb-6">Crear Partido</Text>
         <View className="space-y-5 mb-10">
 
         {/* Información General */}
