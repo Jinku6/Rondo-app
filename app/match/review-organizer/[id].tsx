@@ -99,7 +99,19 @@ export default function ReviewOrganizerScreen() {
         }
       }
 
-      // 2. Marcar notificación como leída
+      // 2. Crear notificaciones pending_player_review para los jugadores que SÍ asistieron
+      const attendedParticipants = participants.filter(p => p.attended);
+      if (attendedParticipants.length > 0) {
+        await supabase.from('notifications').insert(
+          attendedParticipants.map(p => ({
+            user_id: p.user_id,
+            match_id: id,
+            type: 'pending_player_review'
+          }))
+        );
+      }
+
+      // 3. Marcar notificación del organizador como leída
       await supabase
         .from('notifications')
         .update({ read: true })
@@ -107,7 +119,7 @@ export default function ReviewOrganizerScreen() {
         .eq('match_id', id)
         .eq('type', 'pending_organizer_review');
 
-      Alert.alert('Éxito', 'Valoraciones guardadas correctamente', [
+      Alert.alert('Éxito', 'Lista guardada. Los jugadores que asistieron recibirán una notificación para valorar el partido.', [
         { text: 'Aceptar', onPress: () => router.replace('/(tabs)') },
       ]);
     } catch (error: any) {

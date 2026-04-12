@@ -485,29 +485,16 @@ export default function MatchDetailScreen() {
                                 .eq('id', match.id);
                               if (updateError) throw updateError;
 
-                              // 2. Notification for organizer
+                              // 2. Notificación solo para el organizador (pasa lista)
+                              // Las notificaciones de los jugadores se crean tras confirmar asistencia
                               await supabase.from('notifications').insert({
                                 user_id: user!.id,
                                 match_id: match.id,
                                 type: 'pending_organizer_review'
                               });
 
-                              // 3. Notifications for all participants
-                              const activeParticipants = participants.filter(
-                                p => (p.status === 'joined' || p.status === 'approved')
-                              );
-                              if (activeParticipants.length > 0) {
-                                await supabase.from('notifications').insert(
-                                  activeParticipants.map(p => ({
-                                    user_id: p.user_id,
-                                    match_id: match.id,
-                                    type: 'pending_player_review'
-                                  }))
-                                );
-                              }
-
-                              Alert.alert('✅ Partido finalizado', 'Se han enviado las notificaciones de valoración.', [
-                                { text: 'Aceptar', onPress: () => router.replace(`/match/review-organizer/${match.id}` as any) },
+                              Alert.alert('✅ Partido finalizado', 'Ahora puedes pasar lista y confirmar quién asistió.', [
+                                { text: 'Pasar Lista', onPress: () => router.replace(`/match/review-organizer/${match.id}` as any) },
                               ]);
                             } catch (error: any) {
                               Alert.alert('Error', error.message);
