@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { Match, MatchParticipant } from '@/types/database';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import { isSafeUrl } from '@/lib/utils';
 
 interface MapOption { titulo: string; url: string; nativo: string }
 
@@ -108,10 +109,17 @@ export default function MatchDetailScreen() {
     const now = Date.now();
     const minutesUntilMatch = (matchTime - now) / 60000;
 
-    if (minutesUntilMatch > 0 && minutesUntilMatch < 90) {
+    const isLate = minutesUntilMatch > 0 && minutesUntilMatch < 90;
+    const hasStarted = minutesUntilMatch <= 0;
+
+    if (isLate || hasStarted) {
+      const title = hasStarted ? '⚠️ Partido en curso' : '⚠️ Baja tardía';
+      const message = hasStarted
+        ? 'El partido ya ha comenzado. Darte de baja ahora contará como NO ASISTIDO y afectará a tu puntuación de fiabilidad.\n\n¿Confirmas la baja?'
+        : 'El partido empieza en menos de 1h 30min. Si te das de baja ahora, este partido contará como NO ASISTIDO y afectará a tu puntuación de fiabilidad.\n\n¿Confirmas la baja?';
       Alert.alert(
-        '⚠️ Baja tardía',
-        'El partido empieza en menos de 1h 30min. Si te das de baja ahora, este partido contará como NO ASISTIDO y afectará a tu puntuación de fiabilidad.\n\n¿Confirmas la baja?',
+        title,
+        message,
         [
           { text: 'Cancelar', style: 'cancel' },
           {
@@ -179,6 +187,16 @@ export default function MatchDetailScreen() {
   const nonOrganizerApproved = approvedParticipants.filter(p => p.user_id !== match.organizer_id);
   
   const isFull = approvedParticipants.length >= maxPlayers;
+  const calcAge = (birthday: string | null | undefined): number | null => {
+    if (!birthday) return null;
+    const birth = new Date(birthday);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    return age;
+  };
+
   const date = new Date(match.date_time);
   const dateString = date.toLocaleDateString('es-ES', { weekday: 'long', month: 'long', day: 'numeric' });
   const timeString = date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
@@ -336,7 +354,7 @@ export default function MatchDetailScreen() {
           <View className="mb-6">
             <Text className="text-slate-700 dark:text-slate-300 font-bold mb-3">Organizado por</Text>
             <TouchableOpacity onPress={() => router.push(`/user/${match.organizer?.id}` as any)} className="bg-white dark:bg-gray-900 p-3 rounded-xl flex-row items-center border border-slate-200 dark:border-slate-800 shadow-sm">
-              {match.organizer?.avatar_url ? (
+              {isSafeUrl(match.organizer?.avatar_url) ? (
                 <Image source={{ uri: `${match.organizer?.avatar_url}?t=${Date.now()}` }} className="w-10 h-10 rounded-full mr-3 border border-slate-200" />
               ) : (
                 <View className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 justify-center items-center mr-3">
@@ -367,7 +385,11 @@ export default function MatchDetailScreen() {
         {/* Acción jugador */}
         {!isOrganizer && (
           <View>
-            {!myParticipation ? (
+            {match.status === 'cancelled' ? (
+              <View className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-200 dark:border-red-800">
+                <Text className="text-red-600 dark:text-red-400 font-semibold text-center">🚫 Este partido ha sido cancelado por el organizador</Text>
+              </View>
+            ) : !myParticipation ? (
               <View className="space-y-3">
                 <TouchableOpacity
                   className={`w-full p-4 rounded-xl items-center shadow-sm ${isFull ? 'bg-slate-300 dark:bg-gray-900' : 'bg-green-500'}`} style={{ minHeight: 48 }}
@@ -413,16 +435,16 @@ export default function MatchDetailScreen() {
                   <Text className="text-green-800 dark:text-green-400 font-semibold text-center">✅ ¡Estás dentro del partido!</Text>
                 </View>
                 <View className="flex-row">
-                  <TouchableOpacity 
-                    className="flex-1 bg-white dark:bg-gray-900 p-3 rounded-bl-xl border border-green-200 dark:border-green-800 items-center justify-center flex-row" 
+                  <TouchableOpacity
+                    className="flex-1 bg-white dark:bg-gray-900 p-3 rounded-bl-xl border border-green-200 dark:border-green-800 items-center justify-center flex-row"
                     onPress={() => router.push(`/chat/${match.id}/${user!.id}` as any)}
                   >
                     <Ionicons name="chatbubbles-outline" size={18} color="#22C55E" style={{ marginRight: 6 }} />
                     <Text className="text-green-600 dark:text-green-400 font-medium">Chat</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity 
-                    className="flex-1 bg-white dark:bg-gray-900 p-3 rounded-br-xl border-t border-b border-r border-green-200 dark:border-green-800 items-center justify-center" 
-                    onPress={handleLeave} 
+                  <TouchableOpacity
+                    className="flex-1 bg-white dark:bg-gray-900 p-3 rounded-br-xl border-t border-b border-r border-green-200 dark:border-green-800 items-center justify-center"
+                    onPress={handleLeave}
                     disabled={actionLoading}
                   >
                     <Text className="text-red-500 font-medium">Darme de baja</Text>
@@ -439,75 +461,123 @@ export default function MatchDetailScreen() {
             <Text className="text-green-800 dark:text-green-300 font-bold text-center mb-3">👑 Eres el organizador</Text>
             
             {(match.status === 'open' || match.status === 'full') && (
-              <TouchableOpacity
-                className="bg-green-500 rounded-xl p-4 items-center flex-row justify-center"
-                style={{ minHeight: 48 }}
-                disabled={actionLoading}
-                onPress={() => {
-                  Alert.alert(
-                    'Finalizar Partido',
-                    '¿Estás seguro de que quieres finalizar este partido? Se generarán las notificaciones de valoración.',
-                    [
-                      { text: 'Cancelar', style: 'cancel' },
-                      {
-                        text: 'Finalizar',
-                        style: 'destructive',
-                        onPress: async () => {
-                          setActionLoading(true);
-                          try {
-                            // 1. Update match status
-                            const { error: updateError } = await supabase
-                              .from('matches')
-                              .update({ status: 'completed' })
-                              .eq('id', match.id);
-                            if (updateError) throw updateError;
+              <View className="gap-3">
+                <TouchableOpacity
+                  className="bg-green-500 rounded-xl p-4 items-center flex-row justify-center"
+                  style={{ minHeight: 48 }}
+                  disabled={actionLoading}
+                  onPress={() => {
+                    Alert.alert(
+                      'Finalizar Partido',
+                      '¿Estás seguro de que quieres finalizar este partido? Se generarán las notificaciones de valoración.',
+                      [
+                        { text: 'Cancelar', style: 'cancel' },
+                        {
+                          text: 'Finalizar',
+                          style: 'destructive',
+                          onPress: async () => {
+                            setActionLoading(true);
+                            try {
+                              // 1. Update match status
+                              const { error: updateError } = await supabase
+                                .from('matches')
+                                .update({ status: 'completed' })
+                                .eq('id', match.id);
+                              if (updateError) throw updateError;
 
-                            // 2. Notification for organizer
-                            await supabase.from('notifications').insert({
-                              user_id: user!.id,
-                              match_id: match.id,
-                              type: 'pending_organizer_review'
-                            });
+                              // 2. Notification for organizer
+                              await supabase.from('notifications').insert({
+                                user_id: user!.id,
+                                match_id: match.id,
+                                type: 'pending_organizer_review'
+                              });
 
-                            // 3. Notifications for all participants
-                            const activeParticipants = participants.filter(
-                              p => (p.status === 'joined' || p.status === 'approved')
-                            );
-                            if (activeParticipants.length > 0) {
-                              await supabase.from('notifications').insert(
-                                activeParticipants.map(p => ({
-                                  user_id: p.user_id,
-                                  match_id: match.id,
-                                  type: 'pending_player_review'
-                                }))
+                              // 3. Notifications for all participants
+                              const activeParticipants = participants.filter(
+                                p => (p.status === 'joined' || p.status === 'approved')
                               );
-                            }
+                              if (activeParticipants.length > 0) {
+                                await supabase.from('notifications').insert(
+                                  activeParticipants.map(p => ({
+                                    user_id: p.user_id,
+                                    match_id: match.id,
+                                    type: 'pending_player_review'
+                                  }))
+                                );
+                              }
 
-                            Alert.alert('✅ Partido finalizado', 'Se han enviado las notificaciones de valoración.');
-                            router.replace(`/match/review-organizer/${match.id}` as any);
-                          } catch (error: any) {
-                            Alert.alert('Error', error.message);
-                          } finally {
-                            setActionLoading(false);
+                              Alert.alert('✅ Partido finalizado', 'Se han enviado las notificaciones de valoración.', [
+                                { text: 'Aceptar', onPress: () => router.replace(`/match/review-organizer/${match.id}` as any) },
+                              ]);
+                            } catch (error: any) {
+                              Alert.alert('Error', error.message);
+                            } finally {
+                              setActionLoading(false);
+                            }
                           }
                         }
-                      }
-                    ]
-                  );
-                }}
-              >
-                {actionLoading ? <ActivityIndicator color="#fff" /> : (
-                  <>
-                    <Ionicons name="flag-outline" size={22} color="#fff" style={{ marginRight: 8 }} />
-                    <Text className="text-white font-bold text-lg">Finalizar Partido</Text>
-                  </>
-                )}
-              </TouchableOpacity>
+                      ]
+                    );
+                  }}
+                >
+                  {actionLoading ? <ActivityIndicator color="#fff" /> : (
+                    <>
+                      <Ionicons name="flag-outline" size={22} color="#fff" style={{ marginRight: 8 }} />
+                      <Text className="text-white font-bold text-lg">Finalizar Partido</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  className="bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded-xl p-4 items-center flex-row justify-center"
+                  style={{ minHeight: 48 }}
+                  disabled={actionLoading}
+                  onPress={() => {
+                    Alert.alert(
+                      'Cancelar Partido',
+                      '¿Estás seguro de que quieres cancelar este partido? Esta acción no afectará las estadísticas de ningún jugador.',
+                      [
+                        { text: 'Volver', style: 'cancel' },
+                        {
+                          text: 'Cancelar partido',
+                          style: 'destructive',
+                          onPress: async () => {
+                            setActionLoading(true);
+                            try {
+                              const { error } = await supabase
+                                .from('matches')
+                                .update({ status: 'cancelled' })
+                                .eq('id', match.id);
+                              if (error) throw error;
+                              Alert.alert('Partido cancelado', 'El partido ha sido cancelado.', [
+                                { text: 'Aceptar', onPress: () => router.replace('/(tabs)') },
+                              ]);
+                            } catch (error: any) {
+                              Alert.alert('Error', error.message);
+                            } finally {
+                              setActionLoading(false);
+                            }
+                          }
+                        }
+                      ]
+                    );
+                  }}
+                >
+                  <Ionicons name="close-circle-outline" size={22} color="#ef4444" style={{ marginRight: 8 }} />
+                  <Text className="text-red-500 dark:text-red-400 font-bold text-base">Cancelar Partido</Text>
+                </TouchableOpacity>
+              </View>
             )}
 
             {match.status === 'completed' && (
               <View className="bg-green-100 dark:bg-green-900/30 p-3 rounded-lg border border-green-200 dark:border-green-800">
                 <Text className="text-green-700 dark:text-green-400 text-center font-semibold text-sm">✅ Partido finalizado</Text>
+              </View>
+            )}
+
+            {match.status === 'cancelled' && (
+              <View className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800">
+                <Text className="text-red-600 dark:text-red-400 text-center font-semibold text-sm">🚫 Partido cancelado</Text>
               </View>
             )}
           </View>
@@ -523,7 +593,7 @@ export default function MatchDetailScreen() {
           {pendingParticipants.map(p => (
             <TouchableOpacity onPress={() => router.push(`/user/${p.user?.id}` as any)} key={p.id} className="bg-white dark:bg-gray-900 p-4 rounded-xl mb-3 border border-amber-200 dark:border-amber-800 shadow-sm">
               <View className="flex-row items-center mb-3">
-                {p.user?.avatar_url ? (
+                {isSafeUrl(p.user?.avatar_url) ? (
                   <Image source={{ uri: `${p.user.avatar_url}?t=${Date.now()}` }} className="w-12 h-12 rounded-full mr-3 border border-slate-200" />
                 ) : (
                   <View className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900 justify-center items-center mr-3">
@@ -534,7 +604,16 @@ export default function MatchDetailScreen() {
                 )}
                 <View className="flex-1">
                   <Text className="font-bold text-slate-900 dark:text-white">{p.user?.full_name}</Text>
-                  <Text className="text-slate-500 dark:text-slate-400 text-sm">@{p.user?.username}</Text>
+                  <View className="flex-row items-center flex-wrap gap-x-2">
+                    <Text className="text-slate-500 dark:text-slate-400 text-sm">@{p.user?.username}</Text>
+                    {/* @ts-ignore */}
+                    {calcAge(p.user?.birthday) !== null && (
+                      <Text className="text-slate-400 dark:text-slate-500 text-xs">
+                        {/* @ts-ignore */}
+                        {calcAge(p.user?.birthday)} años
+                      </Text>
+                    )}
+                  </View>
                   {p.user?.preferred_position && (
                     <Text className="text-green-600 dark:text-green-400 text-xs capitalize mt-0.5">
                       Posición: {p.user.preferred_position}
@@ -594,7 +673,7 @@ export default function MatchDetailScreen() {
         </Text>
         {nonOrganizerApproved.map(p => (
           <TouchableOpacity onPress={() => router.push(`/user/${p.user?.id}` as any)} key={p.id} className="bg-white dark:bg-gray-900 p-4 rounded-xl mb-3 flex-row items-center shadow-sm border border-gray-200 dark:border-gray-800">
-            {p.user?.avatar_url ? (
+            {isSafeUrl(p.user?.avatar_url) ? (
               <Image source={{ uri: `${p.user.avatar_url}?t=${Date.now()}` }} className="w-12 h-12 rounded-full mr-4 border border-slate-200" />
             ) : (
               <View className="w-12 h-12 rounded-full bg-slate-200 dark:bg-slate-600 justify-center items-center mr-4">

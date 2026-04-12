@@ -2,6 +2,7 @@ import { UserProfile } from '@/types/database';
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Text, View } from 'react-native';
+import { calculateAge } from '@/lib/utils';
 
 interface ProfileStatsProps {
   profile: UserProfile;
@@ -22,24 +23,46 @@ export function ProfileStats({ profile }: ProfileStatsProps) {
     return { label: 'Falta casi siempre', icon: '🚫', color: 'text-red-600 dark:text-red-500' };
   };
 
+  const age = calculateAge(profile.birthday);
+
   return (
     <View className="w-full space-y-4">
       {profile.matches_played < 3 ? (
-        <View className="w-full mt-2 flex-col items-center p-6 bg-green-500/10 border border-green-500/20 rounded-2xl">
-          <Text className="text-4xl mb-2">🌱</Text>
-          <Text className="text-xl font-bold text-green-700 dark:text-green-400 mb-1">Jugador Nuevo</Text>
-          <Text className="text-slate-600 dark:text-slate-400 text-center text-sm">
-            Las estadísticas permanecerán ocultas hasta completar al menos 3 partidos valorados. ({profile.matches_played}/3)
-          </Text>
-        </View>
+        <>
+          {age !== null && (
+            <View className="flex-row mt-2">
+              <View className="flex-1 bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-200 dark:border-gray-800 items-center justify-center shadow-sm">
+                <Ionicons name="calendar" size={24} color="#94a3b8" />
+                <Text className="text-3xl font-black text-slate-800 dark:text-white mt-1">{age}</Text>
+                <Text className="text-slate-500 dark:text-slate-400 text-xs mt-1 uppercase tracking-wider font-semibold text-center">Edad</Text>
+              </View>
+            </View>
+          )}
+          <View className="w-full flex-col items-center p-6 bg-green-500/10 border border-green-500/20 rounded-2xl">
+            <Text className="text-4xl mb-2">🌱</Text>
+            <Text className="text-xl font-bold text-green-700 dark:text-green-400 mb-1">Jugador Nuevo</Text>
+            <Text className="text-slate-600 dark:text-slate-400 text-center text-sm">
+              Las estadísticas permanecerán ocultas hasta completar al menos 3 partidos valorados. ({profile.matches_played}/3)
+            </Text>
+          </View>
+        </>
       ) : (
         <>
-          <View className="flex-row gap-4 mb-2 mt-2">
+          <View className="flex-row gap-3 mb-2 mt-2">
+            {/* Edad */}
+            {age !== null && (
+              <View className="flex-1 bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-200 dark:border-gray-800 items-center justify-center shadow-sm">
+                <Ionicons name="calendar" size={24} color="#94a3b8" />
+                <Text className="text-3xl font-black text-slate-800 dark:text-white mt-1">{age}</Text>
+                <Text className="text-slate-500 dark:text-slate-400 text-xs mt-1 uppercase tracking-wider font-semibold text-center">Edad</Text>
+              </View>
+            )}
+
             {/* Partidos Jugados */}
             <View className="flex-1 bg-white dark:bg-gray-900 p-4 rounded-2xl border border-gray-200 dark:border-gray-800 items-center justify-center shadow-sm">
               <Ionicons name="football" size={24} color="#94a3b8" className="mb-2" />
               <Text className="text-3xl font-black text-slate-800 dark:text-white mt-1">{profile.matches_played}</Text>
-              <Text className="text-slate-500 dark:text-slate-400 text-xs mt-1 uppercase tracking-wider font-semibold text-center">Partidos</Text>
+              <Text className="text-slate-500 dark:text-slate-400 text-xs mt-1 uppercase tracking-wider font-semibold text-center">Partidos jugados</Text>
             </View>
 
             {/* Fiabilidad - Cluster rediseñado textualmente */}

@@ -1,24 +1,31 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, Image } from 'react-native';
-import { useLocalSearchParams, Stack } from 'expo-router';
+import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { UserProfile } from '@/types/database';
 import { Ionicons } from '@expo/vector-icons';
 import { ProfileStats } from '@/components/ProfileStats';
+import { isValidUUID, firstParam, isSafeUrl } from '@/lib/utils';
 
 export default function UserProfileScreen() {
-  const { id } = useLocalSearchParams();
+  const params = useLocalSearchParams();
+  const id = firstParam(params.id as string | string[]);
+  const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!isValidUUID(id)) {
+      setLoading(false);
+      return;
+    }
     async function fetchUser() {
       const { data, error } = await supabase
         .from('users')
         .select('*')
         .eq('id', id)
         .single();
-        
+
       if (!error && data) {
         setProfile(data as UserProfile);
       }
@@ -36,10 +43,10 @@ export default function UserProfileScreen() {
       
       {/* Header Profile */}
       <View className="items-center pt-10 pb-6 border-b border-slate-200 dark:border-gray-800">
-        {profile.avatar_url ? (
-          <Image 
-            source={{ uri: `${profile.avatar_url}?t=${Date.now()}` }} 
-            className="w-32 h-32 rounded-full mb-4 border-4 border-green-500/30" 
+        {isSafeUrl(profile.avatar_url) ? (
+          <Image
+            source={{ uri: `${profile.avatar_url}?t=${Date.now()}` }}
+            className="w-32 h-32 rounded-full mb-4 border-4 border-green-500/30"
           />
         ) : (
           <View className="w-32 h-32 rounded-full bg-green-900/50 justify-center items-center mb-4 border-4 border-gray-800">

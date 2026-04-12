@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,10 +20,12 @@ export function PendingReviewsAlert() {
   const router = useRouter();
   const [notifications, setNotifications] = useState<MatchNotification[]>([]);
 
-  useEffect(() => {
-    if (!user) return;
-    fetchNotifications();
-  }, [user]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return;
+      fetchNotifications();
+    }, [user])
+  );
 
   const fetchNotifications = async () => {
     const { data, error } = await supabase

@@ -10,7 +10,7 @@ interface AuthContextValue {
   user: User | null;
   profile: UserProfile | null;
   loading: boolean;
-  signUp: (email: string, password: string, username: string, fullName: string, preferredPosition: string, phone: string) => Promise<{ error: string | null }>;
+  signUp: (email: string, password: string, username: string, fullName: string, preferredPosition: string, phone: string, birthday: string) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -25,7 +25,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId: string) => {
+  const fetchProfile = async (userId: string, authUser?: User) => {
     const { data, error } = await supabase
       .from('users')
       .select('*')
@@ -33,7 +33,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .single();
 
     if (!error && data) {
-      setProfile(data as UserProfile);
+      let profileData = data;
+
+      // Sincronizar foto de Google si el perfil no tiene avatar pero el proveedor sí
+      if (!data.avatar_url && authUser) {
+        const googleAvatar =
+          authUser.user_metadata?.picture ||
+          authUser.user_metadata?.avatar_url ||
+          null;
+
+        if (googleAvatar) {
+          const { error: updateError } = await supabase
+            .from('users')
+            .update({ avatar_url: googleAvatar })
+            .eq('id', userId);
+
+          if (!updateError) {
+            profileData = { ...data, avatar_url: googleAvatar };
+          }
+        }
+      }
+
+      setProfile(profileData as UserProfile);
     }
   };
 
@@ -43,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
-        fetchProfile(session.user.id);
+        fetchProfile(session.user.id, session.user);
       }
       setLoading(false);
     });
@@ -54,7 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
-          await fetchProfile(session.user.id);
+          await fetchProfile(session.user.id, session.user);
         } else {
           setProfile(null);
         }
@@ -65,7 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
-  const signUp = async (email: string, password: string, username: string, fullName: string, preferredPosition: string, phone: string) => {
+  const signUp = async (email: string, password: string, username: string, fullName: string, preferredPosition: string, phone: string, birthday: string) => {
     const { error, data } = await supabase.auth.signUp({
       email,
       password,
@@ -75,6 +96,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           full_name: fullName,
           preferred_position: preferredPosition,
           phone: phone,
+          birthday: birthday,
         },
       },
     });
@@ -93,7 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshProfile = async () => {
     if (user) {
-      await fetchProfile(user.id);
+      await fetchProfile(user.id, user);
     }
   };
 

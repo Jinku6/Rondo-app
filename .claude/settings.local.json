@@ -17,7 +17,8 @@
       "mcp__claude_ai_Supabase__list_projects",
       "Bash(npx expo:*)",
       "Bash(xargs grep:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "mcp__claude_ai_Supabase__list_tables"
     ]
   }
 }

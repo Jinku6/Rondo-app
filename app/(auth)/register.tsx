@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, ActivityIndicator, Alert, ScrollView, Platform, KeyboardAvoidingView, Keyboard, Image } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, ActivityIndicator, Alert, ScrollView, Platform, KeyboardAvoidingView, Keyboard, Image, Modal } from 'react-native';
+import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
@@ -18,6 +19,7 @@ const RegisterSchema = z.object({
   phone: z.string()
     .min(9, 'El teléfono debe tener al menos 9 dígitos')
     .regex(/^\d+$/, 'El teléfono solo puede contener números'),
+  birthday: z.string().min(1, 'La fecha de nacimiento es obligatoria'),
 });
 
 const showAlert = (title: string, message: string, onOk?: () => void) => {
@@ -38,28 +40,34 @@ export default function RegisterScreen() {
   const [fullName, setFullName] = useState('');
   const [preferredPosition, setPreferredPosition] = useState('');
   const [phone, setPhone] = useState('');
-  
+  const [birthday, setBirthday] = useState<Date | null>(null);
+  const [showBirthdayPicker, setShowBirthdayPicker] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [submitted, setSubmitted] = useState(false); // Para resaltar campos vacíos
   const [usernameChecking, setUsernameChecking] = useState(false);
   const [usernameError, setUsernameError] = useState('');
-  
+  const usernameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const { signUp, signInWithGoogle } = useAuth();
   const router = useRouter();
 
-  const checkUsername = async (val: string) => {
+  const checkUsername = (val: string) => {
     setUsername(val);
+    if (usernameDebounceRef.current) clearTimeout(usernameDebounceRef.current);
+
     if (val.length < 3) {
-      setUsernameError('Mínimo 3 caracteres');
+      setUsernameError(val.length > 0 ? 'Mínimo 3 caracteres' : '');
+      setUsernameChecking(false);
       return;
     }
-    
+
     setUsernameChecking(true);
-    const { data } = await supabase.from('users').select('id').eq('username', val.toLowerCase()).maybeSingle();
-    
-    if (data) setUsernameError('El usuario ya está en uso');
-    else setUsernameError('');
-    setUsernameChecking(false);
+    usernameDebounceRef.current = setTimeout(async () => {
+      const { data } = await supabase.from('users').select('id').eq('username', val.toLowerCase()).maybeSingle();
+      setUsernameError(data ? 'El usuario ya está en uso' : '');
+      setUsernameChecking(false);
+    }, 400);
   };
 
   const validatePassword = (pwd: string) => ({
@@ -73,12 +81,17 @@ export default function RegisterScreen() {
   async function handleRegister() {
     setSubmitted(true);
 
+    const birthdayIso = birthday ? birthday.toISOString().split('T')[0] : '';
+
     try {
       RegisterSchema.parse({
+        fullName,
+        username,
         preferredPosition,
         email,
         password,
-        phone
+        phone,
+        birthday: birthdayIso,
       });
     } catch (err: any) {
       if (err instanceof z.ZodError) {
@@ -102,7 +115,7 @@ export default function RegisterScreen() {
       return;
     }
 
-    const { error } = await signUp(email, password, username.toLowerCase(), fullName, preferredPosition, phone);
+    const { error } = await signUp(email, password, username.toLowerCase(), fullName, preferredPosition, phone, birthdayIso);
     setLoading(false);
 
     if (error) {
@@ -221,6 +234,66 @@ export default function RegisterScreen() {
               <Text className="text-slate-400 text-[10px] mt-1 italic">
                 Solo visible para el organizador del partido.
               </Text>
+            </View>
+
+            {/* Fecha de Nacimiento */}
+            <View>
+              <Text className={`font-medium mb-1 ${submitted && !birthday ? 'text-red-500' : 'text-slate-700 dark:text-slate-300'}`}>
+                Fecha de Nacimiento {submitted && !birthday && '*'}
+              </Text>
+              <TouchableOpacity
+                className={`w-full bg-slate-50 dark:bg-gray-900 border ${submitted && !birthday ? 'border-red-500' : 'border-slate-200 dark:border-gray-800'} rounded-lg p-3 flex-row items-center`}
+                onPress={() => setShowBirthdayPicker(true)}
+              >
+                <Ionicons name="calendar-outline" size={18} color={birthday ? '#22C55E' : '#9ca3af'} style={{ marginRight: 8 }} />
+                <Text className={birthday ? 'text-slate-900 dark:text-white' : 'text-gray-400'}>
+                  {birthday
+                    ? birthday.toLocaleDateString('es-ES', { day: 'numeric', month: 'long', year: 'numeric' })
+                    : 'Selecciona tu fecha de nacimiento'}
+                </Text>
+              </TouchableOpacity>
+
+              {/* Picker Android */}
+              {Platform.OS === 'android' && showBirthdayPicker && (
+                <DateTimePicker
+                  value={birthday ?? new Date(2000, 0, 1)}
+                  mode="date"
+                  display="default"
+                  maximumDate={new Date(new Date().getFullYear() - 14, 11, 31)}
+                  onChange={(_: DateTimePickerEvent, date?: Date) => {
+                    setShowBirthdayPicker(false);
+                    if (date) setBirthday(date);
+                  }}
+                />
+              )}
+
+              {/* Picker iOS */}
+              {Platform.OS === 'ios' && (
+                <Modal transparent animationType="slide" visible={showBirthdayPicker}>
+                  <View className="flex-1 justify-end bg-black/60">
+                    <View className="bg-white dark:bg-gray-900 pb-10 pt-4 px-6 rounded-t-3xl">
+                      <View className="flex-row justify-between mb-4 border-b border-gray-100 dark:border-gray-800 pb-2">
+                        <TouchableOpacity onPress={() => setShowBirthdayPicker(false)}>
+                          <Text className="text-red-500 font-medium text-lg">Cancelar</Text>
+                        </TouchableOpacity>
+                        <Text className="text-slate-800 dark:text-slate-100 font-bold text-lg">Fecha de nacimiento</Text>
+                        <TouchableOpacity onPress={() => setShowBirthdayPicker(false)}>
+                          <Text className="text-green-500 font-bold text-lg">Confirmar</Text>
+                        </TouchableOpacity>
+                      </View>
+                      <DateTimePicker
+                        value={birthday ?? new Date(2000, 0, 1)}
+                        mode="date"
+                        display="spinner"
+                        maximumDate={new Date(new Date().getFullYear() - 14, 11, 31)}
+                        onChange={(_: DateTimePickerEvent, date?: Date) => {
+                          if (date) setBirthday(date);
+                        }}
+                      />
+                    </View>
+                  </View>
+                </Modal>
+              )}
             </View>
 
             {/* Email */}

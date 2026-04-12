@@ -22,6 +22,7 @@ export interface UserProfile {
   reliability_score: number;
   average_level: number;
   average_attitude: number;
+  birthday: string | null; // ISO date string YYYY-MM-DD
   created_at: string;
 }
 

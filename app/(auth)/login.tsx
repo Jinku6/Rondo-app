@@ -60,7 +60,6 @@ export default function LoginScreen() {
     setLoading(false);
 
     if (error) {
-      console.error("Error iniciar sesión:", error);
       showAlert('Error', translateError(error));
     } else {
       router.replace('/(tabs)');

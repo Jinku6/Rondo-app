@@ -5,6 +5,9 @@ import { Match } from '@/types/database';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { EmptyState } from '@/components/ui/empty-state';
+import { isValidCoords, firstParam } from '@/lib/utils';
+
+const VALID_POSITIONS = new Set(['cualquiera', 'portero', 'defensa', 'mediocentro', 'delantero']);
 
 export default function SearchResultsScreen() {
   const { lat, lng, ciudad, date, position, dateRange } = useLocalSearchParams();
@@ -14,16 +17,25 @@ export default function SearchResultsScreen() {
   const router = useRouter();
 
   async function fetchMatches() {
-    // Si hay coordenadas de ciudad, primero obtenemos los IDs cercanos (radio 30km)
+    // Validar y parsear lat/lng — rechazar si están fuera de rango geográfico
     let nearbyIds: string[] | null = null;
-    if (lat && lng && typeof lat === 'string' && typeof lng === 'string') {
+    const latStr = firstParam(lat as string | string[]);
+    const lngStr = firstParam(lng as string | string[]);
+    if (latStr && lngStr) {
+      const parsedLat = parseFloat(latStr);
+      const parsedLng = parseFloat(lngStr);
+      if (!isValidCoords(parsedLat, parsedLng)) {
+        setMatches([]);
+        setLoading(false);
+        setRefreshing(false);
+        return;
+      }
       const { data: rpcData } = await supabase.rpc('partidos_cerca', {
-        lat: parseFloat(lat),
-        lng: parseFloat(lng),
+        lat: parsedLat,
+        lng: parsedLng,
         radio_km: 30,
       });
       nearbyIds = (rpcData || []).map((r: { id: string }) => r.id);
-      // Si no hay partidos cercanos, devolvemos vacío directamente
       if (nearbyIds.length === 0) {
         setMatches([]);
         setLoading(false);
@@ -42,34 +54,59 @@ export default function SearchResultsScreen() {
       query = query.in('id', nearbyIds);
     }
 
-    if (dateRange === 'this_week') {
+    const dateRangeStr = firstParam(dateRange as string | string[]);
+    const dateStr = firstParam(date as string | string[]);
+
+    if (dateRangeStr === 'this_week') {
       const startOfTarget = new Date();
       const endOfTarget = new Date();
-      const currentDay = endOfTarget.getDay(); // 0 es Domingo
+      const currentDay = endOfTarget.getDay();
       const daysUntilSunday = currentDay === 0 ? 0 : 7 - currentDay;
       endOfTarget.setDate(endOfTarget.getDate() + daysUntilSunday);
       endOfTarget.setHours(23, 59, 59, 999);
-      
       query = query
         .gte('date_time', startOfTarget.toISOString())
         .lte('date_time', endOfTarget.toISOString());
-    } else if (date && typeof date === 'string') {
+    } else if (dateStr) {
       const startOfTarget = new Date();
       startOfTarget.setHours(0, 0, 0, 0);
-      let endOfTarget = new Date();
+      const endOfTarget = new Date();
       endOfTarget.setHours(23, 59, 59, 999);
 
-      if (date !== 'today') {
-        const [day, month, year] = date.split('/');
-        if (day && month && year) {
-          startOfTarget.setFullYear(parseInt(year), parseInt(month) - 1, parseInt(day));
-          endOfTarget.setFullYear(parseInt(year), parseInt(month) - 1, parseInt(day));
+      if (dateStr !== 'today') {
+        // Validar formato DD/MM/YYYY estrictamente antes de parsear
+        const dateMatch = dateStr.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        if (dateMatch) {
+          const day = parseInt(dateMatch[1], 10);
+          const month = parseInt(dateMatch[2], 10) - 1;
+          const year = parseInt(dateMatch[3], 10);
+          // Validar que los valores produzcan una fecha real
+          const candidate = new Date(year, month, day);
+          if (
+            !isNaN(candidate.getTime()) &&
+            candidate.getDate() === day &&
+            candidate.getMonth() === month &&
+            candidate.getFullYear() === year
+          ) {
+            startOfTarget.setFullYear(year, month, day);
+            endOfTarget.setFullYear(year, month, day);
+          } else {
+            // Fecha inválida — mostrar vacío en lugar de crashear
+            setMatches([]);
+            setLoading(false);
+            setRefreshing(false);
+            return;
+          }
+        } else {
+          setMatches([]);
+          setLoading(false);
+          setRefreshing(false);
+          return;
         }
       }
-      
+
       const now = new Date();
       const filterStart = startOfTarget < now ? now : startOfTarget;
-      
       query = query
         .gte('date_time', filterStart.toISOString())
         .lte('date_time', endOfTarget.toISOString());
@@ -82,11 +119,9 @@ export default function SearchResultsScreen() {
     if (!error && data) {
       let filteredData = data as Match[];
 
-      const targetPosition = Array.isArray(position) ? position[0] : position;
-
-      // Note: We leave the position filter here active as per instructions.
-      // But we removed explicit positions requirement inside DB logic.
-      if (targetPosition && targetPosition !== 'cualquiera') {
+      // Allowlist de posiciones válidas — rechazar valores no conocidos
+      const targetPosition = firstParam(position as string | string[]);
+      if (targetPosition && VALID_POSITIONS.has(targetPosition) && targetPosition !== 'cualquiera') {
         filteredData = filteredData.filter(m => {
           if (!m.requested_positions) return false;
           const rq = m.requested_positions as any;
@@ -175,7 +210,7 @@ export default function SearchResultsScreen() {
 
   return (
     <View className="flex-1 bg-slate-50 dark:bg-neutral-950">
-      <Stack.Screen options={{ title: ciudad ? `Partidos en ${ciudad}` : 'Resultados de búsqueda' }} />
+      <Stack.Screen options={{ title: ciudad ? `Partidos en ${firstParam(ciudad as string | string[]).slice(0, 50)}` : 'Resultados de búsqueda' }} />
       {loading ? (
         <View className="flex-1 justify-center items-center"><ActivityIndicator size="large" /></View>
       ) : (

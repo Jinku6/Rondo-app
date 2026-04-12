@@ -9,11 +9,18 @@ import {
   ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView,
   Platform, Text, TextInput, TouchableOpacity, View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { isSafeUrl } from '@/lib/utils';
 
 export default function ChatScreen() {
   const { match_id, player_id } = useLocalSearchParams();
   const { user } = useAuth();
   const router = useRouter();
+
+  const insets = useSafeAreaInsets();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState('');
@@ -41,6 +48,22 @@ export default function ChatScreen() {
       markMessagesAsRead();
     }, [markMessagesAsRead])
   );
+
+  const fetchMessages = async () => {
+    const { data, error } = await supabase
+      .from('chat_messages')
+      .select('*')
+      .eq('match_id', match_id)
+      .eq('player_id', player_id)
+      .order('created_at', { ascending: true });
+
+    if (error) {
+      console.error('Error fetching messages:', error);
+    } else if (data) {
+      setMessages(data as ChatMessage[]);
+    }
+    setLoading(false);
+  };
 
   useEffect(() => {
     if (!user || !match_id || !player_id) return;
@@ -102,27 +125,6 @@ export default function ChatScreen() {
     return () => { supabase.removeChannel(channel); };
   }, [user, match_id, player_id]);
 
-  const fetchMessages = async () => {
-    const { data, error } = await supabase
-      .from('chat_messages')
-      .select('*')
-      .eq('match_id', match_id)
-      .eq('player_id', player_id)
-      .order('created_at', { ascending: true });
-
-    if (error) {
-      console.error('Error fetching messages:', error);
-    } else if (data) {
-      setMessages(data as ChatMessage[]);
-      // Mark as read immediately after loading — don't wait for useFocusEffect round trip
-      if (user) {
-        const unread = data.filter(m => !m.is_read && m.sender_id !== user.id);
-        if (unread.length > 0) await markMessagesAsRead();
-      }
-    }
-    setLoading(false);
-  };
-
   const handleSend = async () => {
     if (!inputText.trim() || !user || !match_id || !player_id || sending) return;
     const processedText = processMessageText(inputText);
@@ -174,7 +176,7 @@ export default function ChatScreen() {
           activeOpacity={0.7}
           onPress={() => router.push(`/user/${otherUser.id}` as any)}
         >
-          {otherUser.avatar_url ? (
+          {isSafeUrl(otherUser.avatar_url) ? (
             <Image
               source={{ uri: `${otherUser.avatar_url}?t=${Date.now()}` }}
               style={{ width: 36, height: 36, borderRadius: 18, flexShrink: 0 }}
@@ -187,7 +189,7 @@ export default function ChatScreen() {
             </View>
           )}
           <View style={{ marginLeft: 8, flex: 1, minWidth: 0 }}>
-            <Text style={{ fontWeight: 'bold', fontSize: 14, color: undefined, lineHeight: 18 }} numberOfLines={1}>
+            <Text style={{ fontWeight: 'bold', fontSize: 14, color: isDark ? '#ffffff' : '#0f172a', lineHeight: 18 }} numberOfLines={1}>
               {otherUser.full_name}
             </Text>
             {otherUser.username && (
@@ -203,7 +205,7 @@ export default function ChatScreen() {
           <TouchableOpacity
             onPress={() => router.push(`/match/${matchDetails.id}` as any)}
             activeOpacity={0.7}
-            style={{ backgroundColor: '#f0fdf4', borderColor: '#bbf7d0', borderWidth: 1, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 5, alignItems: 'center', flexShrink: 0, maxWidth: 100 }}
+            style={{ backgroundColor: '#f0fdf4', borderColor: '#bbf7d0', borderWidth: 1, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 5, alignItems: 'center', flexShrink: 0, maxWidth: 130 }}
           >
             <Ionicons name="football-outline" size={11} color="#16a34a" />
             <Text style={{ color: '#15803d', fontSize: 10, fontWeight: 'bold', marginTop: 2, textAlign: 'center' }} numberOfLines={1}>
@@ -280,7 +282,10 @@ export default function ChatScreen() {
             }
           />
 
-          <View className="px-3 pt-2 pb-6 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 flex-row items-end">
+          <View
+            className="px-3 pt-2 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-800 flex-row items-end"
+            style={{ paddingBottom: Math.max(insets.bottom, 16) }}
+          >
             <TextInput
               className="flex-1 bg-slate-100 dark:bg-gray-800 text-slate-900 dark:text-white px-4 py-2.5 rounded-2xl mr-2 max-h-28"
               placeholder="Escribe un mensaje..."

@@ -8,6 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { PendingReviewsAlert } from '@/components/PendingReviewsAlert';
 import { decode } from 'base64-arraybuffer';
 import { ProfileStats } from '@/components/ProfileStats';
+import { calculateAge, isSafeUrl } from '@/lib/utils';
 
 const POSITIONS = ['portero', 'defensa', 'mediocentro', 'delantero'];
 
@@ -170,13 +171,22 @@ export default function ProfileScreen() {
       'Esta acción es permanente y no se puede deshacer. Se borrarán todos tus datos, partidos y valoraciones. ¿Estás seguro?',
       [
         { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: 'Eliminar', 
+        {
+          text: 'Eliminar',
           style: 'destructive',
           onPress: async () => {
             try {
-              // Delete user profile (cascade will handle related data)
-              await supabase.from('users').delete().eq('id', user.id);
+              // Borra el perfil público (cascade elimina datos relacionados)
+              const { error: profileError } = await supabase.from('users').delete().eq('id', user.id);
+              if (profileError) throw profileError;
+
+              // Borra la cuenta de auth mediante RPC (requiere función delete_own_account en Supabase)
+              const { error: authError } = await supabase.rpc('delete_own_account');
+              if (authError) {
+                // Si la RPC no existe, al menos cerramos sesión — el perfil ya fue borrado
+                console.warn('delete_own_account RPC no disponible:', authError.message);
+              }
+
               await signOut();
             } catch (e: any) {
               showAlert('Error', e.message);
@@ -188,6 +198,7 @@ export default function ProfileScreen() {
   };
 
   const startEditing = () => {
+    if (loadingPhone) return; // evitar edición mientras el teléfono aún carga
     setFullName(profile.full_name || '');
     setUsername(profile.username || '');
     setPreferredPosition(profile.preferred_position || '');
@@ -204,10 +215,10 @@ export default function ProfileScreen() {
         
         {/* Avatar */}
         <View className="relative">
-          {profile.avatar_url ? (
-            <Image 
-              source={{ uri: profile.avatar_url }} 
-              className="w-28 h-28 rounded-full mb-4 border-4 border-green-100 dark:border-gray-800" 
+          {isSafeUrl(profile.avatar_url) ? (
+            <Image
+              source={{ uri: profile.avatar_url }}
+              className="w-28 h-28 rounded-full mb-4 border-4 border-green-100 dark:border-gray-800"
             />
           ) : (
             <View className="w-28 h-28 rounded-full bg-green-100 dark:bg-green-900 justify-center items-center mb-4 border-4 border-white dark:border-gray-900">
@@ -232,19 +243,32 @@ export default function ProfileScreen() {
             <Text className="text-slate-500 dark:text-slate-400 mb-2">@{profile.username}</Text>
             <Text className="text-slate-400 dark:text-slate-500 text-xs mb-4">{user.email}</Text>
 
-            {profile.preferred_position && (
-              <View className="bg-green-50 dark:bg-green-900/30 px-4 py-2 rounded-full mb-6 border border-green-200 dark:border-green-800">
-                <Text className="text-green-700 dark:text-green-300 font-medium capitalize">
-                  {profile.preferred_position}
-                </Text>
-              </View>
-            )}
+            <View className="flex-row gap-2 mb-6 flex-wrap justify-center">
+              {(() => { const age = calculateAge(profile.birthday); return age !== null ? (
+                <View className="bg-blue-50 dark:bg-blue-900/30 px-4 py-2 rounded-full border border-blue-200 dark:border-blue-800">
+                  <Text className="text-blue-700 dark:text-blue-300 font-medium">
+                    {age} años
+                  </Text>
+                </View>
+              ) : null; })()}
+              {profile.preferred_position && (
+                <View className="bg-green-50 dark:bg-green-900/30 px-4 py-2 rounded-full border border-green-200 dark:border-green-800">
+                  <Text className="text-green-700 dark:text-green-300 font-medium capitalize">
+                    {profile.preferred_position}
+                  </Text>
+                </View>
+              )}
+            </View>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               className="px-6 py-2 bg-slate-100 dark:bg-slate-700 rounded-full"
               onPress={startEditing}
+              disabled={loadingPhone}
             >
-              <Text className="text-slate-800 dark:text-slate-200 font-medium">Editar Perfil</Text>
+              {loadingPhone
+                ? <ActivityIndicator size="small" color="#64748b" />
+                : <Text className="text-slate-800 dark:text-slate-200 font-medium">Editar Perfil</Text>
+              }
             </TouchableOpacity>
           </>
         ) : (

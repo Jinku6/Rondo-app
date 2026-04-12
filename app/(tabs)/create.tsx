@@ -11,6 +11,7 @@ import type { MatchLevel, PositionKey } from '@/types/database';
 import { containsProfanity } from '@/lib/profanityFilter';
 import { UbicacionInput } from '@/components/UbicacionInput';
 import type { GeoResult } from '@/lib/geocoding';
+import { isValidHexColor } from '@/lib/utils';
 
 const CreateMatchSchema = z.object({
   title: z.string().min(3, 'El título debe tener al menos 3 caracteres'),
@@ -190,6 +191,11 @@ export default function CreateMatchScreen() {
       return;
     }
 
+    if (!isValidHexColor(teamAColor) || !isValidHexColor(teamBColor)) {
+      Alert.alert('Color inválido', 'Los colores de equipo deben ser valores hexadecimales válidos.');
+      return;
+    }
+
     setLoading(true);
     try {
       const { data, error } = await supabase
@@ -233,7 +239,6 @@ export default function CreateMatchScreen() {
       setPositions({ portero: 0, defensa: 0, mediocentro: 0, delantero: 0, cualquiera: 0 });
 
     } catch (e: any) {
-      console.error(e);
       Alert.alert('Error al crear el partido', e.message);
     } finally {
       setLoading(false);

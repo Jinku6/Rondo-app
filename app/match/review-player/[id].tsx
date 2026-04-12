@@ -129,8 +129,9 @@ export default function ReviewPlayerScreen() {
         .eq('match_id', id)
         .eq('type', 'pending_player_review');
 
-      Alert.alert('¡Gracias!', 'Has valorado a todos los participantes.');
-      router.replace('/(tabs)');
+      Alert.alert('¡Gracias!', 'Has valorado a todos los participantes.', [
+        { text: 'Aceptar', onPress: () => router.replace('/(tabs)') },
+      ]);
     } catch (error: any) {
       Alert.alert('Error', error.message);
     } finally {

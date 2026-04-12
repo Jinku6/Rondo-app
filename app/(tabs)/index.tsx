@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Platform, Image, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Platform, Image, Modal, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -26,26 +26,32 @@ export default function SearchScreen() {
   // Obtener ubicación GPS al montar la pantalla
   useEffect(() => {
     (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      const resultado = await reverseGeocodeCiudad(loc.coords.latitude, loc.coords.longitude);
-      if (resultado) {
-        setCiudadLabel(resultado.ciudad);
-        setCiudadLat(resultado.lat);
-        setCiudadLng(resultado.lng);
-        setCiudadPreset(resultado);
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') return;
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        const resultado = await reverseGeocodeCiudad(loc.coords.latitude, loc.coords.longitude);
+        if (resultado) {
+          setCiudadLabel(resultado.ciudad);
+          setCiudadLat(resultado.lat);
+          setCiudadLng(resultado.lng);
+          setCiudadPreset(resultado);
+        }
+      } catch {
+        // Permiso denegado o error de GPS — el campo queda disponible para entrada manual
       }
     })();
   }, []);
 
   const handleSearch = (presetDate?: Date) => {
-    let params: any = {};
-    if (ciudadLat && ciudadLng) {
-      params.lat = String(ciudadLat);
-      params.lng = String(ciudadLng);
-      params.ciudad = ciudadLabel;
+    if (!ciudadLat || !ciudadLng) {
+      Alert.alert('Ubicación requerida', 'Selecciona una ciudad para buscar partidos.');
+      return;
     }
+    let params: any = {};
+    params.lat = String(ciudadLat);
+    params.lng = String(ciudadLng);
+    params.ciudad = ciudadLabel;
     if (position !== 'cualquiera') params.position = position;
 
     const targetDate = presetDate || searchDate;
@@ -58,10 +64,13 @@ export default function SearchScreen() {
   };
 
   const handleQuickAction = (daysToAdd: number, toEndOfWeek: boolean = false) => {
+    if (!ciudadLat || !ciudadLng) {
+      Alert.alert('Ubicación requerida', 'Selecciona una ciudad para buscar partidos.');
+      return;
+    }
     const today = new Date();
     if (toEndOfWeek) {
-      let params: any = { dateRange: 'this_week' };
-      if (ciudadLat && ciudadLng) { params.lat = String(ciudadLat); params.lng = String(ciudadLng); params.ciudad = ciudadLabel; }
+      const params: any = { dateRange: 'this_week', lat: String(ciudadLat), lng: String(ciudadLng), ciudad: ciudadLabel };
       if (position !== 'cualquiera') params.position = position;
       router.push({ pathname: '/search/results', params });
     } else {

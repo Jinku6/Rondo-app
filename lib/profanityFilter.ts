@@ -8,37 +8,41 @@ const BAD_WORDS = [
   'subnormal', 'maricon', 'maricón', 'joder', 'concha', 'coño', 'pene',
   'verga', 'polla', 'follar', 'putita', 'putazo', 'idiota', 'imbecil',
   'imbécil', 'estupido', 'estúpido', 'retardado', 'pija', 'pajero',
-  'nazi', 'hitler', 'puto el que lo lea', 'puto el que lea esto', 'puto el que lea esto',
+  'nazi', 'hitler', 'puto el que lo lea', 'puto el que lea esto',
 ];
+
+// Escapa caracteres especiales de regex para evitar ReDoS si las palabras
+// contuviesen caracteres como '.', '*', '+', '(', ')', etc.
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Normaliza texto: minúsculas y sin tildes para comparación uniforme
+function normalize(text: string): string {
+  return text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+// Regexes precompiladas una sola vez al cargar el módulo (evita recompilación en cada llamada)
+const BAD_WORD_REGEXES: RegExp[] = BAD_WORDS.map(
+  word => new RegExp(`\\b${escapeRegex(normalize(word))}\\b`, 'i')
+);
 
 export const containsProfanity = (text: string): boolean => {
   if (!text) return false;
-
-  // Normalize text to lowercase and remove accents for stricter checking
-  const normalizedText = text.toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-
-  // Check if any bad word is included as a distinct word
-  // Using word boundary (\b) so "computadora" doesn't trigger "puta"
-  for (const word of BAD_WORDS) {
-    const regex = new RegExp(`\\b${word}\\b`, 'i');
-    if (regex.test(normalizedText)) {
-      return true;
-    }
-  }
-
-  return false;
+  const normalizedText = normalize(text);
+  return BAD_WORD_REGEXES.some(regex => regex.test(normalizedText));
 };
 
 export const sanitizeText = (text: string): string => {
   if (!text) return text;
+  const normalizedText = normalize(text);
   let sanitized = text;
-
-  BAD_WORDS.forEach(word => {
-    const regex = new RegExp(`\\b${word}\\b`, 'ig');
-    sanitized = sanitized.replace(regex, '***');
+  BAD_WORD_REGEXES.forEach((regex, i) => {
+    if (regex.test(normalizedText)) {
+      // Reemplazar en el texto original (no el normalizado) para preservar formato
+      const originalWordRegex = new RegExp(`\\b${escapeRegex(BAD_WORDS[i])}\\b`, 'ig');
+      sanitized = sanitized.replace(originalWordRegex, '***');
+    }
   });
-
   return sanitized;
 };

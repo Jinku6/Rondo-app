@@ -107,8 +107,9 @@ export default function ReviewOrganizerScreen() {
         .eq('match_id', id)
         .eq('type', 'pending_organizer_review');
 
-      Alert.alert('Éxito', 'Valoraciones guardadas correctamente');
-      router.replace('/(tabs)');
+      Alert.alert('Éxito', 'Valoraciones guardadas correctamente', [
+        { text: 'Aceptar', onPress: () => router.replace('/(tabs)') },
+      ]);
     } catch (error: any) {
       Alert.alert('Error', error.message);
     } finally {

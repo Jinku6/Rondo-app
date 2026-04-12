@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import { isValidUUID, firstParam, isSafeUrl } from '@/lib/utils';
 
 interface ReviewSetup {
   reviewee_id: string;
@@ -15,7 +16,8 @@ interface ReviewSetup {
 }
 
 export default function ReviewCarouselScreen() {
-  const { id } = useLocalSearchParams();
+  const params = useLocalSearchParams();
+  const id = firstParam(params.id as string | string[]);
   const { user } = useAuth();
   const router = useRouter();
 
@@ -42,6 +44,11 @@ export default function ReviewCarouselScreen() {
 
   const fetchMatchAndParticipants = async () => {
     if (!user) return;
+    if (!isValidUUID(id)) {
+      Alert.alert('Error', 'Partido no válido');
+      router.back();
+      return;
+    }
 
     // Fetch match
     const { data: matchData, error: matchError } = await supabase
@@ -55,6 +62,23 @@ export default function ReviewCarouselScreen() {
       router.back();
       return;
     }
+
+    // Guard: solo el organizador o un participante aprobado puede acceder a la pantalla de valoraciones
+    const isOrganizer = matchData.organizer_id === user.id;
+    const { data: myParticipation } = await supabase
+      .from('match_participants')
+      .select('status')
+      .eq('match_id', id)
+      .eq('user_id', user.id)
+      .maybeSingle();
+    const isParticipant = myParticipation?.status === 'joined' || myParticipation?.status === 'approved';
+
+    if (!isOrganizer && !isParticipant) {
+      Alert.alert('Acceso denegado', 'No participaste en este partido.');
+      router.back();
+      return;
+    }
+
     setMatch(matchData);
 
     // Fetch participants
@@ -102,8 +126,9 @@ export default function ReviewCarouselScreen() {
     if (toReview.length === 0) {
       // Nothing to review, clear notification
       await clearNotification();
-      Alert.alert('Aviso', 'No hay otros jugadores para valorar en este partido.');
-      router.replace('/(tabs)');
+      Alert.alert('Aviso', 'No hay otros jugadores para valorar en este partido.', [
+        { text: 'Aceptar', onPress: () => router.replace('/(tabs)') },
+      ]);
       return;
     }
 
@@ -178,8 +203,9 @@ export default function ReviewCarouselScreen() {
         if (error) throw error;
         
         await clearNotification();
-        Alert.alert('¡Gracias!', 'Has enviado todas tus valoraciones.');
-        router.replace('/(tabs)');
+        Alert.alert('¡Gracias!', 'Has enviado todas tus valoraciones.', [
+          { text: 'Aceptar', onPress: () => router.replace('/(tabs)') },
+        ]);
       } catch (error: any) {
         Alert.alert('Error al guardar', error.message);
       } finally {
@@ -228,7 +254,7 @@ export default function ReviewCarouselScreen() {
           
           {/* Header del Jugador */}
           <View className="flex-row items-center mb-6 border-b border-gray-800 pb-4">
-            {current.avatar_url ? (
+            {isSafeUrl(current.avatar_url) ? (
               <Image source={{ uri: current.avatar_url }} className="w-14 h-14 rounded-full mr-4 bg-gray-800" />
             ) : (
               <View className="w-14 h-14 rounded-full bg-slate-800 justify-center items-center mr-4">
