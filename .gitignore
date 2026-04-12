@@ -45,3 +45,6 @@ app-example
 
 # Agents
 .agents/
+
+# Supabase
+supabase/*.html

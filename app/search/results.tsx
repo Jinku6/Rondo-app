@@ -36,7 +36,7 @@ export default function SearchResultsScreen() {
         radio_km: 30,
       });
       nearbyIds = (rpcData || []).map((r: { id: string }) => r.id);
-      if (nearbyIds.length === 0) {
+      if (!nearbyIds || nearbyIds.length === 0) {
         setMatches([]);
         setLoading(false);
         setRefreshing(false);

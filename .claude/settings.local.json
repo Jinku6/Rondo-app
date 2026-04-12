@@ -18,7 +18,9 @@
       "Bash(npx expo:*)",
       "Bash(xargs grep:*)",
       "Bash(npx tsc:*)",
-      "mcp__claude_ai_Supabase__list_tables"
+      "mcp__claude_ai_Supabase__list_tables",
+      "Read(//c/Users/ezesc/**)",
+      "Bash(supabase --version)"
     ]
   }
 }

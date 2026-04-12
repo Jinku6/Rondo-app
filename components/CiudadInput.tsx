@@ -22,7 +22,7 @@ export function CiudadInput({ value, onSelect, onClear, presetResult }: Props) {
   const [resultados, setResultados] = useState<GeoResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [bloqueado, setBloqueado] = useState(!!value);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // Cuando el padre inyecta un resultado GPS, actualizamos el estado interno
   useEffect(() => {

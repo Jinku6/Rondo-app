@@ -26,7 +26,7 @@ export function UbicacionInput({
   const [resultados, setResultados] = useState<GeoResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [seleccionado, setSeleccionado] = useState<GeoResult | null>(null);
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const handleChange = useCallback(
     (text: string) => {
