@@ -13,6 +13,18 @@ export default function TabLayout() {
   const { user } = useAuth();
 
   const [badgeCount, setBadgeCount] = useState<number | undefined>(undefined);
+  const [matchesBadgeCount, setMatchesBadgeCount] = useState<number | undefined>(undefined);
+
+  const fetchMatchesBadge = async () => {
+    if (!user) { setMatchesBadgeCount(undefined); return; }
+    const { data } = await supabase
+      .from('match_participants')
+      .select('id, matches!inner(organizer_id)')
+      .eq('status', 'pending')
+      .eq('matches.organizer_id', user.id);
+    const count = data?.length ?? 0;
+    setMatchesBadgeCount(count > 0 ? count : undefined);
+  };
 
   const fetchBadgeCount = async () => {
     if (!user) {
@@ -37,6 +49,7 @@ export default function TabLayout() {
 
   useEffect(() => {
     fetchBadgeCount();
+    fetchMatchesBadge();
 
     if (!user) return;
 
@@ -51,6 +64,12 @@ export default function TabLayout() {
       }, () => fetchBadgeCount())
       .subscribe();
 
+    // Subscribe to match_participants changes (join requests)
+    const matchSub = supabase
+      .channel('tab-badge-matches')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'match_participants' }, () => fetchMatchesBadge())
+      .subscribe();
+
     // Subscribe to chat_messages INSERT and UPDATE (is_read changes)
     const chatSub = supabase
       .channel('tab-badge-chats')
@@ -60,6 +79,7 @@ export default function TabLayout() {
 
     return () => {
       notifSub.unsubscribe();
+      matchSub.unsubscribe();
       chatSub.unsubscribe();
     };
   }, [user]);
@@ -98,6 +118,7 @@ export default function TabLayout() {
         options={{
           title: 'Mis partidos',
           tabBarIcon: ({ color }) => <Ionicons name="calendar-outline" size={24} color={color} />,
+          tabBarBadge: matchesBadgeCount,
         }}
       />
       <Tabs.Screen

@@ -112,11 +112,6 @@ export default function SearchScreen() {
         </Text>
       </View>
 
-      {/* Alertas de valoraciones pendientes */}
-      <View className="px-4">
-        <PendingReviewsAlert />
-      </View>
-
       {/* Formulario Buscador Azul Flotante */}
       <View className="mx-4 bg-white dark:bg-gray-900 rounded-2xl p-5 border border-slate-200 dark:border-green-500/30 shadow-sm">
         
@@ -236,6 +231,11 @@ export default function SearchScreen() {
         >
           <Text className="text-white font-bold text-xl">Buscar Partidos</Text>
         </TouchableOpacity>
+      </View>
+
+      {/* Alertas de valoraciones pendientes */}
+      <View className="px-4 mt-4">
+        <PendingReviewsAlert />
       </View>
 
       {/* Banner promocional debajo */}

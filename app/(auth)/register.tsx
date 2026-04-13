@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import { View, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, ActivityIndicator, Alert, ScrollView, Platform, KeyboardAvoidingView, Keyboard, Image, Modal } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useAuth } from '@/contexts/AuthContext';
@@ -6,6 +6,9 @@ import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { z } from 'zod';
+import ConfirmHcaptcha from '@hcaptcha/react-native-hcaptcha';
+
+const HCAPTCHA_SITE_KEY = process.env.EXPO_PUBLIC_HCAPTCHA_SITE_KEY ?? '';
 
 const RegisterSchema = z.object({
   fullName: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
@@ -48,6 +51,8 @@ export default function RegisterScreen() {
   const [usernameChecking, setUsernameChecking] = useState(false);
   const [usernameError, setUsernameError] = useState('');
   const usernameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const captchaRef = useRef<ConfirmHcaptcha>(null);
+  const pendingRegisterRef = useRef(false);
 
   const { signUp, signInWithGoogle } = useAuth();
   const router = useRouter();
@@ -78,36 +83,28 @@ export default function RegisterScreen() {
 
   const isFieldError = (value: string) => submitted && !value.trim();
 
-  async function handleRegister() {
+  const validateForm = useCallback(() => {
     setSubmitted(true);
-
     const birthdayIso = birthday ? birthday.toISOString().split('T')[0] : '';
-
     try {
-      RegisterSchema.parse({
-        fullName,
-        username,
-        preferredPosition,
-        email,
-        password,
-        phone,
-        birthday: birthdayIso,
-      });
+      RegisterSchema.parse({ fullName, username, preferredPosition, email, password, phone, birthday: birthdayIso });
     } catch (err: any) {
       if (err instanceof z.ZodError) {
         showAlert('Error de validación', err.issues[0].message);
-        return;
+        return false;
       }
     }
-
     if (usernameError) {
       showAlert('Error', 'Corrige el nombre de usuario');
-      return;
+      return false;
     }
+    return true;
+  }, [birthday, fullName, username, preferredPosition, email, password, phone, usernameError]);
 
+  const doRegister = useCallback(async (captchaToken: string) => {
     setLoading(true);
-    
-    // #3 Validar pre-existencia de email
+    const birthdayIso = birthday ? birthday.toISOString().split('T')[0] : '';
+
     const { data: emailExists } = await supabase.rpc('email_exists', { search_email: email.toLowerCase() });
     if (emailExists) {
       setLoading(false);
@@ -115,20 +112,43 @@ export default function RegisterScreen() {
       return;
     }
 
-    const { error } = await signUp(email, password, username.toLowerCase(), fullName, preferredPosition, phone, birthdayIso);
+    const { error } = await signUp(email, password, username.toLowerCase(), fullName, preferredPosition, phone, birthdayIso, captchaToken);
     setLoading(false);
 
     if (error) {
       console.error("Error de registro:", error);
       showAlert('Error de registro', error);
     } else {
-      // #3: Mensaje de confirmación de email
       showAlert(
-        '¡Registro exitoso!', 
+        '¡Registro exitoso!',
         'Te hemos enviado un email de confirmación. Revisa tu bandeja de entrada y confirma tu cuenta antes de iniciar sesión.',
         () => router.replace('/(auth)/login')
       );
     }
+  }, [birthday, email, password, username, fullName, preferredPosition, phone, signUp, router]);
+
+  const handleCaptchaMessage = useCallback((event: any) => {
+    const data = event?.nativeEvent?.data;
+    if (!pendingRegisterRef.current) return;
+
+    if (!data || data === 'error' || data === 'expired') {
+      pendingRegisterRef.current = false;
+      showAlert('Error de verificación', 'No se pudo verificar el captcha. Inténtalo de nuevo.');
+      return;
+    }
+    if (data === 'cancel') {
+      pendingRegisterRef.current = false;
+      return;
+    }
+    // data es el token
+    pendingRegisterRef.current = false;
+    doRegister(data);
+  }, [doRegister]);
+
+  async function handleRegister() {
+    if (!validateForm()) return;
+    pendingRegisterRef.current = true;
+    captchaRef.current?.show();
   }
 
   const pwdValidation = validatePassword(password);
@@ -339,7 +359,14 @@ export default function RegisterScreen() {
               </View>
             </View>
 
-            <TouchableOpacity 
+            <ConfirmHcaptcha
+              ref={captchaRef}
+              siteKey={HCAPTCHA_SITE_KEY}
+              onMessage={handleCaptchaMessage}
+              size="invisible"
+            />
+
+            <TouchableOpacity
               className="w-full bg-green-500 rounded-xl p-4 mt-6 items-center" style={{ minHeight: 48 }}
               onPress={handleRegister}
               disabled={loading}
