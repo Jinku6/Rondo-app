@@ -20,7 +20,10 @@
       "Bash(npx tsc:*)",
       "mcp__claude_ai_Supabase__list_tables",
       "Read(//c/Users/ezesc/**)",
-      "Bash(supabase --version)"
+      "Bash(supabase --version)",
+      "mcp__c7f58495-e244-488b-966c-fa91845f4ab5__list_projects",
+      "mcp__c7f58495-e244-488b-966c-fa91845f4ab5__apply_migration",
+      "mcp__c7f58495-e244-488b-966c-fa91845f4ab5__deploy_edge_function"
     ]
   }
 }

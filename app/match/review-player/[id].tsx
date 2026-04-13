@@ -44,12 +44,13 @@ export default function ReviewPlayerScreen() {
 
     setMatchTitle(match.title);
 
-    // Fetch participants (excluding current user)
+    // Fetch participants who attended (excluding current user)
     const { data: participants, error: pError } = await supabase
       .from('match_participants')
       .select('user_id, user:users(full_name, username)')
       .eq('match_id', id)
       .in('status', ['joined', 'approved'])
+      .eq('attended', true)
       .neq('user_id', user?.id);
 
     if (pError) {
@@ -130,7 +131,7 @@ export default function ReviewPlayerScreen() {
         .eq('type', 'pending_player_review');
 
       Alert.alert('¡Gracias!', 'Has valorado a todos los participantes.', [
-        { text: 'Aceptar', onPress: () => router.replace('/(tabs)') },
+        { text: 'Aceptar', onPress: () => router.back() },
       ]);
     } catch (error: any) {
       Alert.alert('Error', error.message);

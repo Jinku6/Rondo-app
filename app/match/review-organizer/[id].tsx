@@ -13,12 +13,27 @@ export default function ReviewOrganizerScreen() {
   const [participants, setParticipants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [attendanceLocked, setAttendanceLocked] = useState(false);
 
   useEffect(() => {
-    fetchParticipants();
+    fetchData();
   }, [id]);
 
-  const fetchParticipants = async () => {
+  const fetchData = async () => {
+    // Check if 48h have passed since match was completed
+    const { data: match, error: matchError } = await supabase
+      .from('matches')
+      .select('completed_at')
+      .eq('id', id)
+      .single();
+
+    if (!matchError && match?.completed_at) {
+      const elapsed = Date.now() - new Date(match.completed_at).getTime();
+      if (elapsed > 48 * 60 * 60 * 1000) {
+        setAttendanceLocked(true);
+      }
+    }
+
     const { data, error } = await supabase
       .from('match_participants')
       .select('*, user:users(*)')
@@ -32,7 +47,7 @@ export default function ReviewOrganizerScreen() {
       return;
     }
 
-    // Por defecto todos asistieron pero faltan sus valoraciones
+    // Si la asistencia está bloqueada (auto-confirm), todos están como attended=true
     const initialized = data.map(p => ({
       ...p,
       attended: p.attended !== null ? p.attended : true,
@@ -70,12 +85,14 @@ export default function ReviewOrganizerScreen() {
     setSaving(true);
     
     try {
-      // 1. Guardar la asistencia y reviews
+      // 1. Guardar la asistencia (solo si no está bloqueada) y reviews
       for (const p of participants) {
-        await supabase
-          .from('match_participants')
-          .update({ attended: p.attended })
-          .eq('id', p.id);
+        if (!attendanceLocked) {
+          await supabase
+            .from('match_participants')
+            .update({ attended: p.attended })
+            .eq('id', p.id);
+        }
 
         // Crear review: si no asistió, solo se registra attended=false
         if (!p.attended) {
@@ -99,16 +116,19 @@ export default function ReviewOrganizerScreen() {
         }
       }
 
-      // 2. Crear notificaciones pending_player_review para los jugadores que SÍ asistieron
-      const attendedParticipants = participants.filter(p => p.attended);
-      if (attendedParticipants.length > 0) {
-        await supabase.from('notifications').insert(
-          attendedParticipants.map(p => ({
-            user_id: p.user_id,
-            match_id: id,
-            type: 'pending_player_review'
-          }))
-        );
+      // 2. Crear notificaciones pending_player_review (solo si el organizador pasó lista manualmente)
+      // Si attendanceLocked=true, la Edge Function ya las creó automáticamente
+      if (!attendanceLocked) {
+        const attendedParticipants = participants.filter(p => p.attended);
+        if (attendedParticipants.length > 0) {
+          await supabase.from('notifications').insert(
+            attendedParticipants.map(p => ({
+              user_id: p.user_id,
+              match_id: id,
+              type: 'pending_player_review'
+            }))
+          );
+        }
       }
 
       // 3. Marcar notificación del organizador como leída
@@ -120,7 +140,7 @@ export default function ReviewOrganizerScreen() {
         .eq('type', 'pending_organizer_review');
 
       Alert.alert('Éxito', 'Lista guardada. Los jugadores que asistieron recibirán una notificación para valorar el partido.', [
-        { text: 'Aceptar', onPress: () => router.replace('/(tabs)') },
+        { text: 'Aceptar', onPress: () => router.back() },
       ]);
     } catch (error: any) {
       Alert.alert('Error', error.message);
@@ -142,10 +162,20 @@ export default function ReviewOrganizerScreen() {
       <Stack.Screen options={{ title: 'Pasar Lista' }} />
       
       <ScrollView contentContainerStyle={{ padding: 16 }}>
-        <Text className="text-xl font-bold text-slate-900 dark:text-white mb-2">Comprueba la asistencia</Text>
-        <Text className="text-slate-500 dark:text-slate-400 mb-6">
-          Marca quién asistió al partido. Si alguien tuvo mal comportamiento, puedes reportarlo.
+        <Text className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+          {attendanceLocked ? 'Valora a los jugadores' : 'Comprueba la asistencia'}
         </Text>
+        {attendanceLocked ? (
+          <View className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 mb-6">
+            <Text className="text-amber-600 dark:text-amber-400 text-sm">
+              ⏰ Han pasado más de 48h desde que finalizó el partido. La asistencia se ha confirmado automáticamente para todos los jugadores.
+            </Text>
+          </View>
+        ) : (
+          <Text className="text-slate-500 dark:text-slate-400 mb-6">
+            Marca quién asistió al partido y valora su nivel y actitud.
+          </Text>
+        )}
 
         {participants.length === 0 ? (
           <View className="bg-white dark:bg-gray-900 p-6 rounded-xl border border-gray-200 dark:border-gray-800 items-center">
@@ -170,7 +200,8 @@ export default function ReviewOrganizerScreen() {
                 <Text className="text-slate-700 dark:text-slate-300 font-medium">Asistió al partido</Text>
                 <Switch
                   value={p.attended}
-                  onValueChange={() => toggleAttendance(p.id)}
+                  onValueChange={() => !attendanceLocked && toggleAttendance(p.id)}
+                  disabled={attendanceLocked}
                   trackColor={{ false: '#ef4444', true: '#22c55e' }}
                   thumbColor="#ffffff"
                 />

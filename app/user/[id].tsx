@@ -5,13 +5,14 @@ import { supabase } from '@/lib/supabase';
 import { UserProfile } from '@/types/database';
 import { Ionicons } from '@expo/vector-icons';
 import { ProfileStats } from '@/components/ProfileStats';
-import { isValidUUID, firstParam, isSafeUrl } from '@/lib/utils';
+import { isValidUUID, firstParam, isSafeUrl, calculateAge } from '@/lib/utils';
 
 export default function UserProfileScreen() {
   const params = useLocalSearchParams();
   const id = firstParam(params.id as string | string[]);
   const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const age = profile ? calculateAge(profile.birthday) : null;
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -58,14 +59,21 @@ export default function UserProfileScreen() {
         
         <Text className="text-2xl font-bold text-slate-900 dark:text-white mb-1">{profile.full_name}</Text>
         <Text className="text-slate-500 dark:text-slate-400 text-lg mb-3">@{profile.username}</Text>
-        
-        {profile.preferred_position && (
-          <View className="bg-green-600/20 border border-green-500/30 px-4 py-2 rounded-full">
-            <Text className="text-green-400 font-medium capitalize">
-              Juega de {profile.preferred_position}
-            </Text>
-          </View>
-        )}
+
+        <View className="flex-row gap-2 mb-2 flex-wrap justify-center">
+          {age !== null && (
+            <View className="bg-blue-50 dark:bg-blue-900/30 px-4 py-2 rounded-full border border-blue-200 dark:border-blue-800">
+              <Text className="text-blue-700 dark:text-blue-300 font-medium">{age} años</Text>
+            </View>
+          )}
+          {profile.preferred_position && (
+            <View className="bg-green-50 dark:bg-green-900/30 px-4 py-2 rounded-full border border-green-200 dark:border-green-800">
+              <Text className="text-green-700 dark:text-green-300 font-medium capitalize">
+                {profile.preferred_position}
+              </Text>
+            </View>
+          )}
+        </View>
       </View>
 
       {/* Stats Dashboard */}

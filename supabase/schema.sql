@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS public.matches (
   price_per_player NUMERIC DEFAULT 0,
   requires_approval BOOLEAN NOT NULL DEFAULT false,
   status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'full', 'completed', 'cancelled')),
+  completed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

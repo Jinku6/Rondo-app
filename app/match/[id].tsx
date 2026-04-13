@@ -389,6 +389,10 @@ export default function MatchDetailScreen() {
               <View className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-200 dark:border-red-800">
                 <Text className="text-red-600 dark:text-red-400 font-semibold text-center">🚫 Este partido ha sido cancelado por el organizador</Text>
               </View>
+            ) : match.status === 'completed' ? (
+              <View className="bg-green-50 dark:bg-green-900/20 p-4 rounded-xl border border-green-200 dark:border-green-800">
+                <Text className="text-green-600 dark:text-green-400 font-semibold text-center">✅ Este partido ha finalizado</Text>
+              </View>
             ) : !myParticipation ? (
               <View className="space-y-3">
                 <TouchableOpacity
