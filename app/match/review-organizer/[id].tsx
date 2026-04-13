@@ -17,6 +17,7 @@ export default function ReviewOrganizerScreen() {
 
   useEffect(() => {
     fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchData = async () => {
@@ -142,8 +143,8 @@ export default function ReviewOrganizerScreen() {
       Alert.alert('Éxito', 'Lista guardada. Los jugadores que asistieron recibirán una notificación para valorar el partido.', [
         { text: 'Aceptar', onPress: () => router.back() },
       ]);
-    } catch (error: any) {
-      Alert.alert('Error', error.message);
+    } catch (error) {
+      Alert.alert('Error', error instanceof Error ? error.message : String(error));
     } finally {
       setSaving(false);
     }
@@ -200,7 +201,7 @@ export default function ReviewOrganizerScreen() {
                 <Text className="text-slate-700 dark:text-slate-300 font-medium">Asistió al partido</Text>
                 <Switch
                   value={p.attended}
-                  onValueChange={() => !attendanceLocked && toggleAttendance(p.id)}
+                  onValueChange={() => { if (!attendanceLocked) toggleAttendance(p.id); }}
                   disabled={attendanceLocked}
                   trackColor={{ false: '#ef4444', true: '#22c55e' }}
                   thumbColor="#ffffff"

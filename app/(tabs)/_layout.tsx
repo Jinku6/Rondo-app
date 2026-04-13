@@ -82,6 +82,7 @@ export default function TabLayout() {
       matchSub.unsubscribe();
       chatSub.unsubscribe();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   return (

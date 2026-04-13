@@ -238,8 +238,8 @@ export default function CreateMatchScreen() {
       setTimeText('');
       setPositions({ portero: 0, defensa: 0, mediocentro: 0, delantero: 0, cualquiera: 0 });
 
-    } catch (e: any) {
-      Alert.alert('Error al crear el partido', e.message);
+    } catch (e) {
+      Alert.alert('Error al crear el partido', e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }

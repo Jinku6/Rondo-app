@@ -46,7 +46,7 @@ export default function MessagesScreen() {
     // Fetch chat threads via RPC
     const { data: threads, error: threadsError } = await supabase.rpc('get_user_chat_threads');
     if (threadsError) {
-      console.error('Error fetching chat threads:', threadsError.message);
+      if (__DEV__) console.error('Error fetching chat threads:', threadsError.message);
     } else if (threads) {
       setChatThreads(threads as ChatThread[]);
     }
@@ -61,7 +61,7 @@ export default function MessagesScreen() {
       .order('created_at', { ascending: false });
 
     if (notifsError) {
-      console.error('Error fetching notifications:', notifsError.message);
+      if (__DEV__) console.error('Error fetching notifications:', notifsError.message);
     } else if (notifs) {
       setNotifications(notifs as ReviewNotification[]);
     }
@@ -83,12 +83,14 @@ export default function MessagesScreen() {
     return () => {
       supabase.removeChannel(channel);
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // Refresh every time the tab is focused
   useFocusEffect(
     useCallback(() => {
       fetchData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user])
   );
 

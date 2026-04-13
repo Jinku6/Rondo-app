@@ -76,7 +76,7 @@ export default function MatchDetailScreen() {
       .eq('match_id', id);
 
     if (partError) {
-      console.error('Error fetching participants:', partError.message);
+      if (__DEV__) console.error('Error fetching participants:', partError.message);
     } else if (partData) {
       setParticipants(partData as MatchParticipant[]);
     }
@@ -84,6 +84,7 @@ export default function MatchDetailScreen() {
     setLoading(false);
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchMatchDetails(); }, [id]);
 
   const handleJoin = async () => {
@@ -153,7 +154,7 @@ export default function MatchDetailScreen() {
     const { error } = await supabase.from('match_participants').update({ status: 'approved' }).eq('id', participantId);
     if (error) {
       Alert.alert('Error', 'No se pudo aprobar al jugador');
-      console.error('Error approving participant:', error.message);
+      if (__DEV__) console.error('Error approving participant:', error.message);
       return;
     }
     fetchMatchDetails();
@@ -163,7 +164,7 @@ export default function MatchDetailScreen() {
     const { error } = await supabase.from('match_participants').update({ status: 'rejected' }).eq('id', participantId);
     if (error) {
       Alert.alert('Error', 'No se pudo rechazar al jugador');
-      console.error('Error rejecting participant:', error.message);
+      if (__DEV__) console.error('Error rejecting participant:', error.message);
       return;
     }
     fetchMatchDetails();
@@ -500,8 +501,8 @@ export default function MatchDetailScreen() {
                               Alert.alert('✅ Partido finalizado', 'Ahora puedes pasar lista y confirmar quién asistió.', [
                                 { text: 'Pasar Lista', onPress: () => router.replace(`/match/review-organizer/${match.id}` as any) },
                               ]);
-                            } catch (error: any) {
-                              Alert.alert('Error', error.message);
+                            } catch (error) {
+                              Alert.alert('Error', error instanceof Error ? error.message : String(error));
                             } finally {
                               setActionLoading(false);
                             }
@@ -543,8 +544,8 @@ export default function MatchDetailScreen() {
                               Alert.alert('Partido cancelado', 'El partido ha sido cancelado.', [
                                 { text: 'Aceptar', onPress: () => router.replace('/(tabs)') },
                               ]);
-                            } catch (error: any) {
-                              Alert.alert('Error', error.message);
+                            } catch (error) {
+                              Alert.alert('Error', error instanceof Error ? error.message : String(error));
                             } finally {
                               setActionLoading(false);
                             }

@@ -88,7 +88,7 @@ export default function RegisterScreen() {
     const birthdayIso = birthday ? birthday.toISOString().split('T')[0] : '';
     try {
       RegisterSchema.parse({ fullName, username, preferredPosition, email, password, phone, birthday: birthdayIso });
-    } catch (err: any) {
+    } catch (err) {
       if (err instanceof z.ZodError) {
         showAlert('Error de validación', err.issues[0].message);
         return false;
@@ -116,7 +116,7 @@ export default function RegisterScreen() {
     setLoading(false);
 
     if (error) {
-      console.error("Error de registro:", error);
+      if (__DEV__) console.error("Error de registro:", error);
       showAlert('Error de registro', error);
     } else {
       showAlert(

@@ -26,6 +26,7 @@ export default function ReviewPlayerScreen() {
 
   useEffect(() => {
     fetchData();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchData = async () => {
@@ -133,8 +134,8 @@ export default function ReviewPlayerScreen() {
       Alert.alert('¡Gracias!', 'Has valorado a todos los participantes.', [
         { text: 'Aceptar', onPress: () => router.back() },
       ]);
-    } catch (error: any) {
-      Alert.alert('Error', error.message);
+    } catch (error) {
+      Alert.alert('Error', error instanceof Error ? error.message : String(error));
     } finally {
       setSaving(false);
     }

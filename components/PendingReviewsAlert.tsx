@@ -24,6 +24,7 @@ export function PendingReviewsAlert() {
     useCallback(() => {
       if (!user) return;
       fetchNotifications();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [user])
   );
 
@@ -36,7 +37,7 @@ export function PendingReviewsAlert() {
       .in('type', ['pending_organizer_review', 'pending_player_review']);
 
     if (error) {
-      console.error('Error fetching notifications:', error.message);
+      if (__DEV__) console.error('Error fetching notifications:', error.message);
       return;
     }
 

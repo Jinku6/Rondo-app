@@ -3,7 +3,6 @@ import { View, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, Acti
 import { useAuth } from '@/contexts/AuthContext';
 import { Link, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { supabase } from '@/lib/supabase';
 import { z } from 'zod';
 
 const LoginSchema = z.object({
@@ -48,7 +47,7 @@ export default function LoginScreen() {
   async function handleLogin() {
     try {
       LoginSchema.parse({ email, password });
-    } catch (err: any) {
+    } catch (err) {
       if (err instanceof z.ZodError) {
         showAlert('Error', err.issues[0].message);
         return;

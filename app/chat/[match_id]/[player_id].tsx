@@ -58,7 +58,7 @@ export default function ChatScreen() {
       .order('created_at', { ascending: true });
 
     if (error) {
-      console.error('Error fetching messages:', error);
+      if (__DEV__) console.error('Error fetching messages:', error);
     } else if (data) {
       setMessages(data as ChatMessage[]);
     }
@@ -123,6 +123,7 @@ export default function ChatScreen() {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, match_id, player_id]);
 
   const handleSend = async () => {
@@ -220,6 +221,7 @@ export default function ChatScreen() {
         )}
       </View>
     );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [otherUser, matchDetails]);
 
   // ── Message bubble ──

@@ -137,6 +137,7 @@ export default function SearchResultsScreen() {
 
   useEffect(() => {
     fetchMatches();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lat, lng, date, dateRange]);
 
   const onRefresh = () => {

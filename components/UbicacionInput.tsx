@@ -5,7 +5,6 @@ import {
   TouchableOpacity,
   Text,
   ActivityIndicator,
-  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { buscarDireccion, GeoResult } from '@/lib/geocoding';

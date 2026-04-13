@@ -155,6 +155,7 @@ function RootLayoutNav() {
       // Redirigir a la app principal si hay sesión y estábamos en una pantalla de auth
       router.replace('/(tabs)');
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, loading, segments]);
 
   if (loading) {

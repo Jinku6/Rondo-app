@@ -78,7 +78,10 @@ export default function MyMatchesScreen() {
     setRefreshing(false);
   }
 
-  useFocusEffect(useCallback(() => { fetchMyMatches(); }, [user]));
+  useFocusEffect(
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    useCallback(() => { fetchMyMatches(); }, [user])
+  );
 
   const onRefresh = () => { setRefreshing(true); fetchMyMatches(); };
 

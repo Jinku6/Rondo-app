@@ -40,6 +40,7 @@ export default function ReviewCarouselScreen() {
 
   useEffect(() => {
     fetchMatchAndParticipants();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const fetchMatchAndParticipants = async () => {
@@ -206,8 +207,8 @@ export default function ReviewCarouselScreen() {
         Alert.alert('¡Gracias!', 'Has enviado todas tus valoraciones.', [
           { text: 'Aceptar', onPress: () => router.replace('/(tabs)') },
         ]);
-      } catch (error: any) {
-        Alert.alert('Error al guardar', error.message);
+      } catch (error) {
+        Alert.alert('Error al guardar', error instanceof Error ? error.message : String(error));
       } finally {
         setSaving(false);
       }

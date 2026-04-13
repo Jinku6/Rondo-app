@@ -24,7 +24,8 @@
       "mcp__c7f58495-e244-488b-966c-fa91845f4ab5__list_projects",
       "mcp__c7f58495-e244-488b-966c-fa91845f4ab5__apply_migration",
       "mcp__c7f58495-e244-488b-966c-fa91845f4ab5__deploy_edge_function",
-      "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\('react-native-webview:', p.dependencies['react-native-webview'] || p.devDependencies?.['react-native-webview'] || 'NO INSTALADO'\\)\")"
+      "Bash(node -e \"const p = require\\('./package.json'\\); console.log\\('react-native-webview:', p.dependencies['react-native-webview'] || p.devDependencies?.['react-native-webview'] || 'NO INSTALADO'\\)\")",
+      "Bash(npm run:*)"
     ]
   }
 }

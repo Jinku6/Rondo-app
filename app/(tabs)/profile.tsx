@@ -64,6 +64,7 @@ export default function ProfileScreen() {
 
   React.useEffect(() => {
     fetchPhone();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
   React.useEffect(() => {
@@ -157,8 +158,8 @@ export default function ProfileScreen() {
       await supabase.from('users').update({ avatar_url: publicData.publicUrl }).eq('id', user.id);
       await refreshProfile();
       showAlert('Éxito', 'Foto de perfil actualizada');
-    } catch (error: any) {
-      showAlert('Error', error.message);
+    } catch (error) {
+      showAlert('Error', error instanceof Error ? error.message : String(error));
     } finally {
       setUploading(false);
     }
@@ -200,8 +201,8 @@ export default function ProfileScreen() {
       await refreshProfile();
       setIsEditing(false);
       showAlert('Guardado', 'Perfil actualizado correctamente');
-    } catch (e: any) {
-      showAlert('Error', e.message);
+    } catch (e) {
+      showAlert('Error', e instanceof Error ? e.message : String(e));
     } finally {
       setSaving(false);
     }
@@ -224,8 +225,8 @@ export default function ProfileScreen() {
         `Te hemos enviado un enlace de confirmación a ${newEmail}. Revisa tu bandeja de entrada y confirma el cambio.`,
       );
       setNewEmail('');
-    } catch (e: any) {
-      showAlert('Error', e.message);
+    } catch (e) {
+      showAlert('Error', e instanceof Error ? e.message : String(e));
     } finally {
       setSavingEmail(false);
     }
@@ -243,8 +244,8 @@ export default function ProfileScreen() {
       if (error) throw error;
       showAlert('Contraseña actualizada', 'Tu contraseña ha sido cambiada correctamente.');
       setNewPassword('');
-    } catch (e: any) {
-      showAlert('Error', e.message);
+    } catch (e) {
+      showAlert('Error', e instanceof Error ? e.message : String(e));
     } finally {
       setSavingPassword(false);
     }
@@ -274,10 +275,10 @@ export default function ProfileScreen() {
       const { error: profileError } = await supabase.from('users').delete().eq('id', user.id);
       if (profileError) throw profileError;
       const { error: authError } = await supabase.rpc('delete_own_account');
-      if (authError) console.warn('delete_own_account RPC no disponible:', authError.message);
+      if (authError && __DEV__) console.warn('delete_own_account RPC no disponible:', authError.message);
       await signOut();
-    } catch (e: any) {
-      showAlert('Error', e.message);
+    } catch (e) {
+      showAlert('Error', e instanceof Error ? e.message : String(e));
     }
   };
 

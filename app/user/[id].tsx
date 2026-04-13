@@ -1,16 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ScrollView, ActivityIndicator, Image } from 'react-native';
-import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
+import { useLocalSearchParams, Stack } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { UserProfile } from '@/types/database';
-import { Ionicons } from '@expo/vector-icons';
 import { ProfileStats } from '@/components/ProfileStats';
 import { isValidUUID, firstParam, isSafeUrl, calculateAge } from '@/lib/utils';
 
 export default function UserProfileScreen() {
   const params = useLocalSearchParams();
   const id = firstParam(params.id as string | string[]);
-  const router = useRouter();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const age = profile ? calculateAge(profile.birthday) : null;
   const [loading, setLoading] = useState(true);

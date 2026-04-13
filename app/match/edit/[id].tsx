@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, Switch, ActivityIndicator, Platform, Modal } from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter, useLocalSearchParams, Stack, useNavigation } from 'expo-router';
+import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { UbicacionInput } from '@/components/UbicacionInput';
@@ -18,8 +18,6 @@ export default function EditMatchScreen() {
   const { id } = useLocalSearchParams();
   const { user } = useAuth();
   const router = useRouter();
-  const navigation = useNavigation();
-
   const [loadingData, setLoadingData] = useState(true);
   const [loading, setLoading] = useState(false);
 
@@ -119,6 +117,7 @@ export default function EditMatchScreen() {
       setLoadingData(false);
     }
     loadMatch();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, user]);
 
   // Navigation guard removed from here because we moved it to headerLeft in Stack.Screen
@@ -221,8 +220,8 @@ export default function EditMatchScreen() {
       Alert.alert('¡Actualizado!', 'Los cambios del partido se guardaron correctamente.', [
         { text: 'Volver', onPress: () => router.back() }
       ]);
-    } catch (e: any) {
-      Alert.alert('Error al actualizar', e.message);
+    } catch (e) {
+      Alert.alert('Error al actualizar', e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
