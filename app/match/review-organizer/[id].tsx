@@ -1,19 +1,27 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Switch } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
+import { MatchParticipant, UserProfile } from '@/types/database';
 import { Ionicons } from '@expo/vector-icons';
+
+type ReviewParticipant = MatchParticipant & {
+  user: UserProfile;
+  attitude: 'positive' | 'neutral' | 'negative' | null;
+  level_rating: number;
+};
 
 export default function ReviewOrganizerScreen() {
   const { id } = useLocalSearchParams();
   const { user } = useAuth();
   const router = useRouter();
 
-  const [participants, setParticipants] = useState<any[]>([]);
+  const [participants, setParticipants] = useState<ReviewParticipant[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [attendanceLocked, setAttendanceLocked] = useState(false);
+  const savingRef = useRef(false);
 
   useEffect(() => {
     fetchData();
@@ -49,7 +57,7 @@ export default function ReviewOrganizerScreen() {
     }
 
     // Si la asistencia está bloqueada (auto-confirm), todos están como attended=true
-    const initialized = data.map(p => ({
+    const initialized: ReviewParticipant[] = data.map(p => ({
       ...p,
       attended: p.attended !== null ? p.attended : true,
       attitude: null,
@@ -67,7 +75,7 @@ export default function ReviewOrganizerScreen() {
     }));
   };
 
-  const setParticipantAttitude = (participantId: string, attitude: string) => {
+  const setParticipantAttitude = (participantId: string, attitude: ReviewParticipant['attitude']) => {
     setParticipants(prev => prev.map(p => p.id === participantId ? { ...p, attitude } : p));
   };
 
@@ -76,48 +84,40 @@ export default function ReviewOrganizerScreen() {
   };
 
   const saveReviews = async () => {
-    if (!user) return;
+    if (!user || savingRef.current) return;
     const missing = participants.find(p => p.attended && (p.level_rating === 0 || !p.attitude));
     if (missing) {
       Alert.alert('Atención', 'Por favor, completa el nivel y la actitud de todos los jugadores que asistieron antes de guardar.');
       return;
     }
 
+    savingRef.current = true;
     setSaving(true);
-    
-    try {
-      // 1. Guardar la asistencia (solo si no está bloqueada) y reviews
-      for (const p of participants) {
-        if (!attendanceLocked) {
-          await supabase
-            .from('match_participants')
-            .update({ attended: p.attended })
-            .eq('id', p.id);
-        }
 
-        // Crear review: si no asistió, solo se registra attended=false
-        if (!p.attended) {
-          await supabase.from('match_reviews').insert({
-            match_id: id,
-            reviewer_id: user.id,
-            reviewee_id: p.user_id,
-            level_rating: null,
-            attitude: null,
-            attended: false
-          });
-        } else {
-          await supabase.from('match_reviews').insert({
-            match_id: id,
-            reviewer_id: user.id,
-            reviewee_id: p.user_id,
-            level_rating: p.level_rating,
-            attitude: p.attitude,
-            attended: true
-          });
-        }
+    try {
+      // 1. Actualizar asistencias en paralelo (solo si no está bloqueada)
+      if (!attendanceLocked) {
+        await Promise.all(
+          participants.map(p =>
+            supabase.from('match_participants').update({ attended: p.attended }).eq('id', p.id)
+          )
+        );
       }
 
-      // 2. Crear notificaciones pending_player_review (solo si el organizador pasó lista manualmente)
+      // 2. Bulk insert de todas las reviews en una sola llamada (atómico)
+      const reviewsToInsert = participants.map(p => ({
+        match_id: id as string,
+        reviewer_id: user.id,
+        reviewee_id: p.user_id,
+        level_rating: p.attended ? p.level_rating : null,
+        attitude: p.attended ? p.attitude : null,
+        attended: p.attended,
+      }));
+
+      const { error: reviewError } = await supabase.from('match_reviews').insert(reviewsToInsert);
+      if (reviewError) throw reviewError;
+
+      // 3. Crear notificaciones pending_player_review (solo si el organizador pasó lista manualmente)
       // Si attendanceLocked=true, la Edge Function ya las creó automáticamente
       if (!attendanceLocked) {
         const attendedParticipants = participants.filter(p => p.attended);
@@ -132,7 +132,7 @@ export default function ReviewOrganizerScreen() {
         }
       }
 
-      // 3. Marcar notificación del organizador como leída
+      // 4. Marcar notificación del organizador como leída
       await supabase
         .from('notifications')
         .update({ read: true })
@@ -146,6 +146,7 @@ export default function ReviewOrganizerScreen() {
     } catch (error) {
       Alert.alert('Error', error instanceof Error ? error.message : String(error));
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };

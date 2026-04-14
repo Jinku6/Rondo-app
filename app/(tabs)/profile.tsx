@@ -58,7 +58,11 @@ export default function ProfileScreen() {
       .select('phone')
       .eq('user_id', user.id)
       .maybeSingle();
-    if (!error && data) setPhone(data.phone || '');
+    if (error) {
+      if (__DEV__) console.error('fetchPhone error:', error.message);
+    } else {
+      setPhone(data?.phone || '');
+    }
     setLoadingPhone(false);
   };
 

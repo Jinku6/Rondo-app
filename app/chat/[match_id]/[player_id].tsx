@@ -33,13 +33,14 @@ export default function ChatScreen() {
   // Mark all unread messages as read in this thread
   const markMessagesAsRead = useCallback(async () => {
     if (!user || !match_id || !player_id) return;
-    await supabase
+    const { error } = await supabase
       .from('chat_messages')
       .update({ is_read: true })
       .eq('match_id', match_id)
       .eq('player_id', player_id)
       .eq('is_read', false)
       .neq('sender_id', user.id);
+    if (error && __DEV__) console.error('markMessagesAsRead error:', error.message);
   }, [user, match_id, player_id]);
 
   // Fires every time this screen gets focus (also on initial mount)
@@ -55,7 +56,8 @@ export default function ChatScreen() {
       .select('*')
       .eq('match_id', match_id)
       .eq('player_id', player_id)
-      .order('created_at', { ascending: true });
+      .order('created_at', { ascending: true })
+      .limit(100);
 
     if (error) {
       if (__DEV__) console.error('Error fetching messages:', error);

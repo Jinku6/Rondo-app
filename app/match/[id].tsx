@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Image, View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Platform, Linking, ActionSheetIOS, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
@@ -54,46 +54,55 @@ export default function MatchDetailScreen() {
   const [actionLoading, setActionLoading] = useState(false);
   const [mapModalVisible, setMapModalVisible] = useState(false);
   const [mapOptions, setMapOptions] = useState<MapOption[]>([]);
+  const joiningRef = useRef(false);
 
   async function fetchMatchDetails() {
-    const { data: matchData, error: matchError } = await supabase
-      .from('matches')
-      .select('*, organizer:users(*, phone_data:user_private_data(phone))')
-      .eq('id', id)
-      .single();
+    try {
+      const { data: matchData, error: matchError } = await supabase
+        .from('matches')
+        .select('*, organizer:users(*, phone_data:user_private_data(phone))')
+        .eq('id', id)
+        .single();
 
-    if (matchError || !matchData) {
-      Alert.alert('Error', 'No se pudo cargar el partido');
+      if (matchError || !matchData) {
+        Alert.alert('Error', 'No se pudo cargar el partido');
+        router.back();
+        return;
+      }
+
+      setMatch(matchData as Match);
+
+      const { data: partData, error: partError } = await supabase
+        .from('match_participants')
+        .select('*, user:users(*, phone_data:user_private_data(phone))')
+        .eq('match_id', id);
+
+      if (partError) {
+        if (__DEV__) console.error('Error fetching participants:', partError.message);
+      } else if (partData) {
+        setParticipants(partData as MatchParticipant[]);
+      }
+    } catch (e) {
+      if (__DEV__) console.error('fetchMatchDetails error:', e);
+      Alert.alert('Error de conexión', 'No se pudieron cargar los detalles del partido.');
       router.back();
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    setMatch(matchData as Match);
-
-    const { data: partData, error: partError } = await supabase
-      .from('match_participants')
-      .select('*, user:users(*, phone_data:user_private_data(phone))')
-      .eq('match_id', id);
-
-    if (partError) {
-      if (__DEV__) console.error('Error fetching participants:', partError.message);
-    } else if (partData) {
-      setParticipants(partData as MatchParticipant[]);
-    }
-
-    setLoading(false);
   }
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { fetchMatchDetails(); }, [id]);
 
   const handleJoin = async () => {
-    if (!user || !match) return;
+    if (!user || !match || joiningRef.current) return;
+    joiningRef.current = true;
     setActionLoading(true);
     const status = match.requires_approval ? 'pending' : 'joined';
     const { error } = await supabase.from('match_participants').insert({
       match_id: match.id, user_id: user.id, status
     });
+    joiningRef.current = false;
     setActionLoading(false);
     if (error) {
       Alert.alert('Error al unirse', error.message);

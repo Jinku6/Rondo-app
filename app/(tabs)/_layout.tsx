@@ -64,10 +64,11 @@ export default function TabLayout() {
       }, () => fetchBadgeCount())
       .subscribe();
 
-    // Subscribe to match_participants changes (join requests)
+    // Subscribe to match_participants changes (join requests) — solo INSERTs nuevos
     const matchSub = supabase
       .channel('tab-badge-matches')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'match_participants' }, () => fetchMatchesBadge())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'match_participants' }, () => fetchMatchesBadge())
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'match_participants' }, () => fetchMatchesBadge())
       .subscribe();
 
     // Subscribe to chat_messages INSERT and UPDATE (is_read changes)

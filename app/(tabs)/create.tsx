@@ -147,8 +147,13 @@ export default function CreateMatchScreen() {
     const [hours, minutes] = timeForParsing.split(':');
     if (!day || !month || !year || year.length !== 4) return null;
     if (!hours || !minutes) return null;
-    const dt = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes));
+    const d = parseInt(day), m = parseInt(month), y = parseInt(year);
+    const h = parseInt(hours), min = parseInt(minutes);
+    if (isNaN(d) || isNaN(m) || isNaN(y) || isNaN(h) || isNaN(min)) return null;
+    const dt = new Date(y, m - 1, d, h, min);
     if (isNaN(dt.getTime())) return null;
+    // Detecta fechas inválidas que JavaScript auto-ajusta (ej: 30/02 → 02/03)
+    if (dt.getMonth() !== m - 1 || dt.getDate() !== d) return null;
     return dt;
   };
 
