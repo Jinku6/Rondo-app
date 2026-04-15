@@ -217,7 +217,7 @@ export default function MessagesScreen() {
   const isEmpty = !hasNotifications && !hasChats;
 
   return (
-    <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top', 'bottom']}>
       <Stack.Screen options={{ headerShown: false }} />
 
       <FlatList

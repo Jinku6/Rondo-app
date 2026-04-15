@@ -33,6 +33,18 @@ export function CiudadInput({ value, onSelect, onClear, presetResult }: Props) {
     }
   }, [presetResult]);
 
+  // Sincronizar query con el prop value cuando cambia externamente
+  // (p. ej. cuando el padre limpia la ciudad o la restablece tras un re-mount)
+  useEffect(() => {
+    if (value !== query) {
+      setQuery(value);
+      setBloqueado(!!value);
+      setResultados([]);
+    }
+  // Solo queremos reaccionar a cambios del padre, no a cada pulsación del usuario
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value]);
+
   const handleChange = useCallback((text: string) => {
     setQuery(text);
     setBloqueado(false); // el usuario está editando → ya no hay selección válida

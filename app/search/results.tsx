@@ -67,6 +67,19 @@ export default function SearchResultsScreen() {
       query = query
         .gte('date_time', startOfTarget.toISOString())
         .lte('date_time', endOfTarget.toISOString());
+    } else if (dateRangeStr === 'next_week') {
+      const now = new Date();
+      const currentDay = now.getDay(); // 0=Sun, 1=Mon … 6=Sat
+      const daysUntilNextMonday = currentDay === 0 ? 1 : 8 - currentDay;
+      const startOfNextWeek = new Date(now);
+      startOfNextWeek.setDate(now.getDate() + daysUntilNextMonday);
+      startOfNextWeek.setHours(0, 0, 0, 0);
+      const endOfNextWeek = new Date(startOfNextWeek);
+      endOfNextWeek.setDate(startOfNextWeek.getDate() + 6);
+      endOfNextWeek.setHours(23, 59, 59, 999);
+      query = query
+        .gte('date_time', startOfNextWeek.toISOString())
+        .lte('date_time', endOfNextWeek.toISOString());
     } else if (dateStr) {
       const startOfTarget = new Date();
       startOfTarget.setHours(0, 0, 0, 0);

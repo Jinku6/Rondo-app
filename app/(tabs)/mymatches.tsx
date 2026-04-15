@@ -177,7 +177,7 @@ export default function MyMatchesScreen() {
   const hasArchived = archivedMatches.length > 0;
 
   return (
-    <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top', 'bottom']}>
       <Stack.Screen options={{ headerShown: false }} />
       <FlatList
         data={visibleMatches}

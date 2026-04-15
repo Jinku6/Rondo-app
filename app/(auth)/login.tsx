@@ -119,7 +119,7 @@ export default function LoginScreen() {
               />
             </View>
 
-            <TouchableOpacity 
+            <TouchableOpacity
               className="w-full bg-green-500 rounded-xl p-4 mt-4 items-center" style={{ minHeight: 48 }}
               onPress={handleLogin}
               disabled={loading}
@@ -130,6 +130,14 @@ export default function LoginScreen() {
                 <Text className="text-white font-semibold text-lg">Ingresar</Text>
               )}
             </TouchableOpacity>
+
+            <View className="items-end mt-2">
+              <Link href="/(auth)/forgot-password" asChild>
+                <TouchableOpacity>
+                  <Text className="text-green-500 text-sm font-medium">¿Olvidaste tu contraseña?</Text>
+                </TouchableOpacity>
+              </Link>
+            </View>
 
             <View className="flex-row items-center my-4 opacity-50">
               <View className="flex-1 h-[1px] bg-slate-400" />

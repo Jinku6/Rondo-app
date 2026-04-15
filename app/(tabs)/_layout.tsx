@@ -3,7 +3,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { supabase } from '@/lib/supabase';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
-import { Tabs } from 'expo-router';
+import { Tabs, useNavigation } from 'expo-router';
 import { useEffect, useState } from 'react';
 
 export default function TabLayout() {
@@ -11,17 +11,25 @@ export default function TabLayout() {
   const isDark = colorScheme === 'dark';
   const theme = isDark ? Colors.dark : Colors.light;
   const { user } = useAuth();
+  const navigation = useNavigation();
 
   const [badgeCount, setBadgeCount] = useState<number | undefined>(undefined);
   const [matchesBadgeCount, setMatchesBadgeCount] = useState<number | undefined>(undefined);
 
   const fetchMatchesBadge = async () => {
     if (!user) { setMatchesBadgeCount(undefined); return; }
+    // Two-step query: get organised match IDs first, then count pending participants
+    const { data: myMatches } = await supabase
+      .from('matches')
+      .select('id')
+      .eq('organizer_id', user.id);
+    if (!myMatches?.length) { setMatchesBadgeCount(undefined); return; }
+    const matchIds = myMatches.map((m: { id: string }) => m.id);
     const { data } = await supabase
       .from('match_participants')
-      .select('id, matches!inner(organizer_id)')
-      .eq('status', 'pending')
-      .eq('matches.organizer_id', user.id);
+      .select('id')
+      .in('match_id', matchIds)
+      .eq('status', 'pending');
     const count = data?.length ?? 0;
     setMatchesBadgeCount(count > 0 ? count : undefined);
   };
@@ -85,6 +93,16 @@ export default function TabLayout() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
+
+  // Refresh badges whenever the tab navigator regains focus (e.g. after returning from a review or match screen)
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      fetchBadgeCount();
+      fetchMatchesBadge();
+    });
+    return unsubscribe;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigation, user]);
 
   return (
     <Tabs

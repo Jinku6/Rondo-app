@@ -260,7 +260,7 @@ export default function CreateMatchScreen() {
   const totalPlayers = Object.values(positions).reduce((a, b) => a + b, 0);
 
   return (
-    <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top', 'bottom']}>
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView className="flex-1 bg-slate-50 dark:bg-neutral-950 p-4" keyboardShouldPersistTaps="handled">
         <Text className="text-3xl font-bold text-slate-900 dark:text-white mb-6">Crear Partido</Text>

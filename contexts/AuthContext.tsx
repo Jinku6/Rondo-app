@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { UserProfile } from '@/types/database';
 import * as Linking from 'expo-linking';
+import * as WebBrowser from 'expo-web-browser';
 
 interface AuthContextValue {
   session: Session | null;
@@ -127,18 +128,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
-    const redirectUrl = Platform.OS === 'web'
-      ? window.location.origin
-      : Linking.createURL('/');
+    if (Platform.OS === 'web') {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin },
+      });
+      if (error) Alert.alert('Error Google', error.message);
+      return;
+    }
 
-    const { error } = await supabase.auth.signInWithOAuth({
+    // Native: use expo-web-browser for the OAuth flow
+    const redirectUrl = Linking.createURL('/');
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: redirectUrl,
+        skipBrowserRedirect: true,
       },
     });
-    if (error) {
-      console.error('Error Google OAuth:', error.message);
+
+    if (error || !data.url) {
+      Alert.alert('Error Google', error?.message ?? 'No se pudo iniciar el proceso de autenticación.');
+      return;
+    }
+
+    const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+
+    if (result.type === 'success' && result.url) {
+      // Supabase will pick up the session automatically via the URL hash/code.
+      // We trigger getSessionFromUrl so the SDK processes the tokens.
+      const { error: sessionError } = await (supabase.auth as any).getSessionFromUrl?.({ url: result.url })
+        ?? supabase.auth.exchangeCodeForSession(new URL(result.url).searchParams.get('code') ?? '');
+      if (sessionError) {
+        Alert.alert('Error de autenticación', sessionError.message);
+      }
+    } else if (result.type === 'cancel') {
+      // User closed the browser — no action needed
     }
   };
 

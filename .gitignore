@@ -46,5 +46,10 @@ app-example
 # Agents
 .agents/
 
+# Claude Code local configuration
+.claude/
+# But keep CLAUDE.md (project documentation)
+!.claude/CLAUDE.md
+
 # Supabase
 supabase/*.html

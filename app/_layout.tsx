@@ -6,7 +6,7 @@ import '../global.css';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, ActivityIndicator, Modal, Text, TouchableOpacity, Platform, Alert } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { supabase } from '@/lib/supabase';
@@ -142,9 +142,27 @@ function RootLayoutNav() {
   const { session, loading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  // Flag para evitar redirigir a tabs cuando estamos en flujo de recuperación de contraseña
+  const passwordRecoveryRef = useRef(false);
+
+  // Escuchar el evento PASSWORD_RECOVERY de Supabase
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        passwordRecoveryRef.current = true;
+        router.replace('/(auth)/reset-password');
+      } else if (event === 'USER_UPDATED') {
+        // Contraseña actualizada correctamente, limpiar flag
+        passwordRecoveryRef.current = false;
+      }
+    });
+    return () => subscription.unsubscribe();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (loading) return;
+    if (passwordRecoveryRef.current) return; // No redirigir durante recuperación de contraseña
 
     const inAuthGroup = segments[0] === '(auth)';
 

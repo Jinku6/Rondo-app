@@ -186,6 +186,7 @@ export default function MatchDetailScreen() {
   }
 
   const isOrganizer = user?.id === match.organizer_id;
+  const isArchived = match.status === 'completed' || match.status === 'cancelled';
   const myParticipation = participants.find(p => p.user_id === user?.id);
   const maxPlayers = match.requested_positions
     ? Object.values(match.requested_positions).reduce((a: number, b: number) => a + b, 0)
@@ -213,7 +214,7 @@ export default function MatchDetailScreen() {
   const levelInfo = LEVEL_CONFIG[match.level] || LEVEL_CONFIG.medio;
 
   return (
-    <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top', 'bottom']}>
       {/* Android: custom map picker modal */}
       <Modal
         visible={mapModalVisible}
@@ -499,7 +500,14 @@ export default function MatchDetailScreen() {
                                 .eq('id', match.id);
                               if (updateError) throw updateError;
 
-                              // 2. Notificación solo para el organizador (pasa lista)
+                              // 2. Rechazar automáticamente las solicitudes pendientes
+                              await supabase
+                                .from('match_participants')
+                                .update({ status: 'rejected' })
+                                .eq('match_id', match.id)
+                                .eq('status', 'pending');
+
+                              // 3. Notificación solo para el organizador (pasa lista)
                               // Las notificaciones de los jugadores se crean tras confirmar asistencia
                               await supabase.from('notifications').insert({
                                 user_id: user!.id,
@@ -550,6 +558,14 @@ export default function MatchDetailScreen() {
                                 .update({ status: 'cancelled' })
                                 .eq('id', match.id);
                               if (error) throw error;
+
+                              // Rechazar automáticamente las solicitudes pendientes
+                              await supabase
+                                .from('match_participants')
+                                .update({ status: 'rejected' })
+                                .eq('match_id', match.id)
+                                .eq('status', 'pending');
+
                               Alert.alert('Partido cancelado', 'El partido ha sido cancelado.', [
                                 { text: 'Aceptar', onPress: () => router.replace('/(tabs)') },
                               ]);
@@ -586,7 +602,7 @@ export default function MatchDetailScreen() {
       </View>
 
       {/* Panel de solicitudes pendientes para el organizador (#10) */}
-      {isOrganizer && pendingParticipants.length > 0 && (
+      {isOrganizer && !isArchived && pendingParticipants.length > 0 && (
         <View className="mx-4 mb-4">
           <Text className="text-xl font-bold text-slate-900 dark:text-white mb-3">
             Solicitudes pendientes ({pendingParticipants.length})

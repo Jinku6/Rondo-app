@@ -4,7 +4,7 @@ import { supabase } from '@/lib/supabase';
 import { ChatMessage, UserProfile } from '@/types/database';
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, FlatList, Image, KeyboardAvoidingView,
   Platform, Text, TextInput, TouchableOpacity, View
@@ -181,7 +181,7 @@ export default function ChatScreen() {
         >
           {isSafeUrl(otherUser.avatar_url) ? (
             <Image
-              source={{ uri: `${otherUser.avatar_url}?t=${Date.now()}` }}
+              source={{ uri: otherUser.avatar_url }}
               style={{ width: 36, height: 36, borderRadius: 18, flexShrink: 0 }}
             />
           ) : (
@@ -223,8 +223,12 @@ export default function ChatScreen() {
         )}
       </View>
     );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [otherUser, matchDetails]);
+  }, [otherUser, matchDetails, isDark]);
+
+  const stackScreenOptions = useMemo(() => ({
+    headerTitle: renderHeaderTitle,
+    title: otherUser?.full_name ?? 'Chat',
+  }), [renderHeaderTitle, otherUser?.full_name]);
 
   // ── Message bubble ──
   const renderMessage = ({ item }: { item: ChatMessage }) => {
@@ -250,15 +254,10 @@ export default function ChatScreen() {
   return (
     <KeyboardAvoidingView
       className="flex-1 bg-slate-50 dark:bg-neutral-950"
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 60}
+      behavior="padding"
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 80 + insets.top}
     >
-      <Stack.Screen
-        options={{
-          headerTitle: renderHeaderTitle,
-          title: otherUser?.full_name ?? 'Chat',
-        }}
-      />
+      <Stack.Screen options={stackScreenOptions} />
 
       {loading ? (
         <View className="flex-1 justify-center items-center">

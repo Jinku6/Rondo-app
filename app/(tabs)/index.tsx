@@ -63,20 +63,19 @@ export default function SearchScreen() {
     router.push({ pathname: '/search/results', params });
   };
 
-  const handleQuickAction = (daysToAdd: number, toEndOfWeek: boolean = false) => {
+  const handleQuickAction = (mode: 'tomorrow' | 'this_week' | 'next_week') => {
     if (!ciudadLat || !ciudadLng) {
       Alert.alert('Ubicación requerida', 'Selecciona una ciudad para buscar partidos.');
       return;
     }
-    const today = new Date();
-    if (toEndOfWeek) {
-      const params: any = { dateRange: 'this_week', lat: String(ciudadLat), lng: String(ciudadLng), ciudad: ciudadLabel };
+    if (mode === 'tomorrow') {
+      const target = new Date();
+      target.setDate(target.getDate() + 1);
+      handleSearch(target);
+    } else {
+      const params: any = { dateRange: mode, lat: String(ciudadLat), lng: String(ciudadLng), ciudad: ciudadLabel };
       if (position !== 'cualquiera') params.position = position;
       router.push({ pathname: '/search/results', params });
-    } else {
-      const target = new Date();
-      target.setDate(today.getDate() + daysToAdd);
-      handleSearch(target);
     }
   };
 
@@ -90,7 +89,7 @@ export default function SearchScreen() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top', 'bottom']}>
       <ScrollView className="flex-1 border-t border-slate-200 dark:border-neutral-950"
         contentContainerStyle={{ flexGrow: 1 }}
         keyboardShouldPersistTaps="handled">
@@ -166,23 +165,23 @@ export default function SearchScreen() {
 
         {/* Quick Actions */}
         <View className="flex-row mt-4 space-x-2 gap-2">
-          <TouchableOpacity 
+          <TouchableOpacity
             className="flex-1 items-center py-2 bg-slate-100 dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700"
-            onPress={() => handleQuickAction(0)}
-          >
-            <Text className="text-slate-600 dark:text-slate-300 font-medium">Hoy</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            className="flex-1 items-center py-2 bg-slate-100 dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700"
-            onPress={() => handleQuickAction(1)}
+            onPress={() => handleQuickAction('tomorrow')}
           >
             <Text className="text-slate-600 dark:text-slate-300 font-medium">Mañana</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
             className="flex-1 items-center py-2 bg-slate-100 dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700"
-            onPress={() => handleQuickAction(0, true)}
+            onPress={() => handleQuickAction('this_week')}
           >
             <Text className="text-slate-600 dark:text-slate-300 font-medium">Esta semana</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            className="flex-1 items-center py-2 bg-slate-100 dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700"
+            onPress={() => handleQuickAction('next_week')}
+          >
+            <Text className="text-slate-600 dark:text-slate-300 font-medium">Próxima semana</Text>
           </TouchableOpacity>
         </View>
 

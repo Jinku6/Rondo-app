@@ -293,7 +293,7 @@ export default function ProfileScreen() {
   // ════════════════════════════════════════════════════════════════════════
   if (!isEditing) {
     return (
-      <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top']}>
+      <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top', 'bottom']}>
         <ScrollView
           className="flex-1"
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
@@ -377,7 +377,7 @@ export default function ProfileScreen() {
   // VISTA: editar perfil
   // ════════════════════════════════════════════════════════════════════════
   return (
-    <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top', 'bottom']}>
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 48 }}
