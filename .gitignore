@@ -51,5 +51,11 @@ app-example
 # But keep CLAUDE.md (project documentation)
 !.claude/CLAUDE.md
 
+# Claude Code memory (local development context)
+memory/
+
 # Supabase
 supabase/*.html
+
+# Claude Skills
+skills-lock.json
