@@ -50,43 +50,15 @@ Construido con herramientas que no dejan tirado:
 - **Validación**: [Zod](https://zod.dev/) — esquemas de datos que funcionan como una defensa organizada.
 - **Automatización**: *Supabase pg_cron* — finaliza partidos y gestiona estados sin que tengas que hacer nada.
 
-## 📦 Configuración del Proyecto
-
-### Requisitos Previos
-- Node.js (v18 o superior)
-- Expo Go instalado en tu dispositivo o emulador lista.
-
-### Instalación
-1. **Clona el repositorio**:
-   ```bash
-   git clone [url-del-repo]
-   cd futbol
-   ```
-
-2. **Instala las dependencias**:
-   ```bash
-   npm install
-   ```
-
-3. **Configura el `.env`** en la raíz del proyecto:
-   ```env
-   EXPO_PUBLIC_SUPABASE_URL=tu_url_aqui
-   EXPO_PUBLIC_SUPABASE_ANON_KEY=tu_key_aqui
-   ```
-
-4. **Arranca la aplicación**:
-   ```bash
-   npx expo start
-   ```
-
 ## 🎨 Sistema de Estilos
-Seguimos las guías de [`estilos.md`](./estilos.md) al pie de la letra.
 - **Color Primario**: Verde (#22C55E) — el del pasto, qué si no.
 - **Fondos**: Dark Mode (#0A0A0A / #111827) — menos quemón en los ojos.
 - **Tipografía**: Inter (Weights: 400, 500, 600, 700) — limpia y sin vueltas.
 
 ---
 
-**Desarrollado con ❤️ para los que aman jugar, no complicarse.** 
+> ⚠️ **Proyecto privado** — Este repositorio no es open source. No está permitida su reproducción, distribución ni uso sin autorización expresa del autor.
+
+**Desarrollado con ❤️ para los que aman jugar, no complicarse.**
 
 *P.D.: Si tu Trust Score es rojo, empezá por llegar a tiempo.* ⚽

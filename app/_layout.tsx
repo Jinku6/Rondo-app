@@ -11,6 +11,8 @@ import { View, ActivityIndicator, Modal, Text, TouchableOpacity, Platform, Alert
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
+import * as Linking from 'expo-linking';
+
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -156,7 +158,28 @@ function RootLayoutNav() {
         passwordRecoveryRef.current = false;
       }
     });
-    return () => subscription.unsubscribe();
+
+    // Manejar enlaces de recuperación de contraseña entrantes (Deep Linking)
+    const handleDeepLink = async (url: string) => {
+      if (url.includes('#access_token') || url.includes('token=') || url.includes('type=recovery')) {
+        await supabase.auth.getSession();
+      }
+    };
+
+    // Escuchar enlaces si la app está en segundo plano
+    const linkingSub = Linking.addEventListener('url', (event) => {
+       handleDeepLink(event.url);
+    });
+
+    // Escuchar enlaces si la app está cerrada
+    Linking.getInitialURL().then((url) => {
+      if (url) handleDeepLink(url);
+    });
+
+    return () => {
+      subscription.unsubscribe();
+      linkingSub.remove();
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

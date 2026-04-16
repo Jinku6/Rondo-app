@@ -181,7 +181,7 @@ export default function SearchScreen() {
             className="flex-1 items-center py-2 bg-slate-100 dark:bg-gray-800 rounded-lg border border-slate-200 dark:border-gray-700"
             onPress={() => handleQuickAction('next_week')}
           >
-            <Text className="text-slate-600 dark:text-slate-300 font-medium">Próxima semana</Text>
+            <Text className="text-slate-600 dark:text-slate-300 font-medium text-center">Próxima semana</Text>
           </TouchableOpacity>
         </View>
 

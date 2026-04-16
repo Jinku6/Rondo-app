@@ -208,7 +208,7 @@ export default function ChatScreen() {
           <TouchableOpacity
             onPress={() => router.push(`/match/${matchDetails.id}` as any)}
             activeOpacity={0.7}
-            style={{ backgroundColor: '#f0fdf4', borderColor: '#bbf7d0', borderWidth: 1, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 5, alignItems: 'center', flexShrink: 0, maxWidth: 130 }}
+            style={{ backgroundColor: '#f0fdf4', borderColor: '#bbf7d0', borderWidth: 1, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 5, alignItems: 'center', flexShrink: 1, minWidth: 0, maxWidth: 120 }}
           >
             <Ionicons name="football-outline" size={11} color="#16a34a" />
             <Text style={{ color: '#15803d', fontSize: 10, fontWeight: 'bold', marginTop: 2, textAlign: 'center' }} numberOfLines={1}>

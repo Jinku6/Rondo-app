@@ -134,6 +134,19 @@ npm run reset-project
 - Chat/match routes use dynamic segments: `[match_id]`, `[player_id]`, `[id]`
 - Reviews are separate screens per role: `review-organizer`, `review-player`
 
+## Obsidian Workflow (Automatic Second Brain)
+
+**IMPORTANT**: Every session, automatically (without asking):
+
+1. **Session Start**: Read `INDEX.md` and last 3 sessions from Obsidian vault
+2. **During Work**: Create/update problem and decision notes in Obsidian
+3. **Session End**: Create session note following template with wikilinks
+
+**See**: `memory/obsidian-workflow-auto.md` for complete instructions  
+**Vault**: `C:\Users\ezesc\Documents\Obsidian Vault\Rondo\`
+
+No permission needed for reading/creating notes in Obsidian. This maintains project context across sessions.
+
 ## Custom Skills
 
 ### Project-Specific Skills (in `.agents/skills/`)
@@ -141,6 +154,14 @@ npm run reset-project
 - **brainstorming** - Use before any creative work (features, components, functionality). Explores user intent, requirements, and design before implementation. Outputs a written spec doc.
 - **lint-and-validate** - MANDATORY: Run after every code change. Executes `expo lint` and `tsc --noEmit` to ensure code quality and type safety.
 - **ui-ux-pro-max** - Professional UI/UX design toolkit with data and styles for multiple stacks (React Native, React, Flutter, SwiftUI, etc.).
+
+### Obsidian & Utilities Skills (in `.agents/skills/`)
+
+- **obsidian-bases** - Create and edit Obsidian Bases (.base files) with views, filters, formulas, and summaries. Use when working with database-like views of notes, table views, card views, or when user mentions filters/formulas in Obsidian.
+- **obsidian-cli** - Interact with running Obsidian instances using the CLI to read, create, search, and manage notes, tasks, properties. Also supports plugin and theme development with reload, debugging, and inspection commands.
+- **obsidian-markdown** - Create and edit Obsidian Flavored Markdown with wikilinks, embeds, callouts, properties, frontmatter, tags, and other Obsidian-specific syntax.
+- **json-canvas** - Create and edit JSON Canvas files (.canvas) with nodes, edges, groups, and connections for mind maps, flowcharts, and visual canvases in Obsidian.
+- **defuddle** - Extract clean markdown content from web pages using Defuddle CLI, removing clutter and navigation. Use instead of WebFetch for standard web pages to reduce token usage.
 
 ### Anthropic Skills (Available Globally)
 
