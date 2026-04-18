@@ -109,8 +109,7 @@ export default function MyMatchesScreen() {
     return (
       <TouchableOpacity
         onPress={() => router.push(`/match/${item.id}`)}
-        className="bg-white dark:bg-gray-900 rounded-xl mb-4 shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden"
-        style={isArchived ? { opacity: 0.75 } : undefined}
+        className={`bg-white dark:bg-gray-900 rounded-xl mb-4 shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden ${isArchived ? 'opacity-75' : ''}`}
       >
         <View className={`h-1.5 w-full ${isOrganizer ? 'bg-purple-600' : 'bg-green-500'}`} />
 
@@ -178,7 +177,6 @@ export default function MyMatchesScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top', 'bottom']}>
-      <Stack.Screen options={{ headerShown: false }} />
       <FlatList
         data={visibleMatches}
         keyExtractor={item => item.id + item._role}
@@ -199,10 +197,10 @@ export default function MyMatchesScreen() {
 
             {/* Active / Archived toggle */}
             {hasAny && (
-              <View className="flex-row bg-slate-200 dark:bg-gray-800 rounded-xl p-1 mb-4">
+              <View className="flex-row bg-slate-200 dark:bg-gray-800 rounded-xl p-1 mb-4 border border-slate-300 dark:border-slate-700">
                 <TouchableOpacity
                   onPress={() => setShowArchived(false)}
-                  className={`flex-1 rounded-lg py-2 items-center ${!showArchived ? 'bg-white dark:bg-gray-700 shadow-sm' : ''}`}
+                  className={`flex-1 rounded-lg py-2 items-center ${!showArchived ? 'bg-white dark:bg-gray-700' : ''}`}
                 >
                   <Text className={`text-sm font-semibold ${!showArchived ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>
                     Activos {hasActive ? `(${activeMatches.length})` : ''}
@@ -210,7 +208,7 @@ export default function MyMatchesScreen() {
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setShowArchived(true)}
-                  className={`flex-1 rounded-lg py-2 items-center ${showArchived ? 'bg-white dark:bg-gray-700 shadow-sm' : ''}`}
+                  className={`flex-1 rounded-lg py-2 items-center ${showArchived ? 'bg-white dark:bg-gray-700' : ''}`}
                 >
                   <Text className={`text-sm font-semibold ${showArchived ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>
                     Archivados {hasArchived ? `(${archivedMatches.length})` : ''}

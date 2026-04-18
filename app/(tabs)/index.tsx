@@ -225,7 +225,7 @@ export default function SearchScreen() {
 
         {/* Botón Buscar Grande */}
         <TouchableOpacity 
-          className="w-full bg-green-500 rounded-2xl p-4 mt-6 items-center shadow-lg" style={{ minHeight: 48 }}
+          className="w-full bg-green-500 rounded-2xl p-4 mt-6 items-center shadow-lg min-h-[48px]"
           onPress={() => handleSearch()}
         >
           <Text className="text-white font-bold text-xl">Buscar Partidos</Text>

@@ -120,7 +120,7 @@ export default function LoginScreen() {
             </View>
 
             <TouchableOpacity
-              className="w-full bg-green-500 rounded-xl p-4 mt-4 items-center" style={{ minHeight: 48 }}
+              className="w-full bg-green-500 rounded-xl p-4 mt-4 items-center min-h-[48px]"
               onPress={handleLogin}
               disabled={loading}
             >

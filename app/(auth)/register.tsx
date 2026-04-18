@@ -367,7 +367,7 @@ export default function RegisterScreen() {
             />
 
             <TouchableOpacity
-              className="w-full bg-green-500 rounded-xl p-4 mt-6 items-center" style={{ minHeight: 48 }}
+              className="w-full bg-green-500 rounded-xl p-4 mt-6 items-center min-h-[48px]"
               onPress={handleRegister}
               disabled={loading}
             >

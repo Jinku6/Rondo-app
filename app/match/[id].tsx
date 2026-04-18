@@ -407,7 +407,7 @@ export default function MatchDetailScreen() {
             ) : !myParticipation ? (
               <View className="space-y-3">
                 <TouchableOpacity
-                  className={`w-full p-4 rounded-xl items-center shadow-sm ${isFull ? 'bg-slate-300 dark:bg-gray-900' : 'bg-green-500'}`} style={{ minHeight: 48 }}
+                  className={`w-full p-4 rounded-xl items-center shadow-sm min-h-[48px] ${isFull ? 'bg-slate-300 dark:bg-gray-900' : 'bg-green-500'}`}
                   onPress={isFull ? undefined : handleJoin}
                   disabled={actionLoading || isFull}
                 >
