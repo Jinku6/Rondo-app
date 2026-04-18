@@ -61,9 +61,11 @@ export default function TabLayout() {
 
     if (!user) return;
 
-    // Subscribe to notification changes
+    // Unique suffix evita colisión cuando React reconecta el efecto sin haberlo destruido
+    const uid = Date.now();
+
     const notifSub = supabase
-      .channel('tab-badge-notifs')
+      .channel(`tab-badge-notifs-${uid}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
@@ -72,24 +74,22 @@ export default function TabLayout() {
       }, () => fetchBadgeCount())
       .subscribe();
 
-    // Subscribe to match_participants changes (join requests) — solo INSERTs nuevos
     const matchSub = supabase
-      .channel('tab-badge-matches')
+      .channel(`tab-badge-matches-${uid}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'match_participants' }, () => fetchMatchesBadge())
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'match_participants' }, () => fetchMatchesBadge())
       .subscribe();
 
-    // Subscribe to chat_messages INSERT and UPDATE (is_read changes)
     const chatSub = supabase
-      .channel('tab-badge-chats')
+      .channel(`tab-badge-chats-${uid}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, () => fetchBadgeCount())
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'chat_messages' }, () => fetchBadgeCount())
       .subscribe();
 
     return () => {
-      notifSub.unsubscribe();
-      matchSub.unsubscribe();
-      chatSub.unsubscribe();
+      supabase.removeChannel(notifSub);
+      supabase.removeChannel(matchSub);
+      supabase.removeChannel(chatSub);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);

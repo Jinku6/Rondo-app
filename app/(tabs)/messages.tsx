@@ -75,7 +75,7 @@ export default function MessagesScreen() {
     if (!user) return;
 
     const channel = supabase
-      .channel('messages-screen-realtime')
+      .channel(`messages-screen-realtime-${Date.now()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_messages' }, () => fetchData(true))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, () => fetchData(true))
       .subscribe();

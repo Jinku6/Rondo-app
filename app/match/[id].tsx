@@ -7,6 +7,15 @@ import { Match, MatchParticipant } from '@/types/database';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { isSafeUrl } from '@/lib/utils';
+import CancelMatchModal, { CancelWindow } from '@/components/CancelMatchModal';
+
+const getCancelWindow = (matchTime: number): CancelWindow => {
+  const hoursLeft = (matchTime - Date.now()) / 3600000;
+  if (hoursLeft > 48) return '48h_plus';
+  if (hoursLeft > 24) return '24_48h';
+  if (hoursLeft > 4)  return '4_24h';
+  return 'sub_4h';
+};
 
 interface MapOption { titulo: string; url: string; nativo: string }
 
@@ -54,6 +63,8 @@ export default function MatchDetailScreen() {
   const [actionLoading, setActionLoading] = useState(false);
   const [mapModalVisible, setMapModalVisible] = useState(false);
   const [mapOptions, setMapOptions] = useState<MapOption[]>([]);
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [cancelWindow, setCancelWindow] = useState<CancelWindow>('48h_plus');
   const joiningRef = useRef(false);
 
   async function fetchMatchDetails() {
@@ -112,50 +123,50 @@ export default function MatchDetailScreen() {
     }
   };
 
-  const handleLeave = async () => {
+  const handleLeave = () => {
     if (!user || !match) return;
+    const win = getCancelWindow(new Date(match.date_time).getTime());
 
-    const matchTime = new Date(match.date_time).getTime();
-    const now = Date.now();
-    const minutesUntilMatch = (matchTime - now) / 60000;
-
-    const isLate = minutesUntilMatch > 0 && minutesUntilMatch < 90;
-    const hasStarted = minutesUntilMatch <= 0;
-
-    if (isLate || hasStarted) {
-      const title = hasStarted ? '⚠️ Partido en curso' : '⚠️ Baja tardía';
-      const message = hasStarted
-        ? 'El partido ya ha comenzado. Darte de baja ahora contará como NO ASISTIDO y afectará a tu puntuación de fiabilidad.\n\n¿Confirmas la baja?'
-        : 'El partido empieza en menos de 1h 30min. Si te das de baja ahora, este partido contará como NO ASISTIDO y afectará a tu puntuación de fiabilidad.\n\n¿Confirmas la baja?';
+    if (win === '48h_plus') {
       Alert.alert(
-        title,
-        message,
+        'Abandonar partido',
+        '¿Seguro que quieres darte de baja?',
         [
           { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Darme de baja',
-            style: 'destructive',
-            onPress: async () => {
-              setActionLoading(true);
-              const { error } = await supabase
-                .from('match_participants')
-                .update({ status: 'dropped', attended: false })
-                .eq('match_id', match.id)
-                .eq('user_id', user.id);
-              setActionLoading(false);
-              if (error) Alert.alert('Error', error.message);
-              else { Alert.alert('Baja registrada', 'Se ha registrado como no asistencia.'); fetchMatchDetails(); }
-            },
-          },
+          { text: 'Darme de baja', style: 'destructive', onPress: () => executeLeave(win) },
         ]
       );
     } else {
-      setActionLoading(true);
-      const { error } = await supabase.from('match_participants').delete()
-        .eq('match_id', match.id).eq('user_id', user.id);
+      setCancelWindow(win);
+      setCancelModalVisible(true);
+    }
+  };
+
+  const executeLeave = async (win: CancelWindow) => {
+    if (!user || !match) return;
+    setActionLoading(true);
+    try {
+      if (win === '48h_plus') {
+        const { error } = await supabase
+          .from('match_participants')
+          .delete()
+          .eq('match_id', match.id)
+          .eq('user_id', user.id);
+        if (error) throw error;
+      } else {
+        const attended = win === '24_48h';
+        const { error } = await supabase
+          .from('match_participants')
+          .update({ status: 'dropped', attended })
+          .eq('match_id', match.id)
+          .eq('user_id', user.id);
+        if (error) throw error;
+      }
+      fetchMatchDetails();
+    } catch (e) {
+      Alert.alert('Error', e instanceof Error ? e.message : 'No se pudo procesar la baja');
+    } finally {
       setActionLoading(false);
-      if (error) Alert.alert('Error', error.message);
-      else { Alert.alert('Aviso', 'Has abandonado el partido'); fetchMatchDetails(); }
     }
   };
 
@@ -544,7 +555,9 @@ export default function MatchDetailScreen() {
                   onPress={() => {
                     Alert.alert(
                       'Cancelar Partido',
-                      '¿Estás seguro de que quieres cancelar este partido? Esta acción no afectará las estadísticas de ningún jugador.',
+                      getCancelWindow(new Date(match.date_time).getTime()) !== '48h_plus'
+                        ? 'Cancelas con menos de 48h de antelación. Esto quedará registrado en tu historial de organizador.\n\nSi hay jugadores con pago aprobado, recibirán un reembolso automático del 100%.'
+                        : 'Al cancelar, todos los jugadores serán notificados. Si hay pagos aprobados, recibirán un reembolso automático del 100%.',
                       [
                         { text: 'Volver', style: 'cancel' },
                         {
@@ -567,7 +580,7 @@ export default function MatchDetailScreen() {
                                 .eq('status', 'pending');
 
                               Alert.alert('Partido cancelado', 'El partido ha sido cancelado.', [
-                                { text: 'Aceptar', onPress: () => router.replace('/(tabs)') },
+                                { text: 'Aceptar', onPress: () => router.replace('/(tabs)/mymatches') },
                               ]);
                             } catch (error) {
                               Alert.alert('Error', error instanceof Error ? error.message : String(error));
@@ -733,6 +746,16 @@ export default function MatchDetailScreen() {
         )}
       </View>
     </ScrollView>
+
+    <CancelMatchModal
+      visible={cancelModalVisible}
+      window={cancelWindow}
+      onCancel={() => setCancelModalVisible(false)}
+      onConfirm={() => {
+        setCancelModalVisible(false);
+        executeLeave(cancelWindow);
+      }}
+    />
     </SafeAreaView>
   );
 }
