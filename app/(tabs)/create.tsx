@@ -540,7 +540,18 @@ export default function CreateMatchScreen() {
         {/* Configuración Extra */}
         <View className="bg-slate-50 dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800 space-y-4">
           <View>
-            <Text className="text-slate-600 dark:text-slate-400 font-medium mb-1">Precio por persona (€)</Text>
+            <View className="flex-row items-center mb-1">
+              <Text className="text-slate-600 dark:text-slate-400 font-medium">Precio por persona (€)</Text>
+              <TouchableOpacity
+                onPress={() => Alert.alert(
+                  'Cobro manual',
+                  'El organizador debe encargarse del cobro. En el futuro se añadirá la función para gestionar pagos por la app.'
+                )}
+                className="ml-2"
+              >
+                <Ionicons name="information-circle-outline" size={18} color="#64748b" />
+              </TouchableOpacity>
+            </View>
             <TextInput
               className="w-full bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-lg p-3 text-slate-900 dark:text-white"
               value={price}
@@ -549,6 +560,7 @@ export default function CreateMatchScreen() {
               placeholder="0.00"
               placeholderTextColor="#9ca3af"
             />
+            <Text className="text-xs text-slate-400 dark:text-slate-500 mt-1">El organizador debe encargarse del cobro. En el futuro se añadirá la función para gestionar pagos por la app.</Text>
           </View>
           <View className="flex-row justify-between items-center py-2">
             <View className="flex-1 mr-4">

@@ -337,6 +337,9 @@ export default function MatchDetailScreen() {
             <Text className="text-lg font-bold text-green-600 dark:text-green-400">
               {match.price_per_player > 0 ? `${match.price_per_player}€` : 'Gratis'}
             </Text>
+            {match.price_per_player > 0 && (
+              <Text className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Pago en el campo / Bizum</Text>
+            )}
           </View>
           <View className="items-center">
             <Text className="text-xs text-slate-500 dark:text-slate-400 mb-1">Equipos</Text>
@@ -556,8 +559,11 @@ export default function MatchDetailScreen() {
                     Alert.alert(
                       'Cancelar Partido',
                       getCancelWindow(new Date(match.date_time).getTime()) !== '48h_plus'
-                        ? 'Cancelas con menos de 48h de antelación. Esto quedará registrado en tu historial de organizador.\n\nSi hay jugadores con pago aprobado, recibirán un reembolso automático del 100%.'
-                        : 'Al cancelar, todos los jugadores serán notificados. Si hay pagos aprobados, recibirán un reembolso automático del 100%.',
+                        ? 'Cancelas con menos de 48h de antelación. Esto quedará registrado en tu historial de organizador.'
+                        : 'Al cancelar, todos los jugadores serán notificados.',
+                        // Rondo Free: reembolsos automáticos desactivados por ahora
+                        // ? '...recibirán un reembolso automático del 100%.'
+                        // : '...Si hay pagos aprobados, recibirán un reembolso automático del 100%.'
                       [
                         { text: 'Volver', style: 'cancel' },
                         {

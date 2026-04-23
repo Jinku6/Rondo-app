@@ -452,8 +452,20 @@ export default function EditMatchScreen() {
 
         <View className="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-4">
           <View>
-            <Text className="text-slate-400 font-medium mb-1">Precio por persona (€)</Text>
+            <View className="flex-row items-center mb-1">
+              <Text className="text-slate-400 font-medium">Precio por persona (€)</Text>
+              <TouchableOpacity
+                onPress={() => Alert.alert(
+                  'Cobro manual',
+                  'El organizador debe encargarse del cobro. En el futuro se añadirá la función para gestionar pagos por la app.'
+                )}
+                className="ml-2"
+              >
+                <Ionicons name="information-circle-outline" size={18} color="#64748b" />
+              </TouchableOpacity>
+            </View>
             <TextInput className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white" value={price} onChangeText={setPrice} keyboardType="numeric" placeholder="0.00" placeholderTextColor="#64748b" />
+            <Text className="text-xs text-slate-500 mt-1">El organizador debe encargarse del cobro. En el futuro se añadirá la función para gestionar pagos por la app.</Text>
           </View>
           <View className="flex-row justify-between items-center py-2">
             <View className="flex-1 mr-4">
