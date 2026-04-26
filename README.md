@@ -61,4 +61,4 @@ Construido con herramientas que no dejan tirado:
 
 **Desarrollado con ❤️ para los que aman jugar, no complicarse.**
 
-*P.D.: Si tu Trust Score es rojo, empezá por llegar a tiempo.* ⚽
+*P.D.: Si tu Trust Score es rojo, empeieza por llegar a tiempo.* ⚽
