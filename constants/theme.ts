@@ -1,90 +1,127 @@
 /**
- * Rondo Design System — constants/theme.ts
- * Colors and typography aligned with estilos.md
- *
- * Tailwind class mapping:
- *   Brand primary  = green-500 (#22C55E) — use `green-*` classes, NOT emerald/teal
- *   Main BG (dark) = neutral-950 (#0A0A0A)
- *   Card/Input BG (dark) = gray-900 (#111827)
- *   Borders (dark) = gray-800 (#1F2937)
- *   Warning        = amber-* classes
- *   Error          = red-* classes
+ * Rondo Design System — Stadium Fusion v2
+ * Colors, typography, spacing aligned with estilos.md and mockup
  */
 
-import { Platform } from 'react-native';
+// ─── DARK MODE TOKENS ───────────────────────────────────────────
+export const Colors = {
+  bg: '#0A0A0A',
+  bgElev: '#111827',
+  bgSurface: '#161A18',
+  bgSurface2: '#1F2423',
+  border: 'rgba(255,255,255,0.08)',
+  borderStrong: 'rgba(255,255,255,0.16)',
 
-// ─── Brand Colors ───────────────────────────────────────────
-export const Brand = {
-  /** Primary green — CTA buttons, active states */
-  primary: '#22C55E',
-} as const;
+  text: '#F4F3EE',
+  textDim: '#8A938F',
+  textMuted: '#5A625D',
 
-// ─── Semantic State Colors ──────────────────────────────────
-export const StateColors = {
-  success: '#22C55E',
-  error: '#EF4444',
+  brand: '#22C55E',
+  brandDeep: '#16A34A',
+  brandSoft: 'rgba(34,197,94,0.14)',
+  brandGlow: 'rgba(34,197,94,0.32)',
+  brandInk: '#FFFFFF',
+
+  danger: '#EF4444',
   warning: '#F59E0B',
   info: '#3B82F6',
 } as const;
 
-// ─── Light / Dark Theme Tokens ──────────────────────────────
-export const Colors = {
-  light: {
-    text: '#111827',
-    secondaryText: '#6B7280',
-    background: '#FFFFFF',
-    secondaryBackground: '#F9FAFB',
-    tint: Brand.primary,
-    icon: '#6B7280',
-    secondaryIcon: '#64748b',
-    tabIconDefault: '#6B7280',
-    tabIconSelected: Brand.primary,
-    card: '#FFFFFF',
-    divider: '#E5E7EB',
-  },
-  dark: {
-    text: '#FFFFFF',
-    secondaryText: '#9CA3AF',
-    background: '#0A0A0A',
-    secondaryBackground: '#111827',
-    tint: Brand.primary,
-    icon: '#9BA1A6',
-    secondaryIcon: '#94a3b8',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: Brand.primary,
-    card: '#111827',
-    divider: '#1F2937',
-  },
+// ─── LIGHT MODE TOKENS ──────────────────────────────────────────
+export const ColorsLight = {
+  bg: '#FFFFFF',
+  bgElev: '#F8FAF9',
+  bgSurface: '#F0F5F1',
+  bgSurface2: '#E8EEE9',
+  border: 'rgba(0,0,0,0.08)',
+  borderStrong: 'rgba(0,0,0,0.16)',
+
+  text: '#111827',
+  textDim: '#374151',
+  textMuted: '#4B5563',
+
+  brand: '#22C55E',
+  brandDeep: '#166534',
+  brandSoft: 'rgba(22,163,74,0.12)',
+  brandGlow: 'rgba(22,163,74,0.25)',
+  brandInk: '#FFFFFF',
+
+  danger: '#B91C1C',
+  warning: '#92400E',
+  info: '#1D4ED8',
 } as const;
 
-// ─── Typography ─────────────────────────────────────────────
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS system font (Inter loaded via expo-font where needed) */
-    sans: 'Inter',
-    serif: 'ui-serif',
-    rounded: 'ui-rounded',
-    mono: 'ui-monospace',
-  },
-  default: {
-    sans: 'Inter',
-    serif: 'serif',
-    rounded: 'Inter',
-    mono: 'monospace',
-  },
-  web: {
-    sans: "Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-    serif: "Georgia, 'Times New Roman', serif",
-    rounded: "Inter, system-ui, sans-serif",
-    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
-  },
-});
+export type ThemeColors = typeof Colors;
 
-// ─── Spacing (from estilos.md) ──────────────────────────────
+// ─── TYPOGRAPHY ─────────────────────────────────────────────────
+export const Fonts = {
+  display: 'Archivo',
+  body: 'Inter',
+  mono: 'JetBrainsMono',
+} as const;
+
+// ─── RADIUS ─────────────────────────────────────────────────────
+export const Radius = {
+  sm: 10,
+  md: 14,
+  lg: 20,
+  xl: 26,
+} as const;
+
+// ─── SPACING ────────────────────────────────────────────────────
 export const Spacing = {
   xs: 4,
   sm: 8,
   md: 16,
   lg: 24,
   xl: 32,
+} as const;
+
+// ─── SHADOWS (per theme) ────────────────────────────────────────
+export const Shadows = {
+  dark: {
+    sm: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 4 },
+    md: { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 20, elevation: 8 },
+    lg: { shadowColor: '#000', shadowOffset: { width: 0, height: 20 }, shadowOpacity: 0.6, shadowRadius: 50, elevation: 16 },
+  },
+  light: {
+    sm: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 2 },
+    md: { shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 4 },
+    lg: { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.16, shadowRadius: 32, elevation: 8 },
+  },
+} as const;
+
+export const theme = { colors: Colors, fonts: Fonts, radius: Radius, spacing: Spacing } as const;
+
+// ─── LEGACY / COMPAT ────────────────────────────────────────────
+export const Brand = { primary: Colors.brand } as const;
+export const StateColors = { success: Colors.brand, error: Colors.danger, warning: Colors.warning, info: Colors.info } as const;
+
+export const ColorsByTheme = {
+  light: {
+    text: ColorsLight.text,
+    secondaryText: ColorsLight.textDim,
+    background: ColorsLight.bg,
+    secondaryBackground: ColorsLight.bgElev,
+    tint: ColorsLight.brandDeep,
+    icon: ColorsLight.textDim,
+    secondaryIcon: ColorsLight.textMuted,
+    tabIconDefault: ColorsLight.textMuted,
+    tabIconSelected: ColorsLight.brandDeep,
+    card: ColorsLight.bgSurface,
+    divider: ColorsLight.border,
+  },
+  dark: {
+    text: Colors.text,
+    secondaryText: Colors.textDim,
+    background: Colors.bg,
+    secondaryBackground: Colors.bgElev,
+    tint: Colors.brand,
+    icon: Colors.textDim,
+    secondaryIcon: Colors.textMuted,
+    tabIconDefault: Colors.textDim,
+    tabIconSelected: Colors.brand,
+    card: Colors.bgSurface,
+    divider: Colors.border,
+  },
 } as const;

@@ -134,46 +134,25 @@ npm run reset-project
 - Chat/match routes use dynamic segments: `[match_id]`, `[player_id]`, `[id]`
 - Reviews are separate screens per role: `review-organizer`, `review-player`
 
-## Obsidian Workflow (Automatic Second Brain)
+## Obsidian Vault Context (Manual)
 
-**IMPORTANT**: Every session, automatically (without asking):
+If relevant to the task, you can access the project's second brain:
+- **Vault**: `C:\Users\ezesc\Documents\Obsidian Vault\Rondo\`
+- **Reference**: See `memory/obsidian-workflow-auto.md` for templates and structures if needed manually.
 
-1. **Session Start**: Read `INDEX.md` and last 3 sessions from Obsidian vault
-2. **During Work**: Create/update problem and decision notes in Obsidian
-3. **Session End**: Create session note following template with wikilinks
-
-**See**: `memory/obsidian-workflow-auto.md` for complete instructions  
-**Vault**: `C:\Users\ezesc\Documents\Obsidian Vault\Rondo\`
-
-No permission needed for reading/creating notes in Obsidian. This maintains project context across sessions.
+---
 
 ## Custom Skills
 
 ### Project-Specific Skills (in `.agents/skills/`)
 
-- **brainstorming** - Use before any creative work (features, components, functionality). Explores user intent, requirements, and design before implementation. Outputs a written spec doc.
-- **lint-and-validate** - MANDATORY: Run after every code change. Executes `expo lint` and `tsc --noEmit` to ensure code quality and type safety.
-- **ui-ux-pro-max** - Professional UI/UX design toolkit with data and styles for multiple stacks (React Native, React, Flutter, SwiftUI, etc.).
+- **brainstorming** - Use for complex new features to explore requirements and design before implementation.
+- **lint-and-validate** - Run before finishing a task or when troubleshooting to ensure code quality (expo lint, tsc).
+- **ui-ux-pro-max** - UI/UX design toolkit for multiple stacks.
+- **defuddle** - Use to extract clean markdown from web URLs to save tokens compared to WebFetch.
 
-### Obsidian & Utilities Skills (in `.agents/skills/`)
+### Obsidian & Utilities (in `.agents/skills/`)
 
-- **obsidian-bases** - Create and edit Obsidian Bases (.base files) with views, filters, formulas, and summaries. Use when working with database-like views of notes, table views, card views, or when user mentions filters/formulas in Obsidian.
-- **obsidian-cli** - Interact with running Obsidian instances using the CLI to read, create, search, and manage notes, tasks, properties. Also supports plugin and theme development with reload, debugging, and inspection commands.
-- **obsidian-markdown** - Create and edit Obsidian Flavored Markdown with wikilinks, embeds, callouts, properties, frontmatter, tags, and other Obsidian-specific syntax.
-- **json-canvas** - Create and edit JSON Canvas files (.canvas) with nodes, edges, groups, and connections for mind maps, flowcharts, and visual canvases in Obsidian.
-- **defuddle** - Extract clean markdown content from web pages using Defuddle CLI, removing clutter and navigation. Use instead of WebFetch for standard web pages to reduce token usage.
-
-### Anthropic Skills (Available Globally)
-
-Also available for use:
-- **debugger** - Debugging errors, test failures, and unexpected behavior using root cause analysis.
-- **systematic-debugging** - Methodical debugging of complex issues.
-- **react-ui-patterns** - React UI patterns for loading states, error handling, data fetching.
-- **react-patterns** - Modern React patterns, hooks, composition, performance, TypeScript best practices.
-- **api-security-best-practices** - Secure API design patterns.
-- **backend-security-coder** - Secure backend coding practices.
-- **frontend-security-coder** - Secure frontend coding practices (XSS prevention, sanitization).
-- **security-auditor** - DevSecOps and compliance frameworks.
-- **android-ui-verification** - Automated E2E UI testing on Android Emulator.
-- **kaizen** - Continuous improvement and standardization.
-- And others (see `/help` for full list).
+- **obsidian-cli** & **obsidian-markdown** - Manage notes and vault content.
+- **json-canvas** - Edit visual canvases.
+- **obsidian-bases** - Database-like views for notes.

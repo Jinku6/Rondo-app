@@ -1,102 +1,109 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, ActivityIndicator, Alert, Platform, KeyboardAvoidingView, ScrollView, Keyboard, Image } from 'react-native';
+import {
+  View, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback,
+  ActivityIndicator, Alert, Platform, KeyboardAvoidingView, ScrollView, Keyboard, Image,
+} from 'react-native';
 import { useAuth } from '@/contexts/AuthContext';
 import { Link, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { z } from 'zod';
+import { Colors } from '@/constants/theme';
 
 const LoginSchema = z.object({
   email: z.string().email('El correo electrónico ingresado no es válido'),
-  password: z.string().min(1, 'Debes ingresar tu contraseña')
+  password: z.string().min(1, 'Debes ingresar tu contraseña'),
 });
 
-const showAlert = (title: string, message: string) => {
-  if (Platform.OS === 'web') {
-    window.alert(`${title}: ${message}`);
-  } else {
-    Alert.alert(title, message);
-  }
-};
-
-// Mapa de errores de Supabase a español
 const translateError = (msg: string): string => {
   const map: Record<string, string> = {
     'Invalid login credentials': 'Email o contraseña incorrectos',
     'Email not confirmed': 'Debes confirmar tu email antes de iniciar sesión',
     'Invalid email or password': 'Email o contraseña incorrectos',
-    'User not found': 'No se encontró ningún usuario con ese email',
     'Too many requests': 'Demasiados intentos. Espera un momento',
     'Network request failed': 'Error de conexión. Comprueba tu internet',
     'Email rate limit exceeded': 'Has superado el límite de intentos. Espera unos minutos',
-    'For security purposes, you can only request this after': 'Por seguridad, debes esperar antes de volver a intentarlo',
   };
-
   for (const [key, value] of Object.entries(map)) {
     if (msg.toLowerCase().includes(key.toLowerCase())) return value;
   }
-  return msg;
+  return 'Credenciales incorrectas. Revisa tu email y contraseña.';
 };
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const { signIn, signInWithGoogle } = useAuth();
   const router = useRouter();
 
   async function handleLogin() {
+    const normalizedEmail = email.trim().toLowerCase();
     try {
-      LoginSchema.parse({ email, password });
+      LoginSchema.parse({ email: normalizedEmail, password });
     } catch (err) {
       if (err instanceof z.ZodError) {
-        showAlert('Error', err.issues[0].message);
+        Alert.alert('Error', err.issues[0].message);
         return;
       }
     }
-
     setLoading(true);
-    const { error } = await signIn(email, password);
+    const { error } = await signIn(normalizedEmail, password);
     setLoading(false);
-
     if (error) {
-      showAlert('Error', translateError(error));
+      Alert.alert('Error', translateError(error));
     } else {
       router.replace('/(tabs)');
     }
   }
 
-  const TouchWrapper: any = Platform.OS === 'web' ? View : TouchableWithoutFeedback;
-  const touchProps = Platform.OS === 'web' ? { style: {flex: 1} } : { onPress: Keyboard.dismiss, accessible: false, style: {flex: 1} };
+  const c = Colors;
 
   return (
-    <KeyboardAvoidingView 
-      className="flex-1" 
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: c.bg }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <TouchWrapper {...touchProps}>
-        <ScrollView 
-          className="flex-1 bg-white dark:bg-neutral-950" 
-          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24 }}
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 40 }}
           keyboardShouldPersistTaps="handled"
         >
-          <View className="items-center mb-8">
-            <Image 
-              source={require('@/assets/images/icon.png')} 
-              className="w-32 h-32 rounded-[32px] mb-4"
-              resizeMode="cover"
-            />
-            <Text className="text-3xl font-bold text-center text-slate-900 dark:text-white">
-              Bienvenido a Rondo
+          {/* Logo + radial glow */}
+          <View style={{ alignItems: 'center', marginBottom: 40 }}>
+            <View style={{
+              width: 160, height: 160, alignItems: 'center', justifyContent: 'center',
+              shadowColor: c.brand, shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.6, shadowRadius: 60,
+            }}>
+              <Image
+                source={require('@/assets/images/rondo-icon.png')}
+                style={{ width: 140, height: 140 }}
+                resizeMode="contain"
+              />
+            </View>
+            <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 44, fontWeight: '900', color: c.brand, letterSpacing: -1, marginTop: 8 }}>
+              Rondo
+            </Text>
+            <Text style={{ fontSize: 13, color: c.textDim, marginTop: 4 }}>
+              Organiza partidos sin perder el balón ⚽
             </Text>
           </View>
 
-          <View className="space-y-4">
+          <View style={{ gap: 16 }}>
+            {/* Email */}
             <View>
-              <Text className="text-slate-700 dark:text-slate-300 font-medium mb-1">Email</Text>
+              <Text style={{ fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: c.textDim, marginBottom: 7 }}>
+                Email
+              </Text>
               <TextInput
-                className="w-full bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-xl p-3 text-gray-900 dark:text-white"
+                style={{
+                  width: '100%', padding: 14, backgroundColor: 'rgba(255,255,255,0.04)',
+                  borderWidth: 1, borderColor: c.border, borderRadius: 14,
+                  color: c.text, fontSize: 15, fontWeight: '500',
+                }}
                 placeholder="tu@email.com"
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={c.textMuted}
                 value={email}
                 onChangeText={setEmail}
                 autoCapitalize="none"
@@ -105,65 +112,92 @@ export default function LoginScreen() {
               />
             </View>
 
+            {/* Password */}
             <View>
-              <Text className="text-slate-700 dark:text-slate-300 font-medium mb-1">Contraseña</Text>
-              <TextInput
-                className="w-full bg-slate-50 dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-xl p-3 text-gray-900 dark:text-white"
-                placeholder="********"
-                placeholderTextColor="#9ca3af"
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry
-                returnKeyType="done"
-                onSubmitEditing={handleLogin}
-              />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7 }}>
+                <Text style={{ fontSize: 10, fontWeight: '700', letterSpacing: 2, textTransform: 'uppercase', color: c.textDim }}>
+                  Contraseña
+                </Text>
+                <Link href="/(auth)/forgot-password" asChild>
+                  <TouchableOpacity>
+                    <Text style={{ fontSize: 12, color: c.brand, fontWeight: '600' }}>¿Olvidaste tu contraseña?</Text>
+                  </TouchableOpacity>
+                </Link>
+              </View>
+              <View style={{ position: 'relative' }}>
+                <TextInput
+                  style={{
+                    width: '100%', padding: 14, paddingRight: 48, backgroundColor: 'rgba(255,255,255,0.04)',
+                    borderWidth: 1, borderColor: c.border, borderRadius: 14,
+                    color: c.text, fontSize: 15, fontWeight: '500',
+                  }}
+                  placeholder="••••••••"
+                  placeholderTextColor={c.textMuted}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  returnKeyType="done"
+                  onSubmitEditing={handleLogin}
+                />
+                <TouchableOpacity
+                  onPress={() => setShowPassword((v) => !v)}
+                  style={{ position: 'absolute', right: 14, top: 0, bottom: 0, justifyContent: 'center' }}
+                >
+                  <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={c.textDim} />
+                </TouchableOpacity>
+              </View>
             </View>
 
+            {/* Primary CTA */}
             <TouchableOpacity
-              className="w-full bg-green-500 rounded-xl p-4 mt-4 items-center min-h-[48px]"
               onPress={handleLogin}
               disabled={loading}
+              style={{
+                backgroundColor: c.brand, borderRadius: 14, minHeight: 52,
+                alignItems: 'center', justifyContent: 'center', marginTop: 8,
+                shadowColor: c.brand, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.4, shadowRadius: 24,
+              }}
             >
-              {loading ? (
-                <ActivityIndicator color="#ffffff" />
-              ) : (
-                <Text className="text-white font-semibold text-lg">Ingresar</Text>
-              )}
+              {loading
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 16, fontWeight: '800', color: '#fff', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+                    Entrar a jugar
+                  </Text>
+              }
             </TouchableOpacity>
 
-            <View className="items-end mt-2">
-              <Link href="/(auth)/forgot-password" asChild>
-                <TouchableOpacity>
-                  <Text className="text-green-500 text-sm font-medium">¿Olvidaste tu contraseña?</Text>
-                </TouchableOpacity>
-              </Link>
+            {/* Divider */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 4 }}>
+              <View style={{ flex: 1, height: 1, backgroundColor: c.border }} />
+              <Text style={{ color: c.textMuted, fontSize: 12 }}>o</Text>
+              <View style={{ flex: 1, height: 1, backgroundColor: c.border }} />
             </View>
 
-            <View className="flex-row items-center my-4 opacity-50">
-              <View className="flex-1 h-[1px] bg-slate-400" />
-              <Text className="mx-4 text-slate-500 font-medium">O</Text>
-              <View className="flex-1 h-[1px] bg-slate-400" />
-            </View>
-
-            <TouchableOpacity 
-              className="w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl p-4 items-center flex-row justify-center"
+            {/* Google */}
+            <TouchableOpacity
               onPress={signInWithGoogle}
+              style={{
+                borderRadius: 14, minHeight: 52, alignItems: 'center', justifyContent: 'center',
+                flexDirection: 'row', gap: 10,
+                backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: c.border,
+              }}
             >
-              <Ionicons name="logo-google" size={20} color="#ea4335" />
-              <Text className="text-slate-700 dark:text-white font-medium text-lg ml-3">Continuar con Google</Text>
+              <Ionicons name="logo-google" size={20} color="#4285F4" />
+              <Text style={{ fontSize: 15, fontWeight: '600', color: c.text }}>Continuar con Google</Text>
             </TouchableOpacity>
+          </View>
 
-            <View className="flex-row justify-center mt-6">
-              <Text className="text-slate-600 dark:text-slate-400">¿No tienes cuenta? </Text>
-              <Link href="/(auth)/register" asChild>
-                <TouchableOpacity>
-                  <Text className="text-green-500 font-medium">Regístrate</Text>
-                </TouchableOpacity>
-              </Link>
-            </View>
+          {/* Footer */}
+          <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 32 }}>
+            <Text style={{ color: c.textDim, fontSize: 14 }}>¿No tienes cuenta? </Text>
+            <Link href="/(auth)/register" asChild>
+              <TouchableOpacity>
+                <Text style={{ color: c.brand, fontWeight: '700', fontSize: 14 }}>Únete al equipo</Text>
+              </TouchableOpacity>
+            </Link>
           </View>
         </ScrollView>
-      </TouchWrapper>
+      </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
   );
 }
