@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, Switch, ActivityIndicator, Platform, Modal } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, Stack } from 'expo-router';
@@ -12,6 +12,10 @@ import { containsProfanity } from '@/lib/profanityFilter';
 import { UbicacionInput } from '@/components/UbicacionInput';
 import type { GeoResult } from '@/lib/geocoding';
 import { isValidHexColor } from '@/lib/utils';
+import { Colors } from '@/constants/theme';
+import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
+
+const c = Colors;
 
 const CreateMatchSchema = z.object({
   title: z.string().min(3, 'El título debe tener al menos 3 caracteres'),
@@ -23,14 +27,44 @@ const CreateMatchSchema = z.object({
 });
 
 const LEVELS = [
-  { key: 'tranquilo', label: 'Tranquilo', emoji: '😌', color: 'bg-green-100 border-green-400', activeColor: 'bg-green-500 border-green-500', text: 'text-green-700', activeText: 'text-white' },
-  { key: 'medio', label: 'Medio', emoji: '⚽', color: 'bg-amber-100 border-amber-400', activeColor: 'bg-amber-500 border-amber-500', text: 'text-amber-700', activeText: 'text-white' },
-  { key: 'competitivo', label: 'Competitivo', emoji: '🔥', color: 'bg-red-100 border-red-400', activeColor: 'bg-red-500 border-red-500', text: 'text-red-700', activeText: 'text-white' },
+  { key: 'tranquilo',   label: 'Tranquilo',   emoji: '😌', color: '#22C55E' },
+  { key: 'medio',       label: 'Medio',       emoji: '⚽', color: '#F59E0B' },
+  { key: 'competitivo', label: 'Competitivo', emoji: '🔥', color: '#EF4444' },
 ];
+
+const inp = {
+  backgroundColor: 'rgba(255,255,255,0.04)' as const,
+  borderColor: 'rgba(255,255,255,0.08)' as const,
+  borderWidth: 1,
+  borderRadius: 14,
+  paddingHorizontal: 14,
+  paddingVertical: 13,
+  color: c.text,
+  fontSize: 15,
+};
+
+const lbl = {
+  fontSize: 11,
+  fontWeight: '600' as const,
+  color: c.textDim,
+  marginBottom: 6,
+  letterSpacing: 0.5,
+  textTransform: 'uppercase' as const,
+};
+
+const sectionCard = {
+  backgroundColor: c.bgElev,
+  borderRadius: 20,
+  borderWidth: 1,
+  borderColor: c.border,
+  padding: 18,
+  marginBottom: 14,
+};
 
 export default function CreateMatchScreen() {
   const { user } = useAuth();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
@@ -40,23 +74,16 @@ export default function CreateMatchScreen() {
   const [description, setDescription] = useState('');
   const [level, setLevel] = useState<MatchLevel>('medio');
 
-  // Fecha y Hora
   const [dateObj, setDateObj] = useState(new Date());
   const [dateText, setDateText] = useState('');
   const [timeText, setTimeText] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
 
-  // Posiciones
   const [positions, setPositions] = useState({
-    portero: 0,
-    defensa: 0,
-    mediocentro: 0,
-    delantero: 0,
-    cualquiera: 0,
+    portero: 0, defensa: 0, mediocentro: 0, delantero: 0, cualquiera: 0,
   });
 
-  // Colores de equipo
   const [teamAColor, setTeamAColor] = useState('#EF4444');
   const [teamBColor, setTeamBColor] = useState('#3B82F6');
   const presetColors = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#111827', '#FFFFFF'];
@@ -65,7 +92,6 @@ export default function CreateMatchScreen() {
   const [requiresApproval, setRequiresApproval] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Auto-formateo de Fecha (DD/MM/YYYY)
   const handleDateChangeText = (text: string) => {
     let cleaned = text.replace(/[^0-9]/g, '');
     let formatted = cleaned;
@@ -74,7 +100,6 @@ export default function CreateMatchScreen() {
     setDateText(formatted);
   };
 
-  // Auto-formateo de Hora (HH:MM)
   const handleTimeChangeText = (text: string) => {
     let cleaned = text.replace(/[^0-9]/g, '');
     let formatted = cleaned;
@@ -85,27 +110,18 @@ export default function CreateMatchScreen() {
   const handleTimeBlur = () => {
     let t = timeText.replace(/[^0-9]/g, '');
     if (t.length === 0) return;
-    if (t.length <= 2) {
-      setTimeText(t.padStart(2, '0') + ':00');
-    } else if (t.length === 3) {
-      setTimeText(t.slice(0, 1) + ':' + t.slice(1));
-    } else {
-      setTimeText(t.slice(0, 2) + ':' + t.slice(2, 4));
-    }
+    if (t.length <= 2) setTimeText(t.padStart(2, '0') + ':00');
+    else if (t.length === 3) setTimeText(t.slice(0, 1) + ':' + t.slice(1));
+    else setTimeText(t.slice(0, 2) + ':' + t.slice(2, 4));
   };
 
   const onDatePickerChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowDatePicker(false);
-    }
+    if (Platform.OS === 'android') setShowDatePicker(false);
     if (selectedDate) {
       setDateObj(selectedDate);
       if (Platform.OS === 'android') {
         const d = selectedDate;
-        const dd = String(d.getDate()).padStart(2, '0');
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        const yyyy = d.getFullYear();
-        setDateText(`${dd}/${mm}/${yyyy}`);
+        setDateText(`${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`);
       }
     }
   };
@@ -113,31 +129,22 @@ export default function CreateMatchScreen() {
   const confirmDateIOS = () => {
     setShowDatePicker(false);
     const d = dateObj;
-    const dd = String(d.getDate()).padStart(2, '0');
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const yyyy = d.getFullYear();
-    setDateText(`${dd}/${mm}/${yyyy}`);
+    setDateText(`${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`);
   };
 
   const onTimePickerChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
-    if (Platform.OS === 'android') {
-      setShowTimePicker(false);
-    }
+    if (Platform.OS === 'android') setShowTimePicker(false);
     if (selectedDate) {
       setDateObj(selectedDate);
       if (Platform.OS === 'android') {
-        const h = String(selectedDate.getHours()).padStart(2, '0');
-        const m = String(selectedDate.getMinutes()).padStart(2, '0');
-        setTimeText(`${h}:${m}`);
+        setTimeText(`${String(selectedDate.getHours()).padStart(2, '0')}:${String(selectedDate.getMinutes()).padStart(2, '0')}`);
       }
     }
   };
 
   const confirmTimeIOS = () => {
     setShowTimePicker(false);
-    const h = String(dateObj.getHours()).padStart(2, '0');
-    const m = String(dateObj.getMinutes()).padStart(2, '0');
-    setTimeText(`${h}:${m}`);
+    setTimeText(`${String(dateObj.getHours()).padStart(2, '0')}:${String(dateObj.getMinutes()).padStart(2, '0')}`);
   };
 
   const validateAndParseDateTime = () => {
@@ -152,30 +159,20 @@ export default function CreateMatchScreen() {
     if (isNaN(d) || isNaN(m) || isNaN(y) || isNaN(h) || isNaN(min)) return null;
     const dt = new Date(y, m - 1, d, h, min);
     if (isNaN(dt.getTime())) return null;
-    // Detecta fechas inválidas que JavaScript auto-ajusta (ej: 30/02 → 02/03)
     if (dt.getMonth() !== m - 1 || dt.getDate() !== d) return null;
     return dt;
   };
 
   async function handleCreate() {
     const currentTotal = Object.values(positions).reduce((a, b) => a + b, 0);
-
     try {
-      CreateMatchSchema.parse({
-        title,
-        location,
-        dateText,
-        timeText,
-        totalPlayers: currentTotal,
-        price,
-      });
+      CreateMatchSchema.parse({ title, location, dateText, timeText, totalPlayers: currentTotal, price });
     } catch (err) {
       if (err instanceof z.ZodError) {
         Alert.alert('Error de validación', err.issues[0].message);
         return;
       }
     }
-
     const finalDateObj = validateAndParseDateTime();
     if (!finalDateObj) {
       Alert.alert('Error', 'La fecha u hora tienen un formato incorrecto. Usa DD/MM/YYYY y HH:MM.');
@@ -185,64 +182,38 @@ export default function CreateMatchScreen() {
       Alert.alert('Error', 'No estás autenticado');
       return;
     }
-
     if (!locationLat || !locationLng || !locationCity) {
       Alert.alert('Ubicación sin geolocalizar', 'Selecciona la ubicación desde el desplegable de sugerencias para que los jugadores puedan encontrarte en el mapa.');
       return;
     }
-
     if (containsProfanity(title) || containsProfanity(description) || containsProfanity(location)) {
       Alert.alert('Vocabulario no permitido', 'Por favor, utiliza palabras respetuosas en el título, ubicación y descripción.');
       return;
     }
-
     if (!isValidHexColor(teamAColor) || !isValidHexColor(teamBColor)) {
       Alert.alert('Color inválido', 'Los colores de equipo deben ser valores hexadecimales válidos.');
       return;
     }
-
     setLoading(true);
     try {
       const { data, error } = await supabase
         .from('matches')
         .insert({
-          organizer_id: user.id,
-          title,
-          location,
-          location_lat: locationLat,
-          location_lng: locationLng,
-          location_city: locationCity,
-          description,
-          level,
-          date_time: finalDateObj.toISOString(),
-          requested_positions: positions,
-          team_a_color: teamAColor,
-          team_b_color: teamBColor,
-          price_per_player: parseFloat(price) || 0,
-          requires_approval: requiresApproval,
-          status: 'open'
+          organizer_id: user.id, title, location,
+          location_lat: locationLat, location_lng: locationLng, location_city: locationCity,
+          description, level, date_time: finalDateObj.toISOString(),
+          requested_positions: positions, team_a_color: teamAColor, team_b_color: teamBColor,
+          price_per_player: parseFloat(price) || 0, requires_approval: requiresApproval, status: 'open',
         })
-        .select()
-        .single();
-
+        .select().single();
       if (error) throw error;
-
       Alert.alert('¡Listo!', 'El partido ya está publicado en Rondo.', [
         { text: 'Ver partido', onPress: () => router.push(`/match/${data.id}`) },
         { text: 'Ir al inicio', onPress: () => router.push('/(tabs)') },
       ]);
-
-      setTitle('');
-      setLocation('');
-      setLocationLat(null);
-      setLocationLng(null);
-      setLocationCity(null);
-      setDescription('');
-      setLevel('medio');
-      setDateText('');
-      setTimeText('');
+      setTitle(''); setLocation(''); setLocationLat(null); setLocationLng(null); setLocationCity(null);
+      setDescription(''); setLevel('medio'); setDateText(''); setTimeText('');
       setPositions({ portero: 0, defensa: 0, mediocentro: 0, delantero: 0, cualquiera: 0 });
-
     } catch (e) {
       Alert.alert('Error al crear el partido', e instanceof Error ? e.message : String(e));
     } finally {
@@ -259,98 +230,127 @@ export default function CreateMatchScreen() {
 
   const totalPlayers = Object.values(positions).reduce((a, b) => a + b, 0);
 
-  return (
-    <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top', 'bottom']}>
-      <Stack.Screen options={{ headerShown: false }} />
-      <ScrollView className="flex-1 bg-slate-50 dark:bg-neutral-950 p-4" keyboardShouldPersistTaps="handled">
-        <Text className="text-3xl font-bold text-slate-900 dark:text-white mb-6">Crear Partido</Text>
-        <View className="space-y-5 mb-10">
+  const PickerModal = ({ visible, title: t, onCancel, onConfirm, children }: any) => (
+    <Modal transparent animationType="slide" visible={visible}>
+      <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.7)' }}>
+        <View style={{ backgroundColor: c.bgElev, paddingBottom: 40, paddingTop: 16, paddingHorizontal: 24, borderTopLeftRadius: 24, borderTopRightRadius: 24 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12, borderBottomWidth: 1, borderBottomColor: c.border, paddingBottom: 12 }}>
+            <TouchableOpacity onPress={onCancel}>
+              <Text style={{ color: c.danger, fontWeight: '600', fontSize: 16 }}>Cancelar</Text>
+            </TouchableOpacity>
+            <Text style={{ color: c.text, fontWeight: '700', fontSize: 16 }}>{t}</Text>
+            <TouchableOpacity onPress={onConfirm}>
+              <Text style={{ color: c.brand, fontWeight: '700', fontSize: 16 }}>Confirmar</Text>
+            </TouchableOpacity>
+          </View>
+          {children}
+        </View>
+      </View>
+    </Modal>
+  );
 
-        {/* Información General */}
-        <View className="bg-slate-50 dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
-          <Text className="text-slate-700 dark:text-slate-300 font-bold mb-3 text-lg">Información General</Text>
-          <View className="mb-4">
-            <Text className="text-slate-600 dark:text-slate-400 font-medium mb-1">Título del Partido</Text>
-            <TextInput
-              className="w-full bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-lg p-3 text-slate-900 dark:text-white"
-              placeholder="Fútbol-7 Jueves Tarde"
-              placeholderTextColor="#9ca3af"
-              value={title}
-              onChangeText={setTitle}
-            />
-          </View>
-          <View className="mb-4">
-            <Text className="text-slate-600 dark:text-slate-400 font-medium mb-1">Ubicación</Text>
-            <UbicacionInput
-              value={location}
-              onChangeText={setLocation}
-              onSelect={(r: GeoResult) => {
-                const label = [r.nombre, r.direccion, r.ciudad].filter(Boolean).join(', ');
-                setLocation(label);
-                setLocationLat(r.lat);
-                setLocationLng(r.lng);
-                setLocationCity(r.ciudad);
-              }}
-            />
-          </View>
-          <View>
-            <Text className="text-slate-600 dark:text-slate-400 font-medium mb-1">Descripción</Text>
-            <TextInput
-              className="w-full bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-lg p-3 text-slate-900 dark:text-white"
-              placeholder="Buen ambiente, nivel medio, cervezas después de jugar"
-              placeholderTextColor="#9ca3af"
-              value={description}
-              onChangeText={setDescription}
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-            />
+  return (
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: insets.top + 16, paddingBottom: FLOATING_TAB_BAR_HEIGHT + 16 }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Header */}
+        <Text style={{ fontSize: 10, fontWeight: '700', color: c.textDim, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>
+          NUEVO
+        </Text>
+        <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 28, fontWeight: '900', color: c.text, letterSpacing: -0.5, marginBottom: 24 }}>
+          Crear Partido
+        </Text>
+
+        {/* 1. Información General */}
+        <View style={sectionCard}>
+          <Text style={{ fontSize: 10, fontWeight: '700', color: c.textDim, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 16 }}>
+            Información
+          </Text>
+          <View style={{ gap: 14 }}>
+            <View>
+              <Text style={lbl}>Título del Partido</Text>
+              <TextInput style={inp} placeholder="Fútbol-7 Jueves Tarde" placeholderTextColor={c.textMuted} value={title} onChangeText={setTitle} />
+            </View>
+            <View>
+              <Text style={lbl}>Ubicación</Text>
+              <UbicacionInput
+                value={location}
+                onChangeText={setLocation}
+                onSelect={(r: GeoResult) => {
+                  const label = [r.nombre, r.direccion, r.ciudad].filter(Boolean).join(', ');
+                  setLocation(label); setLocationLat(r.lat); setLocationLng(r.lng); setLocationCity(r.ciudad);
+                }}
+              />
+            </View>
+            <View>
+              <Text style={lbl}>Descripción</Text>
+              <TextInput
+                style={{ ...inp, minHeight: 80, textAlignVertical: 'top' }}
+                placeholder="Buen ambiente, nivel medio, cervezas después de jugar"
+                placeholderTextColor={c.textMuted}
+                value={description}
+                onChangeText={setDescription}
+                multiline
+                numberOfLines={3}
+              />
+            </View>
           </View>
         </View>
 
-        {/* Nivel del partido */}
-        <View className="bg-slate-50 dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
-          <Text className="text-slate-700 dark:text-slate-300 font-bold mb-3 text-lg">Nivel del Partido</Text>
-          <View className="flex-row gap-2">
+        {/* 2. Nivel */}
+        <View style={sectionCard}>
+          <Text style={{ fontSize: 10, fontWeight: '700', color: c.textDim, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 16 }}>
+            Nivel del Partido
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
             {LEVELS.map(l => {
               const isActive = level === l.key;
               return (
                 <TouchableOpacity
                   key={l.key}
                   onPress={() => setLevel(l.key as MatchLevel)}
-                  className={`flex-1 py-3 rounded-xl border-2 items-center ${isActive ? l.activeColor : l.color}`}
+                  style={{
+                    flex: 1, paddingVertical: 14, borderRadius: 16, alignItems: 'center', borderWidth: 2,
+                    backgroundColor: isActive ? l.color + '22' : 'rgba(255,255,255,0.03)',
+                    borderColor: isActive ? l.color : c.border,
+                  }}
                 >
-                  <Text className="text-xl mb-1">{l.emoji}</Text>
-                  <Text className={`font-bold text-sm ${isActive ? l.activeText : l.text}`}>{l.label}</Text>
+                  <Text style={{ fontSize: 22, marginBottom: 4 }}>{l.emoji}</Text>
+                  <Text style={{ fontWeight: '700', fontSize: 12, color: isActive ? l.color : c.textDim }}>{l.label}</Text>
                 </TouchableOpacity>
               );
             })}
           </View>
         </View>
 
-        {/* Fecha y Hora */}
-        <View className="bg-slate-50 dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
-          <Text className="text-slate-700 dark:text-slate-300 font-bold mb-3 text-lg">Cuándo jugamos</Text>
-          <View className="flex-row space-x-3">
-            <View className="flex-1 mr-2">
-              <Text className="text-slate-600 dark:text-slate-400 font-medium mb-1">Día</Text>
+        {/* 3. Fecha y Hora */}
+        <View style={sectionCard}>
+          <Text style={{ fontSize: 10, fontWeight: '700', color: c.textDim, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 16 }}>
+            Cuándo jugamos
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={lbl}>Día</Text>
               <TouchableOpacity
-                className="w-full bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-lg p-3 flex-row items-center justify-between"
+                style={{ ...inp, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
                 onPress={() => { if (Platform.OS !== 'web') setShowDatePicker(true); }}
                 activeOpacity={Platform.OS === 'web' ? 1 : 0.7}
               >
                 {Platform.OS !== 'web' ? (
                   <>
-                    <Text className={dateText ? 'text-slate-900 dark:text-white' : 'text-slate-400'}>
-                      {dateText || 'DD/MM/YYYY'}
-                    </Text>
-                    <Ionicons name="calendar-outline" size={20} color="#22C55E" />
+                    <Text style={{ color: dateText ? c.text : c.textMuted, fontSize: 15 }}>{dateText || 'DD/MM/YYYY'}</Text>
+                    <Ionicons name="calendar-outline" size={18} color={c.brand} />
                   </>
                 ) : (
                   <TextInput
-                    className="flex-1 text-slate-900 dark:text-white"
+                    style={{ flex: 1, color: c.text }}
                     placeholder="05/04/2026"
-                    placeholderTextColor="#9ca3af"
+                    placeholderTextColor={c.textMuted}
                     value={dateText}
                     onChangeText={handleDateChangeText}
                     keyboardType="numeric"
@@ -359,25 +359,23 @@ export default function CreateMatchScreen() {
                 )}
               </TouchableOpacity>
             </View>
-            <View className="flex-1 ml-2">
-              <Text className="text-slate-600 dark:text-slate-400 font-medium mb-1">Hora</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={lbl}>Hora</Text>
               <TouchableOpacity
-                className="w-full bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-lg p-3 flex-row items-center justify-between"
+                style={{ ...inp, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
                 onPress={() => { if (Platform.OS !== 'web') setShowTimePicker(true); }}
                 activeOpacity={Platform.OS === 'web' ? 1 : 0.7}
               >
                 {Platform.OS !== 'web' ? (
                   <>
-                    <Text className={timeText ? 'text-slate-900 dark:text-white' : 'text-slate-400'}>
-                      {timeText || 'HH:MM'}
-                    </Text>
-                    <Ionicons name="time-outline" size={20} color="#22C55E" />
+                    <Text style={{ color: timeText ? c.text : c.textMuted, fontSize: 15 }}>{timeText || 'HH:MM'}</Text>
+                    <Ionicons name="time-outline" size={18} color={c.brand} />
                   </>
                 ) : (
                   <TextInput
-                    className="flex-1 text-slate-900 dark:text-white"
+                    style={{ flex: 1, color: c.text }}
                     placeholder="20:00"
-                    placeholderTextColor="#9ca3af"
+                    placeholderTextColor={c.textMuted}
                     value={timeText}
                     onChangeText={handleTimeChangeText}
                     onBlur={handleTimeBlur}
@@ -390,209 +388,159 @@ export default function CreateMatchScreen() {
           </View>
         </View>
 
-        {/* Native Date/Time Pickers */}
+        {/* Date/Time pickers */}
         {Platform.OS === 'android' && showDatePicker && (
-          <DateTimePicker
-            value={dateObj}
-            mode="date"
-            display="default"
-            onChange={onDatePickerChange}
-            minimumDate={new Date()}
-            locale="es-ES"
-          />
+          <DateTimePicker value={dateObj} mode="date" display="default" onChange={onDatePickerChange} minimumDate={new Date()} locale="es-ES" />
         )}
-        {Platform.OS === 'ios' && showDatePicker && (
-          <Modal transparent animationType="slide" visible={showDatePicker}>
-            <View className="flex-1 justify-end bg-black/60">
-              <View className="bg-white dark:bg-gray-900 pb-10 pt-4 px-6 rounded-t-3xl shadow-xl">
-                <View className="flex-row justify-between mb-4 border-b border-gray-100 dark:border-gray-800 pb-2">
-                  <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                    <Text className="text-red-500 font-medium text-lg">Cancelar</Text>
-                  </TouchableOpacity>
-                  <Text className="text-slate-800 dark:text-slate-100 font-bold text-lg">Fecha del partido</Text>
-                  <TouchableOpacity onPress={confirmDateIOS}>
-                    <Text className="text-green-500 font-bold text-lg">Confirmar</Text>
-                  </TouchableOpacity>
-                </View>
-                <DateTimePicker
-                  value={dateObj}
-                  mode="date"
-                  display="spinner"
-                  onChange={onDatePickerChange}
-                  minimumDate={new Date()}
-                  locale="es-ES"
-                />
-              </View>
-            </View>
-          </Modal>
+        {Platform.OS === 'ios' && (
+          <PickerModal visible={showDatePicker} title="Fecha del partido" onCancel={() => setShowDatePicker(false)} onConfirm={confirmDateIOS}>
+            <DateTimePicker value={dateObj} mode="date" display="spinner" onChange={onDatePickerChange} minimumDate={new Date()} locale="es-ES" />
+          </PickerModal>
         )}
-
         {Platform.OS === 'android' && showTimePicker && (
-          <DateTimePicker
-            value={dateObj}
-            mode="time"
-            display="default"
-            onChange={onTimePickerChange}
-            is24Hour={true}
-            locale="es-ES"
-          />
+          <DateTimePicker value={dateObj} mode="time" display="default" onChange={onTimePickerChange} is24Hour locale="es-ES" />
         )}
-        {Platform.OS === 'ios' && showTimePicker && (
-          <Modal transparent animationType="slide" visible={showTimePicker}>
-            <View className="flex-1 justify-end bg-black/60">
-              <View className="bg-white dark:bg-gray-900 pb-10 pt-4 px-6 rounded-t-3xl shadow-xl">
-                <View className="flex-row justify-between mb-4 border-b border-gray-100 dark:border-gray-800 pb-2">
-                  <TouchableOpacity onPress={() => setShowTimePicker(false)}>
-                    <Text className="text-red-500 font-medium text-lg">Cancelar</Text>
-                  </TouchableOpacity>
-                  <Text className="text-slate-800 dark:text-slate-100 font-bold text-lg">Hora del partido</Text>
-                  <TouchableOpacity onPress={confirmTimeIOS}>
-                    <Text className="text-green-500 font-bold text-lg">Confirmar</Text>
-                  </TouchableOpacity>
-                </View>
-                <DateTimePicker
-                  value={dateObj}
-                  mode="time"
-                  display="spinner"
-                  onChange={onTimePickerChange}
-                  is24Hour={true}
-                  locale="es-ES"
-                />
-              </View>
-            </View>
-          </Modal>
+        {Platform.OS === 'ios' && (
+          <PickerModal visible={showTimePicker} title="Hora del partido" onCancel={() => setShowTimePicker(false)} onConfirm={confirmTimeIOS}>
+            <DateTimePicker value={dateObj} mode="time" display="spinner" onChange={onTimePickerChange} is24Hour locale="es-ES" />
+          </PickerModal>
         )}
 
-        {/* Jugadores Necesarios */}
-        <View className="bg-slate-50 dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
-          <Text className="text-slate-700 dark:text-slate-300 font-bold mb-3 text-lg">Jugadores necesarios</Text>
+        {/* 4. Posiciones */}
+        <View style={sectionCard}>
+          <Text style={{ fontSize: 10, fontWeight: '700', color: c.textDim, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 16 }}>
+            Jugadores necesarios
+          </Text>
           {[
-            { key: 'portero', label: 'Porteros', icon: 'hand-left-outline' },
-            { key: 'defensa', label: 'Defensas', icon: 'shield-outline' },
-            { key: 'mediocentro', label: 'Medios', icon: 'apps-outline' },
-            { key: 'delantero', label: 'Delanteros', icon: 'flash-outline' },
-            { key: 'cualquiera', label: 'Cualquier Posición', icon: 'people-outline' },
+            { key: 'portero',     label: 'Porteros',          emoji: '🧤' },
+            { key: 'defensa',     label: 'Defensas',          emoji: '🛡️' },
+            { key: 'mediocentro', label: 'Medios',            emoji: '⚙️' },
+            { key: 'delantero',   label: 'Delanteros',        emoji: '⚡' },
+            { key: 'cualquiera',  label: 'Cualquier posición', emoji: '👟' },
           ].map((pos) => (
-            <View key={pos.key} className="flex-row justify-between items-center mb-3 p-2 bg-white dark:bg-gray-900 rounded-lg border border-slate-100 dark:border-slate-800">
-              <View className="flex-row items-center">
-                <Ionicons name={pos.icon as any} size={20} color="#64748b" />
-                <Text className="ml-3 text-slate-700 dark:text-slate-300 font-medium">{pos.label}</Text>
+            <View key={pos.key} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.border }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Text style={{ fontSize: 20 }}>{pos.emoji}</Text>
+                <Text style={{ color: c.text, fontWeight: '600', fontSize: 14 }}>{pos.label}</Text>
               </View>
-              <View className="flex-row items-center">
-                <TouchableOpacity onPress={() => updatePosition(pos.key as PositionKey, -1)} className="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-700 items-center justify-center">
-                  <Ionicons name="remove" size={18} color="#64748b" />
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                <TouchableOpacity
+                  onPress={() => updatePosition(pos.key as PositionKey, -1)}
+                  style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: c.bgSurface, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Ionicons name="remove" size={18} color={c.textDim} />
                 </TouchableOpacity>
-                <Text className="mx-4 font-bold text-xl dark:text-white w-6 text-center">{positions[pos.key as PositionKey]}</Text>
-                <TouchableOpacity onPress={() => updatePosition(pos.key as PositionKey, 1)} className="w-9 h-9 rounded-full bg-green-100 dark:bg-green-900 items-center justify-center">
-                  <Ionicons name="add" size={18} color="#22C55E" />
+                <Text style={{ minWidth: 36, textAlign: 'center', fontWeight: '800', fontSize: 18, color: c.text }}>
+                  {positions[pos.key as PositionKey]}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => updatePosition(pos.key as PositionKey, 1)}
+                  style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: c.brandSoft, borderWidth: 1, borderColor: c.brand + '44', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <Ionicons name="add" size={18} color={c.brand} />
                 </TouchableOpacity>
               </View>
             </View>
           ))}
-          <View className="mt-2 pt-3 border-t border-slate-200 dark:border-gray-800 flex-row justify-between items-center">
-            <Text className="text-slate-500 font-medium">Total jugadores:</Text>
-            <View className="bg-green-500 px-4 py-1 rounded-full">
-              <Text className="font-bold text-white text-lg">{totalPlayers}</Text>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
+            <Text style={{ color: c.textDim, fontWeight: '600', fontSize: 13 }}>Total jugadores</Text>
+            <View style={{ backgroundColor: c.brand, paddingHorizontal: 16, paddingVertical: 6, borderRadius: 100 }}>
+              <Text style={{ fontWeight: '800', color: '#fff', fontSize: 16 }}>{totalPlayers}</Text>
             </View>
           </View>
         </View>
 
-        {/* Colores de Equipos */}
-        <View className="bg-slate-50 dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800">
-          <Text className="text-slate-700 dark:text-slate-300 font-bold mb-4 text-lg">Colores de Camiseta</Text>
-          <View className="flex-row justify-between">
-            <View className="flex-1 mr-3">
-              <View className="flex-row items-center mb-3">
-                <View className="w-8 h-8 rounded-full border-2 border-green-500 mr-2" style={{ backgroundColor: teamAColor }} />
-                <Text className="text-slate-600 dark:text-slate-400 font-semibold">Equipo A</Text>
+        {/* 5. Colores de Equipos */}
+        <View style={sectionCard}>
+          <Text style={{ fontSize: 10, fontWeight: '700', color: c.textDim, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 16 }}>
+            Colores de Camiseta
+          </Text>
+          <View style={{ flexDirection: 'row', gap: 16 }}>
+            {[
+              { label: 'Equipo A', color: teamAColor, setColor: setTeamAColor, prefix: 'a' },
+              { label: 'Equipo B', color: teamBColor, setColor: setTeamBColor, prefix: 'b' },
+            ].map(team => (
+              <View key={team.prefix} style={{ flex: 1 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 8 }}>
+                  <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: team.color, borderWidth: 2, borderColor: c.brand }} />
+                  <Text style={{ color: c.text, fontWeight: '600', fontSize: 13 }}>{team.label}</Text>
+                </View>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                  {presetColors.map(col => (
+                    <TouchableOpacity
+                      key={`${team.prefix}-${col}`}
+                      onPress={() => team.setColor(col)}
+                      style={{
+                        width: 30, height: 30, borderRadius: 8, backgroundColor: col,
+                        borderWidth: 2, borderColor: team.color === col ? c.brand : c.border,
+                      }}
+                    />
+                  ))}
+                </View>
               </View>
-              <View className="flex-row flex-wrap gap-2">
-                {presetColors.map(c => (
-                  <TouchableOpacity
-                    key={`a-${c}`}
-                    onPress={() => setTeamAColor(c)}
-                    className={`w-9 h-9 rounded-full border-2 ${teamAColor === c ? 'border-green-500' : 'border-slate-200 dark:border-slate-600'}`}
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
-              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* 6. Extra */}
+        <View style={sectionCard}>
+          <Text style={{ fontSize: 10, fontWeight: '700', color: c.textDim, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 16 }}>
+            Configuración
+          </Text>
+          <View style={{ gap: 16 }}>
+            <View>
+              <Text style={lbl}>Precio por persona (€)</Text>
+              <TextInput
+                style={inp}
+                value={price}
+                onChangeText={setPrice}
+                keyboardType="numeric"
+                placeholder="0.00"
+                placeholderTextColor={c.textMuted}
+              />
+              <Text style={{ fontSize: 10, color: c.textMuted, marginTop: 4 }}>
+                El organizador gestiona el cobro manualmente.
+              </Text>
             </View>
-            <View className="w-px bg-slate-200 dark:bg-slate-600 mx-2" />
-            <View className="flex-1 ml-3">
-              <View className="flex-row items-center mb-3">
-                <View className="w-8 h-8 rounded-full border-2 border-green-500 mr-2" style={{ backgroundColor: teamBColor }} />
-                <Text className="text-slate-600 dark:text-slate-400 font-semibold">Equipo B</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 }}>
+              <View style={{ flex: 1, marginRight: 16 }}>
+                <Text style={{ color: c.text, fontWeight: '600', fontSize: 14 }}>Aprobar jugadores manualmente</Text>
+                <Text style={{ color: c.textMuted, fontSize: 12, marginTop: 2 }}>El organizador revisa cada solicitud</Text>
               </View>
-              <View className="flex-row flex-wrap gap-2">
-                {presetColors.map(c => (
-                  <TouchableOpacity
-                    key={`b-${c}`}
-                    onPress={() => setTeamBColor(c)}
-                    className={`w-9 h-9 rounded-full border-2 ${teamBColor === c ? 'border-green-500' : 'border-slate-200 dark:border-slate-600'}`}
-                    style={{ backgroundColor: c }}
-                  />
-                ))}
-              </View>
+              <Switch
+                value={requiresApproval}
+                onValueChange={setRequiresApproval}
+                trackColor={{ false: c.border, true: c.brand }}
+                thumbColor="#fff"
+              />
             </View>
           </View>
         </View>
 
-        {/* Configuración Extra */}
-        <View className="bg-slate-50 dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800 space-y-4">
-          <View>
-            <View className="flex-row items-center mb-1">
-              <Text className="text-slate-600 dark:text-slate-400 font-medium">Precio por persona (€)</Text>
-              <TouchableOpacity
-                onPress={() => Alert.alert(
-                  'Cobro manual',
-                  'El organizador debe encargarse del cobro. En el futuro se añadirá la función para gestionar pagos por la app.'
-                )}
-                className="ml-2"
-              >
-                <Ionicons name="information-circle-outline" size={18} color="#64748b" />
-              </TouchableOpacity>
-            </View>
-            <TextInput
-              className="w-full bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-lg p-3 text-slate-900 dark:text-white"
-              value={price}
-              onChangeText={setPrice}
-              keyboardType="numeric"
-              placeholder="0.00"
-              placeholderTextColor="#9ca3af"
-            />
-            <Text className="text-xs text-slate-400 dark:text-slate-500 mt-1">El organizador debe encargarse del cobro. En el futuro se añadirá la función para gestionar pagos por la app.</Text>
-          </View>
-          <View className="flex-row justify-between items-center py-2">
-            <View className="flex-1 mr-4">
-              <Text className="text-slate-700 dark:text-slate-300 font-medium">Aprobar jugadores manualmente</Text>
-              <Text className="text-slate-400 text-xs mt-1">El organizador revisa cada solicitud</Text>
-            </View>
-            <Switch value={requiresApproval} onValueChange={setRequiresApproval} trackColor={{ true: '#22C55E' }} />
-          </View>
-        </View>
-
-        <View className="flex-row items-center mt-2">
+        {/* Actions */}
+        <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
           <TouchableOpacity
-            className="flex-1 bg-slate-100 dark:bg-gray-900 rounded-xl p-4 items-center mr-2 border border-slate-200 dark:border-gray-800"
             onPress={() => router.back()}
             disabled={loading}
+            style={{ flex: 1, backgroundColor: c.bgElev, borderWidth: 1, borderColor: c.border, borderRadius: 16, paddingVertical: 16, alignItems: 'center' }}
           >
-            <Text className="text-slate-700 dark:text-slate-300 font-bold text-lg">Cancelar</Text>
+            <Text style={{ color: c.textDim, fontWeight: '700', fontSize: 15 }}>Cancelar</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            className="flex-[2] bg-green-500 rounded-xl p-4 items-center shadow-lg ml-2"
             onPress={handleCreate}
             disabled={loading}
+            style={{ flex: 2, backgroundColor: c.brand, borderRadius: 16, paddingVertical: 16, alignItems: 'center', opacity: loading ? 0.7 : 1 }}
           >
             {loading ? (
-              <ActivityIndicator color="#ffffff" />
+              <ActivityIndicator color="#fff" />
             ) : (
-              <Text className="text-white font-bold text-lg uppercase tracking-wider">Publicar</Text>
+              <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 15, fontWeight: '900', color: '#fff', letterSpacing: 1.5, textTransform: 'uppercase' }}>
+                Publicar
+              </Text>
             )}
           </TouchableOpacity>
         </View>
-      </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

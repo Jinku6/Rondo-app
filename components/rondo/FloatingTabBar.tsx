@@ -1,216 +1,210 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Platform, Pressable, Text, View, useWindowDimensions } from 'react-native';
+import { Text, View, TouchableOpacity, Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/hooks/use-theme';
 
-const TAB_ITEMS = [
-  { name: 'index',     label: 'BUSCAR',   icon: (c: string) => <Ionicons name="search-outline" size={22} color={c} /> },
-  { name: 'mymatches', label: 'PARTIDOS', icon: (c: string) => <Ionicons name="calendar-outline" size={22} color={c} /> },
-  { name: 'messages',  label: 'MENSAJES', icon: (c: string) => <Ionicons name="chatbubbles-outline" size={22} color={c} /> },
-  { name: 'profile',   label: 'PERFIL',   icon: (c: string) => <MaterialIcons name="person-outline" size={22} color={c} /> },
+const LEFT_TABS = [
+  { name: 'index',     label: 'BUSCAR',   icon: 'search-outline' },
+  { name: 'mymatches', label: 'PARTIDOS', icon: 'calendar-outline' },
 ] as const;
 
-const TAB_HEIGHT = 66;
+const RIGHT_TABS = [
+  { name: 'messages', label: 'MENSAJES', icon: 'chatbubbles-outline' },
+  { name: 'profile',  label: 'PERFIL',   icon: 'person-outline' },
+] as const;
+
+const TAB_H = 66;
 const FAB_SIZE = 52;
 
 export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
-  const { width: screenWidth } = useWindowDimensions();
-  const HALF_WIDTH = Math.floor((screenWidth - 24 - 8 - FAB_SIZE - 8) / 2);
 
-  const getBadge = (routeName: string): number | undefined => {
-    const route = state.routes.find((r) => r.name === routeName);
+  const routeIndex = (name: string) => state.routes.findIndex((r) => r.name === name);
+  const isActive = (name: string) => state.routes[state.index]?.name === name;
+
+  const getBadge = (name: string): number | undefined => {
+    const route = state.routes.find((r) => r.name === name);
     if (!route) return undefined;
     const opts = descriptors[route.key]?.options as { tabBarBadge?: number };
-    return opts?.tabBarBadge && opts.tabBarBadge > 0 ? opts.tabBarBadge : undefined;
+    return typeof opts?.tabBarBadge === 'number' && opts.tabBarBadge > 0 ? opts.tabBarBadge : undefined;
   };
 
-  const navigateTo = (routeName: string) => {
-    const route = state.routes.find((r) => r.name === routeName);
-    if (!route) return;
-    const isFocused = state.index === state.routes.indexOf(route);
-    if (!isFocused) navigation.navigate(routeName);
+  const go = (name: string) => {
+    const idx = routeIndex(name);
+    if (idx < 0) return;
+    const event = navigation.emit({ type: 'tabPress', target: state.routes[idx].key, canPreventDefault: true });
+    if (!isActive(name) && !event.defaultPrevented) navigation.navigate(name);
   };
-
-  const isActive = (routeName: string) => state.routes[state.index]?.name === routeName;
 
   return (
     <View
       style={{
         position: 'absolute',
-        bottom: 12 + insets.bottom,
         left: 12,
         right: 12,
-        height: TAB_HEIGHT,
+        bottom: Math.max(insets.bottom, 12),
+        height: TAB_H,
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: Platform.OS === 'ios' ? 'rgba(17,24,39,0.92)' : 'rgba(17,24,39,0.96)',
-        borderWidth: 1,
-        borderColor: colors.border,
+        backgroundColor: 'rgba(17,24,39,0.92)',
         borderRadius: 22,
-        paddingHorizontal: 4,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 20 },
-        shadowOpacity: 0.6,
-        shadowRadius: 50,
-        elevation: 20,
-        zIndex: 100,
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.55,
+        shadowRadius: 30,
+        elevation: 24,
+        zIndex: 999,
       }}
     >
-      {/* Left side: Buscar + Partidos */}
-      <View style={{ width: HALF_WIDTH, flexDirection: 'row', alignItems: 'stretch', overflow: 'hidden' }}>
-        {TAB_ITEMS.slice(0, 2).map((tab) => {
-          const active = isActive(tab.name);
-          const badge = getBadge(tab.name);
-          const color = active ? colors.brand : colors.textDim;
-          return (
-            <TabButton
-              key={tab.name}
-              label={tab.label}
-              icon={tab.icon(color)}
-              active={active}
-              badge={badge}
-              colors={colors}
-              onPress={() => navigateTo(tab.name)}
-            />
-          );
-        })}
-      </View>
+      {LEFT_TABS.map((tab) => (
+        <TabBtn
+          key={tab.name}
+          label={tab.label}
+          iconName={tab.icon}
+          active={isActive(tab.name)}
+          badge={getBadge(tab.name)}
+          brandColor={colors.brand}
+          dangerColor={colors.danger}
+          dimColor={colors.textDim}
+          onPress={() => go(tab.name)}
+        />
+      ))}
 
       {/* Central FAB */}
-      <Pressable
-        onPress={() => navigateTo('create')}
-        style={({ pressed }) => ({
-          width: FAB_SIZE,
-          height: FAB_SIZE,
-          borderRadius: 16,
-          backgroundColor: colors.brand,
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginHorizontal: 2,
-          flexShrink: 0,
-          transform: [{ scale: pressed ? 0.93 : 1 }],
-          shadowColor: colors.brand,
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 0.5,
-          shadowRadius: 24,
-          elevation: 12,
-        })}
-        accessibilityLabel="Crear partido"
-        accessibilityRole="button"
-      >
-        <Ionicons name="add" size={26} color={colors.brandInk} />
-      </Pressable>
-
-      {/* Right side: Mensajes + Perfil */}
-      <View style={{ width: HALF_WIDTH, flexDirection: 'row', alignItems: 'stretch', overflow: 'hidden' }}>
-        {TAB_ITEMS.slice(2).map((tab) => {
-          const active = isActive(tab.name);
-          const badge = getBadge(tab.name);
-          const color = active ? colors.brand : colors.textDim;
-          return (
-            <TabButton
-              key={tab.name}
-              label={tab.label}
-              icon={tab.icon(color)}
-              active={active}
-              badge={badge}
-              colors={colors}
-              onPress={() => navigateTo(tab.name)}
-            />
-          );
-        })}
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+        <TouchableOpacity
+          activeOpacity={0.8}
+          onPress={() => go('create')}
+          style={{
+            width: FAB_SIZE,
+            height: FAB_SIZE,
+            borderRadius: 16,
+            backgroundColor: colors.brand,
+            alignItems: 'center',
+            justifyContent: 'center',
+            shadowColor: 'rgba(34,197,94,0.32)',
+            shadowOffset: { width: 0, height: 8 },
+            shadowOpacity: 1,
+            shadowRadius: 24,
+            elevation: 8,
+            borderColor: '#000',
+            borderWidth: 4,
+            marginTop: -24, // floats slightly above
+          }}
+          accessibilityLabel="Crear partido"
+          accessibilityRole="button"
+        >
+          <Ionicons name="add" size={28} color="#fff" />
+        </TouchableOpacity>
       </View>
+
+      {RIGHT_TABS.map((tab) => (
+        <TabBtn
+          key={tab.name}
+          label={tab.label}
+          iconName={tab.icon}
+          isMaterial={tab.name === 'profile'}
+          active={isActive(tab.name)}
+          badge={getBadge(tab.name)}
+          brandColor={colors.brand}
+          dangerColor={colors.danger}
+          dimColor={colors.textDim}
+          onPress={() => go(tab.name)}
+        />
+      ))}
     </View>
   );
 }
 
-interface TabButtonProps {
+interface TabBtnProps {
   label: string;
-  icon: React.ReactNode;
+  iconName: any;
+  isMaterial?: boolean;
   active: boolean;
   badge?: number;
+  brandColor: string;
+  dangerColor: string;
+  dimColor: string;
   onPress: () => void;
-  colors: ReturnType<typeof useTheme>['colors'];
 }
 
-function TabButton({ label, icon, active, badge, onPress, colors }: TabButtonProps) {
+function TabBtn({ label, iconName, isMaterial, active, badge, brandColor, dangerColor, dimColor, onPress }: TabBtnProps) {
+  const color = active ? brandColor : dimColor;
+
   return (
-    <Pressable
+    <TouchableOpacity
+      activeOpacity={0.6}
       onPress={onPress}
-      style={({ pressed }) => ({
+      style={{
         flex: 1,
-        minWidth: 0,
         height: '100%',
         alignItems: 'center',
         justifyContent: 'center',
-        gap: 3,
-        opacity: pressed ? 0.75 : 1,
-        position: 'relative',
-      })}
-      accessibilityLabel={label}
+        gap: 4,
+      }}
       accessibilityRole="tab"
       accessibilityState={{ selected: active }}
     >
-      {active && (
-        <View
-          style={{
-            position: 'absolute',
-            top: 8,
-            left: '50%',
-            marginLeft: -2,
-            width: 4,
-            height: 4,
-            borderRadius: 2,
-            backgroundColor: colors.brand,
-            shadowColor: colors.brand,
-            shadowOffset: { width: 0, height: 0 },
-            shadowOpacity: 1,
-            shadowRadius: 8,
-          }}
-        />
-      )}
+      <View style={{ position: 'relative' }}>
+        {isMaterial ? (
+          <MaterialIcons name={iconName} size={24} color={color} style={active ? {
+            textShadowColor: 'rgba(34,197,94,0.4)',
+            textShadowOffset: { width: 0, height: 0 },
+            textShadowRadius: 8,
+          } : undefined} />
+        ) : (
+          <Ionicons name={iconName} size={24} color={color} style={active ? {
+            textShadowColor: 'rgba(34,197,94,0.4)',
+            textShadowOffset: { width: 0, height: 0 },
+            textShadowRadius: 8,
+          } : undefined} />
+        )}
 
-      {badge != null && (
-        <View
-          style={{
+        {/* Badge */}
+        {badge != null && (
+          <View style={{
             position: 'absolute',
-            top: 10,
-            right: '16%',
-            backgroundColor: colors.danger,
-            minWidth: 15,
-            height: 15,
-            paddingHorizontal: 3,
+            top: -4,
+            right: -8,
+            backgroundColor: dangerColor,
+            minWidth: 16,
+            height: 16,
+            paddingHorizontal: 4,
             borderRadius: 8,
             alignItems: 'center',
             justifyContent: 'center',
-          }}
-        >
-          <Text style={{ color: '#fff', fontSize: 9, fontWeight: '800' }}>
-            {badge > 99 ? '99+' : badge}
-          </Text>
-        </View>
-      )}
-
-      {icon}
+            zIndex: 1,
+            borderWidth: 1.5,
+            borderColor: '#111827',
+          }}>
+            <Text style={{ color: '#fff', fontSize: 9, fontWeight: 'bold', textAlign: 'center' }}>
+              {badge > 99 ? '99+' : String(badge)}
+            </Text>
+          </View>
+        )}
+      </View>
 
       <Text
+        numberOfLines={1}
         style={{
           fontSize: 9,
-          fontWeight: '700',
-          letterSpacing: 0.8,
+          fontFamily: 'JetBrainsMono_500Medium',
+          letterSpacing: 0.72,
           textTransform: 'uppercase',
-          color: active ? colors.brand : colors.textDim,
-          textAlign: 'center',
+          color: color,
+          ...(active ? {
+            textShadowColor: 'rgba(34,197,94,0.4)',
+            textShadowOffset: { width: 0, height: 0 },
+            textShadowRadius: 8,
+          } : {})
         }}
-        numberOfLines={1}
       >
         {label}
       </Text>
-    </Pressable>
+    </TouchableOpacity>
   );
 }
 
-export const FLOATING_TAB_BAR_HEIGHT = TAB_HEIGHT + 56;
+export const FLOATING_TAB_BAR_HEIGHT = TAB_H + 56;

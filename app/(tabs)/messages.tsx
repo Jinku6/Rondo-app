@@ -4,7 +4,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState, useEffect } from 'react';
 import { ActivityIndicator, FlatList, Image, Text, TouchableOpacity, View, RefreshControl } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Colors } from '@/constants/theme';
+import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
+
+const c = Colors;
 
 interface ChatThread {
   match_id: string;
@@ -32,6 +36,7 @@ interface ReviewNotification {
 export default function MessagesScreen() {
   const { user } = useAuth();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [chatThreads, setChatThreads] = useState<ChatThread[]>([]);
   const [notifications, setNotifications] = useState<ReviewNotification[]>([]);
@@ -43,7 +48,6 @@ export default function MessagesScreen() {
     if (!isRefresh) setLoading(true);
     else setRefreshing(true);
 
-    // Fetch chat threads via RPC
     const { data: threads, error: threadsError } = await supabase.rpc('get_user_chat_threads');
     if (threadsError) {
       if (__DEV__) console.error('Error fetching chat threads:', threadsError.message);
@@ -51,7 +55,6 @@ export default function MessagesScreen() {
       setChatThreads(threads as ChatThread[]);
     }
 
-    // Fetch pending review notifications
     const { data: notifs, error: notifsError } = await supabase
       .from('notifications')
       .select('*, match:matches(title)')
@@ -70,28 +73,22 @@ export default function MessagesScreen() {
     setRefreshing(false);
   };
 
-  // Real-time updates for the list
   useEffect(() => {
     if (!user) return;
-
     const channel = supabase
       .channel(`messages-screen-realtime-${Date.now()}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_messages' }, () => fetchData(true))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, () => fetchData(true))
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  // Refresh every time the tab is focused
   useFocusEffect(
     useCallback(() => {
       fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user])
+    }, [user]),
   );
 
   const handleNotificationPress = (notif: ReviewNotification) => {
@@ -123,20 +120,29 @@ export default function MessagesScreen() {
   const renderNotification = ({ item }: { item: ReviewNotification }) => (
     <TouchableOpacity
       onPress={() => handleNotificationPress(item)}
-      className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-xl flex-row items-center border border-amber-200 dark:border-amber-800 mb-3"
+      style={{
+        backgroundColor: 'rgba(245,158,11,0.08)',
+        padding: 14,
+        borderRadius: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(245,158,11,0.25)',
+        marginBottom: 10,
+      }}
     >
-      <View className="bg-amber-100 dark:bg-amber-800 w-12 h-12 rounded-full justify-center items-center mr-3">
-        <Ionicons name="star-outline" size={24} color="#F59E0B" />
+      <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(245,158,11,0.15)', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+        <Ionicons name="star-outline" size={22} color="#F59E0B" />
       </View>
-      <View className="flex-1">
-        <Text className="text-slate-900 dark:text-white font-bold text-base">
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: c.text, fontWeight: '700', fontSize: 14 }}>
           {item.type === 'pending_organizer_review' ? 'Asistencia pendiente' : 'Valoración pendiente'}
         </Text>
-        <Text className="text-slate-500 dark:text-slate-400 text-sm" numberOfLines={1}>
+        <Text style={{ color: c.textDim, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
           {item.match?.title || 'Partido'}
         </Text>
       </View>
-      <Ionicons name="chevron-forward" size={20} color="#9ca3af" />
+      <Ionicons name="chevron-forward" size={18} color={c.textMuted} />
     </TouchableOpacity>
   );
 
@@ -145,59 +151,59 @@ export default function MessagesScreen() {
     return (
       <TouchableOpacity
         onPress={() => handleChatPress(item)}
-        className="bg-white dark:bg-gray-900 p-4 rounded-xl flex-row items-center border border-gray-200 dark:border-gray-800 mb-3 shadow-sm"
+        style={{
+          backgroundColor: c.bgElev,
+          padding: 14,
+          borderRadius: 18,
+          flexDirection: 'row',
+          alignItems: 'center',
+          borderWidth: 1,
+          borderColor: isUnread ? c.brand + '33' : c.border,
+          marginBottom: 10,
+        }}
       >
         {/* Avatar */}
         {item.other_user_avatar ? (
           <Image
             source={{ uri: `${item.other_user_avatar}?t=${Date.now()}` }}
-            className="w-12 h-12 rounded-full mr-3 border border-gray-200 dark:border-gray-700"
+            style={{ width: 46, height: 46, borderRadius: 14, marginRight: 12, borderWidth: 1, borderColor: c.border }}
           />
         ) : (
-          <View className="w-12 h-12 rounded-full bg-green-100 dark:bg-green-900/30 justify-center items-center mr-3">
-            <Text className="text-green-600 dark:text-green-400 font-bold text-lg">
+          <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: c.brandSoft, justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+            <Text style={{ color: c.brand, fontWeight: '800', fontSize: 17 }}>
               {item.other_user_name?.charAt(0).toUpperCase() || '?'}
             </Text>
           </View>
         )}
 
         {/* Content */}
-        <View className="flex-1">
-          <View className="flex-row items-center justify-between mb-0.5">
-            <Text className={`text-base ${isUnread ? 'font-bold text-slate-900 dark:text-white' : 'font-semibold text-slate-800 dark:text-slate-200'}`} numberOfLines={1}>
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
+            <Text style={{ fontSize: 14, fontWeight: isUnread ? '800' : '600', color: c.text }} numberOfLines={1}>
               {item.other_user_name}
             </Text>
-            <Text className={`text-xs ${isUnread ? 'text-green-600 font-bold' : 'text-slate-400'}`}>
+            <Text style={{ fontSize: 11, color: isUnread ? c.brand : c.textMuted, fontWeight: isUnread ? '700' : '400' }}>
               {formatTimeAgo(item.last_message_at)}
             </Text>
           </View>
 
-          {/* Match badge - clickable */}
           <TouchableOpacity
-            className="flex-row items-center mb-1 self-start"
-            onPress={(e) => {
-              e.stopPropagation();
-              router.push(`/match/${item.match_id}` as any);
-            }}
+            style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 3, alignSelf: 'flex-start' }}
+            onPress={(e) => { e.stopPropagation(); router.push(`/match/${item.match_id}` as any); }}
           >
-            <Ionicons name="football-outline" size={12} color="#22C55E" />
-            <Text className="text-green-600 dark:text-green-400 text-xs ml-1 font-medium" numberOfLines={1}>
+            <Ionicons name="football-outline" size={11} color={c.brand} />
+            <Text style={{ color: c.brand, fontSize: 11, marginLeft: 4, fontWeight: '600' }} numberOfLines={1}>
               {item.match_title}
             </Text>
           </TouchableOpacity>
 
-          {/* Last message */}
-          <Text
-            className={`text-sm ${isUnread ? 'font-semibold text-slate-700 dark:text-slate-300' : 'text-slate-500 dark:text-slate-400'}`}
-            numberOfLines={1}
-          >
+          <Text style={{ fontSize: 13, color: isUnread ? c.textDim : c.textMuted }} numberOfLines={1}>
             {item.sender_id === user?.id ? 'Tú: ' : ''}{item.last_message}
           </Text>
         </View>
 
-        {/* Unread dot */}
         {isUnread && (
-          <View className="w-3 h-3 rounded-full bg-green-500 ml-2" />
+          <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.brand, marginLeft: 8 }} />
         )}
       </TouchableOpacity>
     );
@@ -205,9 +211,9 @@ export default function MessagesScreen() {
 
   if (loading) {
     return (
-      <View className="flex-1 bg-slate-50 dark:bg-neutral-950 justify-center items-center">
-        <Stack.Screen options={{ title: 'Mis mensajes' }} />
-        <ActivityIndicator size="large" color="#22C55E" />
+      <View style={{ flex: 1, backgroundColor: c.bg, justifyContent: 'center', alignItems: 'center' }}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <ActivityIndicator size="large" color={c.brand} />
       </View>
     );
   }
@@ -217,27 +223,38 @@ export default function MessagesScreen() {
   const isEmpty = !hasNotifications && !hasChats;
 
   return (
-    <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top', 'bottom']}>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
       <Stack.Screen options={{ headerShown: false }} />
 
       <FlatList
-        data={[]} // We use ListHeaderComponent for everything
+        data={[]}
         renderItem={null}
         keyExtractor={() => 'dummy'}
-        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: FLOATING_TAB_BAR_HEIGHT + 16 }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} colors={['#22C55E']} tintColor="#22C55E" />
+          <RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} colors={[c.brand]} tintColor={c.brand} />
         }
         ListHeaderComponent={
           <>
-            <Text className="text-3xl font-bold text-slate-900 dark:text-white mb-6">Mis Mensajes</Text>
+            {/* Header */}
+            <View style={{ paddingTop: insets.top + 16, marginBottom: 24 }}>
+              <Text style={{ fontSize: 10, fontWeight: '700', color: c.textDim, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>
+                BANDEJA
+              </Text>
+              <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 28, fontWeight: '900', color: c.text, letterSpacing: -0.5 }}>
+                Mensajes
+              </Text>
+            </View>
 
-            {/* Notifications section */}
+            {/* Notifications */}
             {hasNotifications && (
-              <View className="mb-6">
-                <Text className="text-lg font-bold text-slate-900 dark:text-white mb-3">
-                  <Ionicons name="notifications-outline" size={18} color="#F59E0B" />  Pendientes
-                </Text>
+              <View style={{ marginBottom: 20 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+                  <Ionicons name="notifications-outline" size={16} color="#F59E0B" />
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: c.textDim, letterSpacing: 1.5, textTransform: 'uppercase' }}>
+                    Pendientes
+                  </Text>
+                </View>
                 {notifications.map((notif) => (
                   <View key={notif.id}>
                     {renderNotification({ item: notif })}
@@ -246,12 +263,15 @@ export default function MessagesScreen() {
               </View>
             )}
 
-            {/* Chat threads section */}
+            {/* Chat threads */}
             {hasChats && (
               <View>
-                <Text className="text-lg font-bold text-slate-900 dark:text-white mb-3">
-                  <Ionicons name="chatbubbles-outline" size={18} color="#22C55E" />  Chats
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 }}>
+                  <Ionicons name="chatbubbles-outline" size={16} color={c.brand} />
+                  <Text style={{ fontSize: 11, fontWeight: '700', color: c.textDim, letterSpacing: 1.5, textTransform: 'uppercase' }}>
+                    Chats
+                  </Text>
+                </View>
                 {chatThreads.map((thread) => (
                   <View key={`${thread.match_id}_${thread.player_id}`}>
                     {renderChatThread({ item: thread })}
@@ -262,21 +282,19 @@ export default function MessagesScreen() {
 
             {/* Empty state */}
             {isEmpty && (
-              <View className="items-center justify-center mt-20">
-                <View className="bg-slate-200 dark:bg-gray-800 rounded-full w-20 h-20 justify-center items-center mb-4">
-                  <Ionicons name="chatbubbles-outline" size={40} color="#9ca3af" />
+              <View style={{ alignItems: 'center', justifyContent: 'center', paddingTop: 80, paddingHorizontal: 24 }}>
+                <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: c.bgElev, borderWidth: 1, borderColor: c.border, justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
+                  <Ionicons name="chatbubbles-outline" size={36} color={c.textMuted} />
                 </View>
-                <Text className="text-xl font-bold text-slate-900 dark:text-white mb-2">
-                  Sin mensajes
-                </Text>
-                <Text className="text-slate-500 dark:text-slate-400 text-center px-10">
-                  Cuando te apuntes a un partido o alguien se apunte al tuyo, aquí aparecerán tus conversaciones y notificaciones.
+                <Text style={{ fontSize: 18, fontWeight: '700', color: c.text, marginBottom: 8 }}>Sin mensajes</Text>
+                <Text style={{ color: c.textDim, textAlign: 'center', fontSize: 14, lineHeight: 20 }}>
+                  Cuando te apuntes a un partido o alguien se apunte al tuyo, aquí aparecerán tus conversaciones.
                 </Text>
               </View>
             )}
           </>
         }
       />
-    </SafeAreaView>
+    </View>
   );
 }

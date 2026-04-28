@@ -1,11 +1,15 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { Match } from '@/types/database';
-import { useRouter, useFocusEffect, Stack } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import { Colors } from '@/constants/theme';
+import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
+
+const c = Colors;
 
 type MyMatch = Match & { _role: 'organizer' | 'player'; _pendingCount?: number };
 
@@ -14,6 +18,7 @@ const ARCHIVED_STATUSES = ['completed', 'cancelled'];
 
 export default function MyMatchesScreen() {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [matches, setMatches] = useState<MyMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -70,7 +75,7 @@ export default function MyMatchesScreen() {
     const playedTagged: MyMatch[] = played.map(m => ({ ...m, _role: 'player' }));
 
     const combined = [...organizedTagged, ...playedTagged].sort(
-      (a, b) => new Date(a.date_time).getTime() - new Date(b.date_time).getTime()
+      (a, b) => new Date(a.date_time).getTime() - new Date(b.date_time).getTime(),
     );
 
     setMatches(combined);
@@ -80,7 +85,7 @@ export default function MyMatchesScreen() {
 
   useFocusEffect(
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    useCallback(() => { fetchMyMatches(); }, [user])
+    useCallback(() => { fetchMyMatches(); }, [user]),
   );
 
   const onRefresh = () => { setRefreshing(true); fetchMyMatches(); };
@@ -95,72 +100,86 @@ export default function MyMatchesScreen() {
     ? applyRoleFilter(archivedMatches)
     : applyRoleFilter(activeMatches);
 
+  const statusLabel = (status: string) => {
+    if (status === 'open') return 'Abierto';
+    if (status === 'full') return 'Completo';
+    if (status === 'completed') return 'Finalizado';
+    return 'Cancelado';
+  };
+
+  const statusColor = (status: string) => {
+    if (status === 'open') return c.brand;
+    if (status === 'full') return c.info;
+    return c.textMuted;
+  };
+
   const renderCard = ({ item }: { item: MyMatch }) => {
     const date = new Date(item.date_time);
     const dateString = date.toLocaleDateString('es-ES', { weekday: 'short', month: 'short', day: 'numeric' });
     const timeString = date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-    const maxPlayers = item.requested_positions
-      ? Object.values(item.requested_positions).reduce((a: number, b: number) => a + b, 0)
-      : 0;
-
     const isOrganizer = item._role === 'organizer';
     const isArchived = ARCHIVED_STATUSES.includes(item.status);
+    const accentColor = isOrganizer ? '#A855F7' : c.brand;
 
     return (
       <TouchableOpacity
         onPress={() => router.push(`/match/${item.id}`)}
-        className={`bg-white dark:bg-gray-900 rounded-xl mb-4 shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden ${isArchived ? 'opacity-75' : ''}`}
+        style={{
+          backgroundColor: c.bgElev,
+          borderRadius: 18,
+          marginBottom: 12,
+          borderWidth: 1,
+          borderColor: c.border,
+          overflow: 'hidden',
+          opacity: isArchived ? 0.65 : 1,
+        }}
       >
-        <View className={`h-1.5 w-full ${isOrganizer ? 'bg-purple-600' : 'bg-green-500'}`} />
+        {/* Top accent bar */}
+        <View style={{ height: 3, backgroundColor: accentColor }} />
 
-        <View className="p-4">
-          <View className="flex-row justify-between items-start mb-3">
-            <Text className="text-xl font-bold text-slate-900 dark:text-white flex-1 mr-3">{item.title}</Text>
-            <View className="flex-row items-center gap-2">
+        <View style={{ padding: 16 }}>
+          {/* Title + role badge */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: c.text, flex: 1, marginRight: 12 }} numberOfLines={2}>
+              {item.title}
+            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               {isOrganizer && (item._pendingCount ?? 0) > 0 && (
-                <View className="bg-red-500 rounded-full min-w-[22px] h-[22px] justify-center items-center px-1.5">
-                  <Text className="text-white text-xs font-bold">{item._pendingCount}</Text>
+                <View style={{ backgroundColor: c.danger, borderRadius: 10, minWidth: 20, height: 20, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 }}>
+                  <Text style={{ color: '#fff', fontSize: 10, fontWeight: '800' }}>{item._pendingCount}</Text>
                 </View>
               )}
-              <View className={`px-3 py-1 rounded-full ${isOrganizer ? 'bg-purple-100 dark:bg-purple-900/40' : 'bg-green-100 dark:bg-green-900/40'}`}>
-                <Text className={`text-xs font-bold ${isOrganizer ? 'text-purple-700 dark:text-purple-300' : 'text-green-700 dark:text-green-300'}`}>
-                  {isOrganizer ? 'Organizador' : 'Jugador'}
+              <View style={{ backgroundColor: isOrganizer ? 'rgba(168,85,247,0.15)' : c.brandSoft, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 100, borderWidth: 1, borderColor: isOrganizer ? 'rgba(168,85,247,0.3)' : c.brand + '44' }}>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: accentColor, letterSpacing: 0.5, textTransform: 'uppercase' }}>
+                  {isOrganizer ? 'Organizo' : 'Jugador'}
                 </Text>
               </View>
             </View>
           </View>
 
-          <View className="space-y-1.5 mb-3">
-            <View className="flex-row items-center">
-              <Ionicons name="location-outline" size={16} color="#64748b" />
-              <Text className="text-slate-600 dark:text-slate-300 ml-2 text-sm">{item.location}</Text>
+          {/* Details */}
+          <View style={{ gap: 6, marginBottom: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="location-outline" size={14} color={c.textDim} />
+              <Text style={{ color: c.textDim, marginLeft: 6, fontSize: 13 }} numberOfLines={1}>{item.location}</Text>
             </View>
-            <View className="flex-row items-center">
-              <Ionicons name="calendar-outline" size={16} color="#64748b" />
-              <Text className="text-slate-600 dark:text-slate-300 ml-2 text-sm capitalize">{dateString} · {timeString}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons name="calendar-outline" size={14} color={c.textDim} />
+              <Text style={{ color: c.textDim, marginLeft: 6, fontSize: 13, textTransform: 'capitalize' }}>
+                {dateString} · {timeString}
+              </Text>
             </View>
           </View>
 
-          <View className="flex-row justify-between items-center border-t border-slate-100 dark:border-gray-800 pt-3">
-            <View className="flex-row items-center gap-2">
-              {item.team_a_color && <View className="w-4 h-4 rounded-full border border-slate-200" style={{ backgroundColor: item.team_a_color }} />}
-              {item.team_b_color && <View className="w-4 h-4 rounded-full border border-slate-200" style={{ backgroundColor: item.team_b_color }} />}
-              <Text className="text-slate-400 text-sm">{maxPlayers} jugadores</Text>
+          {/* Footer */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: c.border, paddingTop: 10 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              {item.team_a_color && <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: item.team_a_color }} />}
+              {item.team_b_color && <View style={{ width: 12, height: 12, borderRadius: 6, backgroundColor: item.team_b_color }} />}
             </View>
-
-            <View className={`px-2 py-1 rounded-full ${
-              item.status === 'open' ? 'bg-green-100 dark:bg-green-900/40' :
-              item.status === 'full' ? 'bg-blue-100 dark:bg-blue-900/40' :
-              'bg-slate-100 dark:bg-slate-700'
-            }`}>
-              <Text className={`text-xs font-medium ${
-                item.status === 'open' ? 'text-green-700 dark:text-green-300' :
-                item.status === 'full' ? 'text-blue-700 dark:text-blue-300' :
-                'text-slate-500 dark:text-slate-400'
-              }`}>
-                {item.status === 'open' ? 'Abierto' : item.status === 'full' ? 'Completo' : item.status === 'completed' ? 'Finalizado' : 'Cancelado'}
-              </Text>
-            </View>
+            <Text style={{ fontSize: 11, fontWeight: '700', color: statusColor(item.status), textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              {statusLabel(item.status)}
+            </Text>
           </View>
         </View>
       </TouchableOpacity>
@@ -168,7 +187,11 @@ export default function MyMatchesScreen() {
   };
 
   if (loading) {
-    return <View className="flex-1 justify-center items-center bg-slate-50 dark:bg-neutral-950"><ActivityIndicator size="large" color="#22C55E" /></View>;
+    return (
+      <View style={{ flex: 1, backgroundColor: c.bg, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={c.brand} />
+      </View>
+    );
   }
 
   const hasAny = matches.length > 0;
@@ -176,106 +199,124 @@ export default function MyMatchesScreen() {
   const hasArchived = archivedMatches.length > 0;
 
   return (
-    <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top', 'bottom']}>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
       <FlatList
         data={visibleMatches}
         keyExtractor={item => item.id + item._role}
         renderItem={renderCard}
-        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#22C55E" colors={['#22C55E']} />}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: FLOATING_TAB_BAR_HEIGHT + 16 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.brand} colors={[c.brand]} />}
         ListHeaderComponent={
-          <View className="mb-5">
-            {/* Title row */}
-            <View className="flex-row justify-between items-center mb-5">
-              <Text className="text-3xl font-bold text-slate-900 dark:text-white">Mis partidos</Text>
+          <View style={{ paddingTop: insets.top + 16, marginBottom: 20 }}>
+            {/* Eyebrow + title */}
+            <Text style={{ fontSize: 10, fontWeight: '700', color: c.textDim, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>
+              AGENDA
+            </Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+              <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 28, fontWeight: '900', color: c.text, letterSpacing: -0.5 }}>
+                Mis partidos
+              </Text>
               {filter !== 'all' && (
-                <TouchableOpacity onPress={() => setFilter('all')} className="bg-slate-200 dark:bg-slate-700 px-3 py-1 rounded-full">
-                  <Text className="text-xs font-semibold text-slate-700 dark:text-slate-300">Quitar filtro ✕</Text>
+                <TouchableOpacity
+                  onPress={() => setFilter('all')}
+                  style={{ backgroundColor: c.bgSurface, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 100, borderWidth: 1, borderColor: c.border }}
+                >
+                  <Text style={{ fontSize: 11, fontWeight: '600', color: c.textDim }}>Quitar filtro ✕</Text>
                 </TouchableOpacity>
               )}
             </View>
 
             {/* Active / Archived toggle */}
             {hasAny && (
-              <View className="flex-row bg-slate-200 dark:bg-gray-800 rounded-xl p-1 mb-4 border border-slate-300 dark:border-slate-700">
-                <TouchableOpacity
-                  onPress={() => setShowArchived(false)}
-                  className={`flex-1 rounded-lg py-2 items-center ${!showArchived ? 'bg-white dark:bg-gray-700' : ''}`}
-                >
-                  <Text className={`text-sm font-semibold ${!showArchived ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>
-                    Activos {hasActive ? `(${activeMatches.length})` : ''}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setShowArchived(true)}
-                  className={`flex-1 rounded-lg py-2 items-center ${showArchived ? 'bg-white dark:bg-gray-700' : ''}`}
-                >
-                  <Text className={`text-sm font-semibold ${showArchived ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>
-                    Archivados {hasArchived ? `(${archivedMatches.length})` : ''}
-                  </Text>
-                </TouchableOpacity>
+              <View style={{ flexDirection: 'row', backgroundColor: c.bgElev, borderRadius: 14, padding: 4, marginBottom: 14, borderWidth: 1, borderColor: c.border }}>
+                {[
+                  { label: `Activos${hasActive ? ` (${activeMatches.length})` : ''}`, active: !showArchived, onPress: () => setShowArchived(false) },
+                  { label: `Archivados${hasArchived ? ` (${archivedMatches.length})` : ''}`, active: showArchived, onPress: () => setShowArchived(true) },
+                ].map(tab => (
+                  <TouchableOpacity
+                    key={tab.label}
+                    onPress={tab.onPress}
+                    style={{ flex: 1, paddingVertical: 9, alignItems: 'center', borderRadius: 11, backgroundColor: tab.active ? c.bgSurface : 'transparent' }}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: tab.active ? c.text : c.textDim }}>
+                      {tab.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
             )}
 
-            {/* Role filter pills — only shown when there are matches in the current view */}
+            {/* Role stat cards */}
             {(showArchived ? hasArchived : hasActive) && (
-              <View className="flex-row gap-3 mb-2">
+              <View style={{ flexDirection: 'row', gap: 8, marginBottom: 4 }}>
                 <TouchableOpacity
                   onPress={() => setFilter(filter === 'organizer' ? 'all' : 'organizer')}
-                  className={`flex-1 border rounded-xl p-3 items-center ${filter === 'organizer' ? 'bg-purple-600 border-purple-600' : 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800'}`}
+                  style={{
+                    flex: 1, padding: 14, borderRadius: 16, borderWidth: 1, alignItems: 'center',
+                    backgroundColor: filter === 'organizer' ? 'rgba(168,85,247,0.15)' : c.bgElev,
+                    borderColor: filter === 'organizer' ? 'rgba(168,85,247,0.5)' : c.border,
+                  }}
                 >
-                  <Text className={`text-2xl font-bold ${filter === 'organizer' ? 'text-white' : 'text-purple-700 dark:text-purple-300'}`}>
+                  <Text style={{ fontSize: 24, fontWeight: '800', color: filter === 'organizer' ? '#A855F7' : c.text }}>
                     {(showArchived ? archivedMatches : activeMatches).filter(m => m._role === 'organizer').length}
                   </Text>
-                  <Text className={`text-xs mt-1 ${filter === 'organizer' ? 'text-white/80' : 'text-purple-600 dark:text-purple-400'}`}>Organizo</Text>
+                  <Text style={{ fontSize: 10, fontWeight: '600', color: filter === 'organizer' ? '#A855F7' : c.textDim, marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    Organizo
+                  </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => setFilter(filter === 'player' ? 'all' : 'player')}
-                  className={`flex-1 border rounded-xl p-3 items-center ${filter === 'player' ? 'bg-green-500 border-green-500' : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'}`}
+                  style={{
+                    flex: 1, padding: 14, borderRadius: 16, borderWidth: 1, alignItems: 'center',
+                    backgroundColor: filter === 'player' ? c.brandSoft : c.bgElev,
+                    borderColor: filter === 'player' ? c.brand : c.border,
+                  }}
                 >
-                  <Text className={`text-2xl font-bold ${filter === 'player' ? 'text-white' : 'text-green-700 dark:text-green-300'}`}>
+                  <Text style={{ fontSize: 24, fontWeight: '800', color: filter === 'player' ? c.brand : c.text }}>
                     {(showArchived ? archivedMatches : activeMatches).filter(m => m._role === 'player').length}
                   </Text>
-                  <Text className={`text-xs mt-1 ${filter === 'player' ? 'text-white/80' : 'text-green-600 dark:text-green-400'}`}>Apuntado</Text>
+                  <Text style={{ fontSize: 10, fontWeight: '600', color: filter === 'player' ? c.brand : c.textDim, marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                    Apuntado
+                  </Text>
                 </TouchableOpacity>
               </View>
             )}
           </View>
         }
         ListEmptyComponent={
-          <View className="items-center justify-center mt-16 px-6">
-            <View className="bg-slate-200 dark:bg-gray-800 rounded-full w-20 h-20 justify-center items-center mb-4">
-              <Ionicons name="calendar-outline" size={40} color="#9ca3af" />
+          <View style={{ alignItems: 'center', justifyContent: 'center', paddingTop: 60, paddingHorizontal: 24 }}>
+            <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: c.bgElev, borderWidth: 1, borderColor: c.border, justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
+              <Ionicons name="calendar-outline" size={36} color={c.textMuted} />
             </View>
-            <Text className="text-xl font-bold text-slate-900 dark:text-white mb-2">
+            <Text style={{ fontSize: 18, fontWeight: '700', color: c.text, marginBottom: 8 }}>
               {showArchived ? 'Sin partidos archivados' : 'Sin partidos activos'}
             </Text>
-            <Text className="text-slate-500 dark:text-slate-400 text-center text-sm mb-6">
+            <Text style={{ color: c.textDim, textAlign: 'center', fontSize: 14, lineHeight: 20, marginBottom: 24 }}>
               {showArchived
                 ? 'Los partidos finalizados o cancelados aparecerán aquí.'
                 : 'Crea un partido o únete a uno existente para empezar.'}
             </Text>
             {!showArchived && (
-              <View className="flex-row gap-3">
+              <View style={{ flexDirection: 'row', gap: 10 }}>
                 <TouchableOpacity
                   onPress={() => router.push('/(tabs)/create')}
-                  className="bg-green-500 px-5 py-3 rounded-xl flex-row items-center gap-2"
+                  style={{ backgroundColor: c.brand, paddingHorizontal: 18, paddingVertical: 12, borderRadius: 14, flexDirection: 'row', alignItems: 'center', gap: 6 }}
                 >
-                  <Ionicons name="add-circle-outline" size={18} color="#fff" />
-                  <Text className="text-white font-bold text-sm">Crear partido</Text>
+                  <Ionicons name="add-circle-outline" size={16} color="#fff" />
+                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>Crear partido</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => router.push('/(tabs)/' as any)}
-                  className="bg-slate-200 dark:bg-gray-800 px-5 py-3 rounded-xl flex-row items-center gap-2"
+                  style={{ backgroundColor: c.bgElev, borderWidth: 1, borderColor: c.border, paddingHorizontal: 18, paddingVertical: 12, borderRadius: 14, flexDirection: 'row', alignItems: 'center', gap: 6 }}
                 >
-                  <Ionicons name="search-outline" size={18} color="#64748b" />
-                  <Text className="text-slate-700 dark:text-slate-300 font-bold text-sm">Buscar</Text>
+                  <Ionicons name="search-outline" size={16} color={c.textDim} />
+                  <Text style={{ color: c.textDim, fontWeight: '700', fontSize: 13 }}>Buscar</Text>
                 </TouchableOpacity>
               </View>
             )}
           </View>
         }
       />
-    </SafeAreaView>
+    </View>
   );
 }

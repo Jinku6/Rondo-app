@@ -1,12 +1,11 @@
 import React from 'react';
-import { View, Text, Image, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { View, Text, Image } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 
 export const HomeHero: React.FC = () => {
   const { profile } = useAuth();
-  const router = useRouter();
+  const insets = useSafeAreaInsets();
   const firstName = profile?.full_name?.split(' ')[0];
 
   return (
@@ -15,9 +14,9 @@ export const HomeHero: React.FC = () => {
         position: 'relative',
         overflow: 'hidden',
         backgroundColor: '#166534',
-        minHeight: 230,
         flexShrink: 0,
         paddingBottom: 60,
+        paddingTop: insets.top,
       }}
     >
       {/* Green gradient overlay */}
@@ -35,34 +34,16 @@ export const HomeHero: React.FC = () => {
         pointerEvents="none"
       />
 
-      {/* Topbar: logo icon + wordmark + actions */}
-      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 18, paddingTop: 10, zIndex: 2 }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-          <Image
-            source={require('@/assets/images/rondo-icon-white.png')}
-            style={{ width: 28, height: 28 }}
-            resizeMode="contain"
-          />
-          <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 22, fontWeight: '900', color: '#fff', letterSpacing: -0.5 }}>
-            Rondo
-          </Text>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-          <TouchableOpacity
-            style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(0,0,0,0.2)', alignItems: 'center', justifyContent: 'center' }}
-            onPress={() => router.push('/search/results')}
-          >
-            <Ionicons name="notifications-outline" size={20} color="#fff" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={{ width: 36, height: 36, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: 'rgba(255,255,255,0.5)' }}
-            onPress={() => router.push('/(tabs)/profile')}
-          >
-            <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 13, fontWeight: '900', color: '#fff' }}>
-              {firstName?.[0]?.toUpperCase() ?? 'J'}
-            </Text>
-          </TouchableOpacity>
-        </View>
+      {/* Topbar: logo + wordmark only */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 18, paddingTop: 10, zIndex: 2 }}>
+        <Image
+          source={require('@/assets/images/rondo-icon-white.png')}
+          style={{ width: 28, height: 28, marginRight: 8 }}
+          resizeMode="contain"
+        />
+        <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 22, fontWeight: '900', color: '#fff', letterSpacing: -0.5 }}>
+          Rondo
+        </Text>
       </View>
 
       {/* Body */}
@@ -70,10 +51,10 @@ export const HomeHero: React.FC = () => {
         <Text style={{ fontSize: 11, fontWeight: '600', color: 'rgba(255,255,255,0.75)', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 }}>
           Conecta. Juega. Repite.
         </Text>
-        <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 28, fontWeight: '900', color: '#fff', lineHeight: 30, letterSpacing: -0.5, maxWidth: 230 }}>
+        <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 28, fontWeight: '900', color: '#fff', lineHeight: 30, letterSpacing: -0.5, maxWidth: 240 }}>
           Tu próximo{'\n'}partido te espera
         </Text>
-        <View style={{ marginTop: 16 }}>
+        <View style={{ marginTop: 14 }}>
           <Text style={{ fontFamily: 'Archivo_700Bold', fontSize: 18, color: '#fff', fontWeight: '700' }}>
             {firstName ? `¡Hola, ${firstName}!` : '¡Bienvenido!'}
           </Text>
