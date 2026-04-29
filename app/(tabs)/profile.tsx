@@ -10,7 +10,6 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { PendingReviewsAlert } from '@/components/PendingReviewsAlert';
 import { decode } from 'base64-arraybuffer';
-import { ProfileStats } from '@/components/ProfileStats';
 import { calculateAge, isSafeUrl } from '@/lib/utils';
 import { Colors } from '@/constants/theme';
 import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
@@ -22,6 +21,40 @@ const POSITIONS = ['portero', 'defensa', 'mediocentro', 'delantero'];
 const POSITION_EMOJIS: Record<string, string> = {
   portero: '🧤', defensa: '🛡️', mediocentro: '⚙️', delantero: '⚡',
 };
+
+const POSITION_LABELS: Record<string, string> = {
+  portero: 'Portero',
+  defensa: 'Defensa',
+  mediocentro: 'Medio',
+  delantero: 'Delantero',
+};
+
+function getReliabilityInfo(score: number): { label: string; icon: string; color: string } {
+  if (score >= 90) return { label: 'Nunca falta', icon: '✅', color: c.brand };
+  if (score >= 75) return { label: 'Casi nunca falta', icon: '🌟', color: c.warning };
+  if (score >= 50) return { label: 'Falta con frecuencia', icon: '⚠️', color: '#F97316' };
+  return { label: 'Falta casi siempre', icon: '🚫', color: c.danger };
+}
+
+/** Devuelve el emoji de actitud según el promedio numérico (5=Positiva, 3=Neutral, 1=Negativa) */
+function getAttitudeEmoji(rating: number): string {
+  if (rating === 0) return '—';
+  if (rating >= 4) return '🤩';
+  if (rating >= 2.5) return '😐';
+  return '😠';
+}
+
+function getAttitudeColor(rating: number): string {
+  if (rating === 0) return c.textMuted;
+  if (rating >= 4) return c.brand;
+  if (rating >= 2.5) return c.warning;
+  return c.danger;
+}
+
+function formatMemberSince(isoDate: string): string {
+  const date = new Date(isoDate);
+  return date.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+}
 
 const showAlert = (title: string, message: string, onOk?: () => void) => {
   if (Platform.OS === 'web') {
@@ -267,40 +300,88 @@ export default function ProfileScreen() {
 
   // ── View mode ────────────────────────────────────────────────────────────
   if (!isEditing) {
+    const reliability = getReliabilityInfo(profile.reliability_score);
+
     return (
       <View style={{ flex: 1, backgroundColor: c.bg }}>
-        <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: insets.top + 16, paddingBottom: FLOATING_TAB_BAR_HEIGHT + 16 }}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Eyebrow + title */}
-          <Text style={{ fontSize: 10, fontWeight: '700', color: c.textDim, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>
-            CUENTA
-          </Text>
-          <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 28, fontWeight: '900', color: c.text, letterSpacing: -0.5, marginBottom: 20 }}>
+        {/* ── Header ─────────────────────────────────────────────── */}
+        <View style={{
+          paddingTop: insets.top + 8,
+          paddingBottom: 12,
+          paddingHorizontal: 20,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
+          <View style={{ width: 40 }} />
+          <Text style={{
+            fontFamily: 'Archivo_900Black',
+            fontSize: 17,
+            fontWeight: '900',
+            color: c.text,
+            letterSpacing: -0.3,
+          }}>
             Mi Perfil
           </Text>
+          <TouchableOpacity
+            onPress={startEditing}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <Ionicons name="settings-outline" size={22} color={c.textDim} />
+          </TouchableOpacity>
+        </View>
 
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingTop: 8,
+            paddingBottom: FLOATING_TAB_BAR_HEIGHT + 24,
+          }}
+          showsVerticalScrollIndicator={false}
+        >
           <PendingReviewsAlert />
 
-          {/* Avatar card */}
-          <View style={{ ...sectionCard, alignItems: 'center', paddingVertical: 28 }}>
-            <View style={{ position: 'relative', marginBottom: 14 }}>
+          {/* ── Identity ───────────────────────────────────────────── */}
+          <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+            <View style={{ position: 'relative' }}>
               {isSafeUrl(profile.avatar_url) ? (
                 <Image
-                  source={{ uri: profile.avatar_url }}
-                  style={{ width: 96, height: 96, borderRadius: 48, borderWidth: 3, borderColor: c.brand }}
+                  source={{ uri: profile.avatar_url! }}
+                  style={{
+                    width: 100,
+                    height: 100,
+                    borderRadius: 50,
+                    borderWidth: 3,
+                    borderColor: c.brand,
+                    marginBottom: 16,
+                  }}
                 />
               ) : (
-                <View style={{ width: 96, height: 96, borderRadius: 48, backgroundColor: c.brandSoft, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: c.brand }}>
-                  <Text style={{ fontSize: 36, color: c.brand, fontWeight: '800' }}>
+                <View style={{
+                  width: 100,
+                  height: 100,
+                  borderRadius: 50,
+                  backgroundColor: c.brandSoft,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  borderWidth: 3,
+                  borderColor: c.brand,
+                  marginBottom: 16,
+                }}>
+                  <Text style={{ fontSize: 40, color: c.brand, fontWeight: '800' }}>
                     {profile.full_name?.charAt(0)?.toUpperCase() || '?'}
                   </Text>
                 </View>
               )}
               <TouchableOpacity
-                style={{ position: 'absolute', bottom: 0, right: 0, backgroundColor: c.brand, width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: c.bgElev }}
+                style={{
+                  position: 'absolute', bottom: 16, right: 0,
+                  backgroundColor: c.brand, width: 32, height: 32,
+                  borderRadius: 10, alignItems: 'center', justifyContent: 'center',
+                  borderWidth: 2, borderColor: c.bgElev
+                }}
                 onPress={pickImage}
                 disabled={uploading}
               >
@@ -308,59 +389,210 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
 
-            <Text style={{ fontSize: 20, fontWeight: '800', color: c.text, marginBottom: 4 }}>{profile.full_name}</Text>
-            <Text style={{ color: c.textDim, marginBottom: 2, fontSize: 14 }}>@{profile.username}</Text>
-            <Text style={{ color: c.textMuted, fontSize: 12, marginBottom: 16 }}>{user.email}</Text>
+            <Text style={{
+              fontFamily: 'Archivo_900Black',
+              fontSize: 26,
+              fontWeight: '900',
+              color: c.text,
+              letterSpacing: -0.5,
+              marginBottom: 4,
+              textAlign: 'center',
+            }}>
+              {profile.full_name}
+            </Text>
 
-            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 20, flexWrap: 'wrap', justifyContent: 'center' }}>
-              {age !== null && (
-                <View style={{ backgroundColor: 'rgba(59,130,246,0.12)', paddingHorizontal: 14, paddingVertical: 6, borderRadius: 100, borderWidth: 1, borderColor: 'rgba(59,130,246,0.25)' }}>
-                  <Text style={{ color: c.info, fontWeight: '600', fontSize: 13 }}>{age} años</Text>
-                </View>
-              )}
-              {profile.preferred_position && (
-                <View style={{ backgroundColor: c.brandSoft, paddingHorizontal: 14, paddingVertical: 6, borderRadius: 100, borderWidth: 1, borderColor: c.brand + '44' }}>
-                  <Text style={{ color: c.brand, fontWeight: '600', fontSize: 13 }}>
-                    {POSITION_EMOJIS[profile.preferred_position] || ''} {profile.preferred_position}
+            <Text style={{ fontSize: 14, color: c.textDim, marginBottom: 4 }}>
+              @{profile.username}
+            </Text>
+
+            <Text style={{ fontSize: 12, color: c.textMuted }}>
+              Jugador desde {formatMemberSince(profile.created_at)}
+            </Text>
+          </View>
+
+          {/* ── Quick Stats Row ────────────────────────────────────── */}
+          <View style={{
+            flexDirection: 'row',
+            backgroundColor: c.bgElev,
+            borderRadius: 20,
+            borderWidth: 1,
+            borderColor: c.border,
+            marginBottom: 14,
+            overflow: 'hidden',
+          }}>
+            {/* Años */}
+            <View style={{ flex: 1, alignItems: 'center', paddingVertical: 18 }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: c.textDim, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 }}>
+                Años
+              </Text>
+              <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 22, fontWeight: '900', color: c.text }}>
+                {age !== null ? age : '—'}
+              </Text>
+            </View>
+
+            {/* Divider */}
+            <View style={{ width: 1, backgroundColor: c.border, marginVertical: 14 }} />
+
+            {/* Posición */}
+            <View style={{ flex: 1, alignItems: 'center', paddingVertical: 18 }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: c.textDim, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 }}>
+                Posición
+              </Text>
+              <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 15, fontWeight: '900', color: c.text, textAlign: 'center' }}>
+                {profile.preferred_position
+                  ? POSITION_LABELS[profile.preferred_position] ?? profile.preferred_position
+                  : '—'}
+              </Text>
+            </View>
+
+            {/* Divider */}
+            <View style={{ width: 1, backgroundColor: c.border, marginVertical: 14 }} />
+
+            {/* Fiabilidad */}
+            <View style={{ flex: 1, alignItems: 'center', paddingVertical: 18, paddingHorizontal: 4 }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: c.textDim, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 }}>
+                Fiabilidad
+              </Text>
+              {profile.matches_played >= 3 ? (
+                <>
+                  <Text style={{ fontSize: 18, marginBottom: 2 }}>{reliability.icon}</Text>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: reliability.color, textAlign: 'center', lineHeight: 14 }}>
+                    {reliability.label}
                   </Text>
-                </View>
+                </>
+              ) : (
+                <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 15, fontWeight: '900', color: c.textMuted }}>—</Text>
               )}
             </View>
-
-            <TouchableOpacity
-              onPress={startEditing}
-              disabled={loadingPhone}
-              style={{ paddingHorizontal: 28, paddingVertical: 10, backgroundColor: c.bgSurface, borderRadius: 100, borderWidth: 1, borderColor: c.border }}
-            >
-              {loadingPhone
-                ? <ActivityIndicator size="small" color={c.textDim} />
-                : <Text style={{ color: c.text, fontWeight: '600', fontSize: 14 }}>Editar perfil</Text>}
-            </TouchableOpacity>
           </View>
 
-          {/* About me */}
-          {profile.bio ? (
-            <View style={{ ...sectionCard, paddingVertical: 20 }}>
-              <Text style={{ fontSize: 10, fontWeight: '700', color: c.textDim, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 12 }}>
-                Sobre mí
-              </Text>
-              <Text style={{ color: c.text, fontSize: 15, lineHeight: 22 }}>
-                {profile.bio}
+          {/* ── Sobre mí ───────────────────────────────────────────── */}
+          <View style={{
+            backgroundColor: c.bgElev,
+            borderRadius: 20,
+            borderWidth: 1,
+            borderColor: c.border,
+            padding: 18,
+            marginBottom: 14,
+          }}>
+            <Text style={{
+              fontSize: 10,
+              fontWeight: '700',
+              color: c.textDim,
+              letterSpacing: 2,
+              textTransform: 'uppercase',
+              marginBottom: 10,
+            }}>
+              Sobre mí
+            </Text>
+            <Text style={{ fontSize: 14, color: profile.bio ? c.textDim : c.textMuted, lineHeight: 22, fontStyle: profile.bio ? 'normal' : 'italic' }}>
+              {profile.bio ?? 'Sin descripción todavía.'}
+            </Text>
+          </View>
+
+          {/* ── Estadísticas ───────────────────────────────────────── */}
+          <Text style={{
+            fontSize: 10,
+            fontWeight: '700',
+            color: c.textDim,
+            letterSpacing: 2,
+            textTransform: 'uppercase',
+            marginBottom: 10,
+          }}>
+            Estadísticas
+          </Text>
+
+          {profile.matches_played < 3 ? (
+            <View style={{
+              backgroundColor: c.brandSoft,
+              borderRadius: 20,
+              borderWidth: 1,
+              borderColor: c.brand + '33',
+              padding: 20,
+              alignItems: 'center',
+              marginBottom: 14,
+            }}>
+              <Text style={{ fontSize: 36, marginBottom: 8 }}>🌱</Text>
+              <Text style={{ fontSize: 15, fontWeight: '800', color: c.brand, marginBottom: 4 }}>Perfil en crecimiento</Text>
+              <Text style={{ fontSize: 13, color: c.textDim, textAlign: 'center', lineHeight: 20 }}>
+                Las estadísticas se desbloquean al completar 3 partidos valorados ({profile.matches_played}/3).
               </Text>
             </View>
-          ) : null}
+          ) : (
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+              {/* Partidos */}
+              <View style={{
+                flex: 1,
+                backgroundColor: c.bgElev,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: c.border,
+                padding: 16,
+                alignItems: 'center',
+              }}>
+                <Ionicons name="football-outline" size={22} color={c.textMuted} style={{ marginBottom: 8 }} />
+                <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 26, fontWeight: '900', color: c.text, marginBottom: 2 }}>
+                  {profile.matches_played}
+                </Text>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: c.textMuted, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center' }}>
+                  Partidos
+                </Text>
+              </View>
 
-          {/* Stats */}
-          <View style={{ ...sectionCard, padding: 0, overflow: 'hidden' }}>
-            <ProfileStats profile={profile} />
-          </View>
+              {/* Nivel */}
+              <View style={{
+                flex: 1,
+                backgroundColor: c.bgElev,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: c.border,
+                padding: 16,
+                alignItems: 'center',
+              }}>
+                <Ionicons name="speedometer-outline" size={22} color={c.warning} style={{ marginBottom: 8 }} />
+                <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 26, fontWeight: '900', color: c.warning, marginBottom: 2 }}>
+                  {profile.average_level > 0 ? profile.average_level.toFixed(1) : '—'}
+                </Text>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: c.textMuted, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center' }}>
+                  Nivel
+                </Text>
+              </View>
+
+              {/* Actitud */}
+              <View style={{
+                flex: 1,
+                backgroundColor: c.bgElev,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: c.border,
+                padding: 16,
+                alignItems: 'center',
+              }}>
+                <Text style={{ fontSize: 28, marginBottom: 6 }}>
+                  {getAttitudeEmoji(profile.average_attitude)}
+                </Text>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: c.textMuted, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center' }}>
+                  Actitud
+                </Text>
+              </View>
+            </View>
+          )}
 
           {/* Sign out */}
           <TouchableOpacity
             onPress={signOut}
-            style={{ borderWidth: 1, borderColor: c.border, borderRadius: 16, paddingVertical: 14, alignItems: 'center', marginBottom: 8 }}
+            style={{ 
+              backgroundColor: 'rgba(239,68,68,0.08)', 
+              borderWidth: 1, 
+              borderColor: 'rgba(239,68,68,0.25)', 
+              borderRadius: 16, 
+              paddingVertical: 14, 
+              alignItems: 'center', 
+              marginTop: 10,
+              marginBottom: 8 
+            }}
           >
-            <Text style={{ color: c.textDim, fontWeight: '600' }}>Cerrar sesión</Text>
+            <Text style={{ color: c.danger, fontWeight: '700' }}>Cerrar sesión</Text>
           </TouchableOpacity>
         </ScrollView>
       </View>

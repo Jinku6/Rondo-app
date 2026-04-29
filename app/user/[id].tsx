@@ -21,18 +21,18 @@ const POSITION_LABELS: Record<string, string> = {
   delantero: 'Delantero',
 };
 
-function getReliabilityInfo(score: number): { label: string; color: string } {
-  if (score >= 90) return { label: 'Excelente', color: c.brand };
-  if (score >= 75) return { label: 'Buena', color: c.brand };
-  if (score >= 50) return { label: 'Regular', color: c.warning };
-  return { label: 'Baja', color: c.danger };
+function getReliabilityInfo(score: number): { label: string; icon: string; color: string } {
+  if (score >= 90) return { label: 'Nunca falta', icon: '✅', color: c.brand };
+  if (score >= 75) return { label: 'Casi nunca falta', icon: '🌟', color: c.warning };
+  if (score >= 50) return { label: 'Falta con frecuencia', icon: '⚠️', color: '#F97316' };
+  return { label: 'Falta casi siempre', icon: '🚫', color: c.danger };
 }
 
-function getAttitudeLabel(rating: number): string {
-  if (rating === 0) return 'N/A';
-  if (rating >= 4) return 'Excelente';
-  if (rating >= 2.5) return 'Normal';
-  return 'Mejorable';
+function getAttitudeEmoji(rating: number): string {
+  if (rating === 0) return '—';
+  if (rating >= 4) return '🤩';
+  if (rating >= 2.5) return '😐';
+  return '😠';
 }
 
 function getAttitudeColor(rating: number): string {
@@ -236,13 +236,20 @@ export default function UserProfileScreen() {
           <View style={{ width: 1, backgroundColor: c.border, marginVertical: 14 }} />
 
           {/* Fiabilidad */}
-          <View style={{ flex: 1, alignItems: 'center', paddingVertical: 18 }}>
+          <View style={{ flex: 1, alignItems: 'center', paddingVertical: 18, paddingHorizontal: 4 }}>
             <Text style={{ fontSize: 11, fontWeight: '700', color: c.textDim, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 }}>
               Fiabilidad
             </Text>
-            <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 15, fontWeight: '900', color: reliability.color }}>
-              {profile.matches_played >= 3 ? reliability.label : '—'}
-            </Text>
+            {profile.matches_played >= 3 ? (
+              <>
+                <Text style={{ fontSize: 18, marginBottom: 2 }}>{reliability.icon}</Text>
+                <Text style={{ fontSize: 11, fontWeight: '800', color: reliability.color, textAlign: 'center', lineHeight: 14 }}>
+                  {reliability.label}
+                </Text>
+              </>
+            ) : (
+              <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 15, fontWeight: '900', color: c.textMuted }}>—</Text>
+            )}
           </View>
         </View>
 
@@ -292,8 +299,8 @@ export default function UserProfileScreen() {
             alignItems: 'center',
             marginBottom: 14,
           }}>
-            <Ionicons name="leaf-outline" size={32} color={c.brand} style={{ marginBottom: 8 }} />
-            <Text style={{ fontSize: 15, fontWeight: '800', color: c.brand, marginBottom: 4 }}>Jugador nuevo</Text>
+            <Text style={{ fontSize: 36, marginBottom: 8 }}>🌱</Text>
+            <Text style={{ fontSize: 15, fontWeight: '800', color: c.brand, marginBottom: 4 }}>Perfil en crecimiento</Text>
             <Text style={{ fontSize: 13, color: c.textDim, textAlign: 'center', lineHeight: 20 }}>
               Las estadísticas se desbloquean al completar 3 partidos valorados ({profile.matches_played}/3).
             </Text>
@@ -348,16 +355,8 @@ export default function UserProfileScreen() {
               padding: 16,
               alignItems: 'center',
             }}>
-              <Ionicons name="happy-outline" size={22} color={getAttitudeColor(profile.average_attitude)} style={{ marginBottom: 8 }} />
-              <Text style={{
-                fontFamily: 'Archivo_900Black',
-                fontSize: 18,
-                fontWeight: '900',
-                color: getAttitudeColor(profile.average_attitude),
-                marginBottom: 2,
-                textAlign: 'center',
-              }}>
-                {getAttitudeLabel(profile.average_attitude)}
+              <Text style={{ fontSize: 28, marginBottom: 6 }}>
+                {getAttitudeEmoji(profile.average_attitude)}
               </Text>
               <Text style={{ fontSize: 10, fontWeight: '700', color: c.textMuted, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center' }}>
                 Actitud
