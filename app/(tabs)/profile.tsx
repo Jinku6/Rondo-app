@@ -64,6 +64,7 @@ export default function ProfileScreen() {
   const [usernameError, setUsernameError] = useState('');
   const usernameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [preferredPosition, setPreferredPosition] = useState('');
+  const [bio, setBio] = useState('');
   const [phone, setPhone] = useState('');
   const [loadingPhone, setLoadingPhone] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -137,6 +138,7 @@ export default function ProfileScreen() {
     setUsernameError('');
     setUsernameChecking(false);
     setPreferredPosition(profile.preferred_position || '');
+    setBio(profile.bio || '');
     setNewEmail('');
     setNewPassword('');
     setIsEditing(true);
@@ -189,6 +191,7 @@ export default function ProfileScreen() {
           full_name: fullName,
           username: username.toLowerCase().trim(),
           preferred_position: preferredPosition || null,
+          bio: bio.trim() || null,
         }).eq('id', user.id),
         supabase.from('user_private_data').upsert({ user_id: user.id, phone, updated_at: new Date().toISOString() }),
       ]);
@@ -335,6 +338,18 @@ export default function ProfileScreen() {
             </TouchableOpacity>
           </View>
 
+          {/* About me */}
+          {profile.bio ? (
+            <View style={{ ...sectionCard, paddingVertical: 20 }}>
+              <Text style={{ fontSize: 10, fontWeight: '700', color: c.textDim, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 12 }}>
+                Sobre mí
+              </Text>
+              <Text style={{ color: c.text, fontSize: 15, lineHeight: 22 }}>
+                {profile.bio}
+              </Text>
+            </View>
+          ) : null}
+
           {/* Stats */}
           <View style={{ ...sectionCard, padding: 0, overflow: 'hidden' }}>
             <ProfileStats profile={profile} />
@@ -453,6 +468,19 @@ export default function ProfileScreen() {
                   placeholderTextColor={c.textMuted}
                 />
               )}
+            </View>
+
+            {/* Bio */}
+            <View>
+              <Text style={lbl}>Sobre mí</Text>
+              <TextInput
+                style={{ ...inp, minHeight: 100, textAlignVertical: 'top', paddingTop: 13 }}
+                value={bio}
+                onChangeText={setBio}
+                placeholder="Cuéntanos un poco sobre ti..."
+                placeholderTextColor={c.textMuted}
+                multiline
+              />
             </View>
 
             {/* Position */}

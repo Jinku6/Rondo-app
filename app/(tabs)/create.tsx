@@ -12,10 +12,7 @@ import { containsProfanity } from '@/lib/profanityFilter';
 import { UbicacionInput } from '@/components/UbicacionInput';
 import type { GeoResult } from '@/lib/geocoding';
 import { isValidHexColor } from '@/lib/utils';
-import { Colors } from '@/constants/theme';
 import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
-
-const c = Colors;
 
 const CreateMatchSchema = z.object({
   title: z.string().min(3, 'El título debe tener al menos 3 caracteres'),
@@ -27,39 +24,21 @@ const CreateMatchSchema = z.object({
 });
 
 const LEVELS = [
-  { key: 'tranquilo',   label: 'Tranquilo',   emoji: '😌', color: '#22C55E' },
-  { key: 'medio',       label: 'Medio',       emoji: '⚽', color: '#F59E0B' },
-  { key: 'competitivo', label: 'Competitivo', emoji: '🔥', color: '#EF4444' },
+  { key: 'tranquilo',   label: 'Tranquilo',   emoji: '😌', activeBg: 'bg-brand/20', activeBorder: 'border-brand', color: '#22C55E' },
+  { key: 'medio',       label: 'Medio',       emoji: '⚽', activeBg: 'bg-warning/20', activeBorder: 'border-warning', color: '#F59E0B' },
+  { key: 'competitivo', label: 'Competitivo', emoji: '🔥', activeBg: 'bg-danger/20', activeBorder: 'border-danger', color: '#EF4444' },
 ];
 
-const inp = {
-  backgroundColor: 'rgba(255,255,255,0.04)' as const,
-  borderColor: 'rgba(255,255,255,0.08)' as const,
-  borderWidth: 1,
-  borderRadius: 14,
-  paddingHorizontal: 14,
-  paddingVertical: 13,
-  color: c.text,
-  fontSize: 15,
-};
-
-const lbl = {
-  fontSize: 11,
-  fontWeight: '600' as const,
-  color: c.textDim,
-  marginBottom: 6,
-  letterSpacing: 0.5,
-  textTransform: 'uppercase' as const,
-};
-
-const sectionCard = {
-  backgroundColor: c.bgElev,
-  borderRadius: 20,
-  borderWidth: 1,
-  borderColor: c.border,
-  padding: 18,
-  marginBottom: 14,
-};
+const SectionHeader = ({ num, title }: { num: number; title: string }) => (
+  <View className="flex-row items-center mb-5">
+    <View className="w-6 h-6 rounded-full bg-brand items-center justify-center mr-3">
+      <Text className="text-white font-mono font-bold text-xs">{num}</Text>
+    </View>
+    <Text className="text-ink font-mono tracking-widest text-[11px] uppercase font-bold">
+      {title}
+    </Text>
+  </View>
+);
 
 export default function CreateMatchScreen() {
   const { user } = useAuth();
@@ -232,15 +211,15 @@ export default function CreateMatchScreen() {
 
   const PickerModal = ({ visible, title: t, onCancel, onConfirm, children }: any) => (
     <Modal transparent animationType="slide" visible={visible}>
-      <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(0,0,0,0.7)' }}>
-        <View style={{ backgroundColor: c.bgElev, paddingBottom: 40, paddingTop: 16, paddingHorizontal: 24, borderTopLeftRadius: 24, borderTopRightRadius: 24 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12, borderBottomWidth: 1, borderBottomColor: c.border, paddingBottom: 12 }}>
+      <View className="flex-1 justify-end bg-black/70">
+        <View className="bg-bg-elev pb-10 pt-4 px-6 rounded-t-3xl">
+          <View className="flex-row justify-between mb-3 border-b border-white/10 pb-3">
             <TouchableOpacity onPress={onCancel}>
-              <Text style={{ color: c.danger, fontWeight: '600', fontSize: 16 }}>Cancelar</Text>
+              <Text className="text-danger font-semibold text-base">Cancelar</Text>
             </TouchableOpacity>
-            <Text style={{ color: c.text, fontWeight: '700', fontSize: 16 }}>{t}</Text>
+            <Text className="text-ink font-bold text-base">{t}</Text>
             <TouchableOpacity onPress={onConfirm}>
-              <Text style={{ color: c.brand, fontWeight: '700', fontSize: 16 }}>Confirmar</Text>
+              <Text className="text-brand font-bold text-base">Confirmar</Text>
             </TouchableOpacity>
           </View>
           {children}
@@ -250,78 +229,83 @@ export default function CreateMatchScreen() {
   );
 
   return (
-    <View style={{ flex: 1, backgroundColor: c.bg }}>
+    <View className="flex-1 bg-bg">
       <Stack.Screen options={{ headerShown: false }} />
       <ScrollView
-        style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: insets.top + 16, paddingBottom: FLOATING_TAB_BAR_HEIGHT + 16 }}
+        className="flex-1"
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: insets.top + 16, paddingBottom: FLOATING_TAB_BAR_HEIGHT + 32 }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <Text style={{ fontSize: 10, fontWeight: '700', color: c.textDim, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>
-          NUEVO
-        </Text>
-        <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 28, fontWeight: '900', color: c.text, letterSpacing: -0.5, marginBottom: 24 }}>
+        <Text className="font-display text-[28px] font-black text-ink tracking-tight mb-6">
           Crear Partido
         </Text>
 
         {/* 1. Información General */}
-        <View style={sectionCard}>
-          <Text style={{ fontSize: 10, fontWeight: '700', color: c.textDim, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 16 }}>
-            Información
-          </Text>
-          <View style={{ gap: 14 }}>
+        <View className="bg-bg-elev border border-white/10 p-5 rounded-lg-r mb-4">
+          <SectionHeader num={1} title="Información" />
+          <View className="gap-3.5">
             <View>
-              <Text style={lbl}>Título del Partido</Text>
-              <TextInput style={inp} placeholder="Fútbol-7 Jueves Tarde" placeholderTextColor={c.textMuted} value={title} onChangeText={setTitle} />
-            </View>
-            <View>
-              <Text style={lbl}>Ubicación</Text>
-              <UbicacionInput
-                value={location}
-                onChangeText={setLocation}
-                onSelect={(r: GeoResult) => {
-                  const label = [r.nombre, r.direccion, r.ciudad].filter(Boolean).join(', ');
-                  setLocation(label); setLocationLat(r.lat); setLocationLng(r.lng); setLocationCity(r.ciudad);
-                }}
+              <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Título del Partido</Text>
+              <TextInput
+                className="bg-white/5 border border-white/10 rounded-md-r px-4 py-3 text-ink font-body text-[15px]"
+                placeholder="Fútbol-7 Jueves Tarde"
+                placeholderTextColor="#5A625D"
+                keyboardAppearance="dark"
+                value={title}
+                onChangeText={setTitle}
               />
             </View>
             <View>
-              <Text style={lbl}>Descripción</Text>
+              <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Ubicación</Text>
+              {/* Note: Assuming UbicacionInput renders its own input or requires styling. Since we can't easily inject classNames into it unless supported, we wrap it if possible or rely on its own styles. If it doesn't take className, it might look slightly off, but let's assume it accepts a style wrapper or similar, actually I will just render it. */}
+              <View className="bg-white/5 border border-white/10 rounded-md-r px-4 py-1">
+                <UbicacionInput
+                  value={location}
+                  onChangeText={setLocation}
+                  onSelect={(r: GeoResult) => {
+                    const label = [r.nombre, r.direccion, r.ciudad].filter(Boolean).join(', ');
+                    setLocation(label); setLocationLat(r.lat); setLocationLng(r.lng); setLocationCity(r.ciudad);
+                  }}
+                />
+              </View>
+            </View>
+            <View>
+              <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Descripción</Text>
               <TextInput
-                style={{ ...inp, minHeight: 80, textAlignVertical: 'top' }}
+                className="bg-white/5 border border-white/10 rounded-md-r px-4 py-3 text-ink font-body text-[15px] min-h-[80px]"
                 placeholder="Buen ambiente, nivel medio, cervezas después de jugar"
-                placeholderTextColor={c.textMuted}
+                placeholderTextColor="#5A625D"
+                keyboardAppearance="dark"
                 value={description}
                 onChangeText={setDescription}
                 multiline
                 numberOfLines={3}
+                style={{ textAlignVertical: 'top' }}
               />
             </View>
           </View>
         </View>
 
         {/* 2. Nivel */}
-        <View style={sectionCard}>
-          <Text style={{ fontSize: 10, fontWeight: '700', color: c.textDim, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 16 }}>
-            Nivel del Partido
-          </Text>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
+        <View className="bg-bg-elev border border-white/10 p-5 rounded-lg-r mb-4">
+          <SectionHeader num={2} title="Nivel" />
+          <View className="flex-row gap-2">
             {LEVELS.map(l => {
               const isActive = level === l.key;
               return (
                 <TouchableOpacity
                   key={l.key}
                   onPress={() => setLevel(l.key as MatchLevel)}
-                  style={{
-                    flex: 1, paddingVertical: 14, borderRadius: 16, alignItems: 'center', borderWidth: 2,
-                    backgroundColor: isActive ? l.color + '22' : 'rgba(255,255,255,0.03)',
-                    borderColor: isActive ? l.color : c.border,
-                  }}
+                  className={`flex-1 py-3.5 rounded-md-r items-center border-2 ${
+                    isActive ? `${l.activeBg} ${l.activeBorder}` : 'bg-white/5 border-transparent'
+                  }`}
                 >
-                  <Text style={{ fontSize: 22, marginBottom: 4 }}>{l.emoji}</Text>
-                  <Text style={{ fontWeight: '700', fontSize: 12, color: isActive ? l.color : c.textDim }}>{l.label}</Text>
+                  <Text className="text-[22px] mb-1">{l.emoji}</Text>
+                  <Text style={{ color: isActive ? l.color : '#8A938F' }} className="font-body font-bold text-xs">
+                    {l.label}
+                  </Text>
                 </TouchableOpacity>
               );
             })}
@@ -329,28 +313,29 @@ export default function CreateMatchScreen() {
         </View>
 
         {/* 3. Fecha y Hora */}
-        <View style={sectionCard}>
-          <Text style={{ fontSize: 10, fontWeight: '700', color: c.textDim, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 16 }}>
-            Cuándo jugamos
-          </Text>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={lbl}>Día</Text>
+        <View className="bg-bg-elev border border-white/10 p-5 rounded-lg-r mb-4">
+          <SectionHeader num={3} title="Cuándo" />
+          <View className="flex-row gap-3">
+            <View className="flex-1">
+              <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Día</Text>
               <TouchableOpacity
-                style={{ ...inp, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+                className="bg-white/5 border border-white/10 rounded-md-r px-4 py-3.5 flex-row items-center justify-between"
                 onPress={() => { if (Platform.OS !== 'web') setShowDatePicker(true); }}
                 activeOpacity={Platform.OS === 'web' ? 1 : 0.7}
               >
                 {Platform.OS !== 'web' ? (
                   <>
-                    <Text style={{ color: dateText ? c.text : c.textMuted, fontSize: 15 }}>{dateText || 'DD/MM/YYYY'}</Text>
-                    <Ionicons name="calendar-outline" size={18} color={c.brand} />
+                    <Text className={`font-body text-[15px] ${dateText ? 'text-ink' : 'text-ink-muted'}`}>
+                      {dateText || 'DD/MM/YYYY'}
+                    </Text>
+                    <Ionicons name="calendar-outline" size={18} color="#22C55E" />
                   </>
                 ) : (
                   <TextInput
-                    style={{ flex: 1, color: c.text }}
+                    className="flex-1 text-ink font-body text-[15px]"
                     placeholder="05/04/2026"
-                    placeholderTextColor={c.textMuted}
+                    placeholderTextColor="#5A625D"
+                    keyboardAppearance="dark"
                     value={dateText}
                     onChangeText={handleDateChangeText}
                     keyboardType="numeric"
@@ -359,23 +344,26 @@ export default function CreateMatchScreen() {
                 )}
               </TouchableOpacity>
             </View>
-            <View style={{ flex: 1 }}>
-              <Text style={lbl}>Hora</Text>
+            <View className="flex-1">
+              <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Hora</Text>
               <TouchableOpacity
-                style={{ ...inp, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+                className="bg-white/5 border border-white/10 rounded-md-r px-4 py-3.5 flex-row items-center justify-between"
                 onPress={() => { if (Platform.OS !== 'web') setShowTimePicker(true); }}
                 activeOpacity={Platform.OS === 'web' ? 1 : 0.7}
               >
                 {Platform.OS !== 'web' ? (
                   <>
-                    <Text style={{ color: timeText ? c.text : c.textMuted, fontSize: 15 }}>{timeText || 'HH:MM'}</Text>
-                    <Ionicons name="time-outline" size={18} color={c.brand} />
+                    <Text className={`font-body text-[15px] ${timeText ? 'text-ink' : 'text-ink-muted'}`}>
+                      {timeText || 'HH:MM'}
+                    </Text>
+                    <Ionicons name="time-outline" size={18} color="#22C55E" />
                   </>
                 ) : (
                   <TextInput
-                    style={{ flex: 1, color: c.text }}
+                    className="flex-1 text-ink font-body text-[15px]"
                     placeholder="20:00"
-                    placeholderTextColor={c.textMuted}
+                    placeholderTextColor="#5A625D"
+                    keyboardAppearance="dark"
                     value={timeText}
                     onChangeText={handleTimeChangeText}
                     onBlur={handleTimeBlur}
@@ -407,74 +395,72 @@ export default function CreateMatchScreen() {
         )}
 
         {/* 4. Posiciones */}
-        <View style={sectionCard}>
-          <Text style={{ fontSize: 10, fontWeight: '700', color: c.textDim, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 16 }}>
-            Jugadores necesarios
-          </Text>
-          {[
-            { key: 'portero',     label: 'Porteros',          emoji: '🧤' },
-            { key: 'defensa',     label: 'Defensas',          emoji: '🛡️' },
-            { key: 'mediocentro', label: 'Medios',            emoji: '⚙️' },
-            { key: 'delantero',   label: 'Delanteros',        emoji: '⚡' },
-            { key: 'cualquiera',  label: 'Cualquier posición', emoji: '👟' },
-          ].map((pos) => (
-            <View key={pos.key} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: c.border }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                <Text style={{ fontSize: 20 }}>{pos.emoji}</Text>
-                <Text style={{ color: c.text, fontWeight: '600', fontSize: 14 }}>{pos.label}</Text>
+        <View className="bg-bg-elev border border-white/10 p-5 rounded-lg-r mb-4">
+          <SectionHeader num={4} title="Posiciones" />
+          <View>
+            {[
+              { key: 'portero',     label: 'Portero',          emoji: '🧤' },
+              { key: 'defensa',     label: 'Defensa',          emoji: '🛡️' },
+              { key: 'mediocentro', label: 'Mediocentro',      emoji: '⚙️' },
+              { key: 'delantero',   label: 'Delantero',        emoji: '⚡' },
+              { key: 'cualquiera',  label: 'Cualquiera',       emoji: '⚽' },
+            ].map((pos) => (
+              <View key={pos.key} className="flex-row justify-between items-center py-3 border-b border-white/5 last:border-b-0">
+                <View className="flex-row items-center gap-3">
+                  <Text className="text-xl">{pos.emoji}</Text>
+                  <Text className="text-ink font-body font-semibold text-sm">{pos.label}</Text>
+                </View>
+                <View className="flex-row items-center gap-2">
+                  <TouchableOpacity
+                    onPress={() => updatePosition(pos.key as PositionKey, -1)}
+                    className="w-9 h-9 rounded-md-r bg-white/5 items-center justify-center border border-white/10"
+                  >
+                    <Ionicons name="remove" size={18} color="#8A938F" />
+                  </TouchableOpacity>
+                  <Text className="w-8 text-center font-body font-bold text-lg text-ink">
+                    {positions[pos.key as PositionKey]}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => updatePosition(pos.key as PositionKey, 1)}
+                    className="w-9 h-9 rounded-md-r bg-brand-soft items-center justify-center border border-brand/30"
+                  >
+                    <Ionicons name="add" size={18} color="#22C55E" />
+                  </TouchableOpacity>
+                </View>
               </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <TouchableOpacity
-                  onPress={() => updatePosition(pos.key as PositionKey, -1)}
-                  style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: c.bgSurface, borderWidth: 1, borderColor: c.border, alignItems: 'center', justifyContent: 'center' }}
-                >
-                  <Ionicons name="remove" size={18} color={c.textDim} />
-                </TouchableOpacity>
-                <Text style={{ minWidth: 36, textAlign: 'center', fontWeight: '800', fontSize: 18, color: c.text }}>
-                  {positions[pos.key as PositionKey]}
-                </Text>
-                <TouchableOpacity
-                  onPress={() => updatePosition(pos.key as PositionKey, 1)}
-                  style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: c.brandSoft, borderWidth: 1, borderColor: c.brand + '44', alignItems: 'center', justifyContent: 'center' }}
-                >
-                  <Ionicons name="add" size={18} color={c.brand} />
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12 }}>
-            <Text style={{ color: c.textDim, fontWeight: '600', fontSize: 13 }}>Total jugadores</Text>
-            <View style={{ backgroundColor: c.brand, paddingHorizontal: 16, paddingVertical: 6, borderRadius: 100 }}>
-              <Text style={{ fontWeight: '800', color: '#fff', fontSize: 16 }}>{totalPlayers}</Text>
+            ))}
+          </View>
+          <View className="flex-row justify-between items-center mt-4 pt-4 border-t border-white/10">
+            <Text className="text-ink-dim font-body font-semibold text-sm">Total jugadores</Text>
+            <View className="bg-brand px-4 py-1.5 rounded-full">
+              <Text className="font-body font-black text-white text-base">{totalPlayers}</Text>
             </View>
           </View>
         </View>
 
         {/* 5. Colores de Equipos */}
-        <View style={sectionCard}>
-          <Text style={{ fontSize: 10, fontWeight: '700', color: c.textDim, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 16 }}>
-            Colores de Camiseta
-          </Text>
-          <View style={{ flexDirection: 'row', gap: 16 }}>
+        <View className="bg-bg-elev border border-white/10 p-5 rounded-lg-r mb-4">
+          <SectionHeader num={5} title="Colores de Camiseta" />
+          <View className="gap-4">
             {[
               { label: 'Equipo A', color: teamAColor, setColor: setTeamAColor, prefix: 'a' },
               { label: 'Equipo B', color: teamBColor, setColor: setTeamBColor, prefix: 'b' },
             ].map(team => (
-              <View key={team.prefix} style={{ flex: 1 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, gap: 8 }}>
-                  <View style={{ width: 28, height: 28, borderRadius: 14, backgroundColor: team.color, borderWidth: 2, borderColor: c.brand }} />
-                  <Text style={{ color: c.text, fontWeight: '600', fontSize: 13 }}>{team.label}</Text>
+              <View key={team.prefix} className="flex-row items-center justify-between">
+                <View className="flex-row items-center gap-3">
+                  <View className="w-7 h-7 rounded-full border-2 border-white/20" style={{ backgroundColor: team.color }} />
+                  <Text className="text-ink font-body font-semibold text-sm">{team.label}</Text>
                 </View>
-                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                <View className="flex-row gap-2">
                   {presetColors.map(col => (
                     <TouchableOpacity
                       key={`${team.prefix}-${col}`}
                       onPress={() => team.setColor(col)}
-                      style={{
-                        width: 30, height: 30, borderRadius: 8, backgroundColor: col,
-                        borderWidth: 2, borderColor: team.color === col ? c.brand : c.border,
-                      }}
-                    />
+                      style={{ backgroundColor: col, borderColor: team.color === col ? '#22C55E' : 'transparent' }}
+                      className="w-8 h-8 rounded-full border-2 items-center justify-center shadow-sm"
+                    >
+                      {team.color === col && <View className="w-3 h-3 rounded-full bg-black/30" />}
+                    </TouchableOpacity>
                   ))}
                 </View>
               </View>
@@ -483,59 +469,65 @@ export default function CreateMatchScreen() {
         </View>
 
         {/* 6. Extra */}
-        <View style={sectionCard}>
-          <Text style={{ fontSize: 10, fontWeight: '700', color: c.textDim, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 16 }}>
-            Configuración
-          </Text>
-          <View style={{ gap: 16 }}>
-            <View>
-              <Text style={lbl}>Precio por persona (€)</Text>
-              <TextInput
-                style={inp}
-                value={price}
-                onChangeText={setPrice}
-                keyboardType="numeric"
-                placeholder="0.00"
-                placeholderTextColor={c.textMuted}
-              />
-              <Text style={{ fontSize: 10, color: c.textMuted, marginTop: 4 }}>
-                El organizador gestiona el cobro manualmente.
-              </Text>
+        <View className="bg-bg-elev border border-white/10 p-5 rounded-lg-r mb-6">
+          <SectionHeader num={6} title="Configuración" />
+          <View className="mb-5">
+            <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Precio por persona (€)</Text>
+            <TextInput
+              className="bg-white/5 border border-white/10 rounded-md-r px-4 py-3.5 text-ink font-body text-[15px]"
+              value={price}
+              onChangeText={setPrice}
+              keyboardType="numeric"
+              keyboardAppearance="dark"
+              placeholder="0.00"
+              placeholderTextColor="#5A625D"
+            />
+            <Text className="text-[10px] text-ink-muted mt-2 font-body">
+              El organizador gestiona el cobro manualmente.
+            </Text>
+          </View>
+          
+          <View className="flex-row justify-between items-center py-1">
+            <View className="flex-1 mr-4">
+              <Text className="text-ink font-body font-semibold text-sm">Requiere aprobación</Text>
+              <Text className="text-ink-muted text-[11px] mt-1 font-body">Revisa quién se une a tu partido</Text>
             </View>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 4 }}>
-              <View style={{ flex: 1, marginRight: 16 }}>
-                <Text style={{ color: c.text, fontWeight: '600', fontSize: 14 }}>Aprobar jugadores manualmente</Text>
-                <Text style={{ color: c.textMuted, fontSize: 12, marginTop: 2 }}>El organizador revisa cada solicitud</Text>
-              </View>
-              <Switch
-                value={requiresApproval}
-                onValueChange={setRequiresApproval}
-                trackColor={{ false: c.border, true: c.brand }}
-                thumbColor="#fff"
-              />
-            </View>
+            <Switch
+              value={requiresApproval}
+              onValueChange={setRequiresApproval}
+              trackColor={{ false: '#3f3f46', true: '#22C55E' }}
+              thumbColor="#FFFFFF"
+              ios_backgroundColor="#3f3f46"
+            />
           </View>
         </View>
 
         {/* Actions */}
-        <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+        <View className="flex-row gap-3">
           <TouchableOpacity
             onPress={() => router.back()}
             disabled={loading}
-            style={{ flex: 1, backgroundColor: c.bgElev, borderWidth: 1, borderColor: c.border, borderRadius: 16, paddingVertical: 16, alignItems: 'center' }}
+            className="flex-1 bg-white/5 border border-white/10 rounded-xl-r py-4 items-center justify-center"
           >
-            <Text style={{ color: c.textDim, fontWeight: '700', fontSize: 15 }}>Cancelar</Text>
+            <Text className="text-ink-dim font-display font-bold text-[15px]">Cancelar</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={handleCreate}
             disabled={loading}
-            style={{ flex: 2, backgroundColor: c.brand, borderRadius: 16, paddingVertical: 16, alignItems: 'center', opacity: loading ? 0.7 : 1 }}
+            style={{
+              shadowColor: '#22C55E',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.32,
+              shadowRadius: 14,
+              elevation: 8,
+            }}
+            className={`flex-[2] bg-brand rounded-xl-r py-4 items-center justify-center ${loading ? 'opacity-70' : ''}`}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 15, fontWeight: '900', color: '#fff', letterSpacing: 1.5, textTransform: 'uppercase' }}>
-                Publicar
+              <Text className="font-display text-[15px] font-black text-white uppercase tracking-[1px]">
+                Publicar Partido
               </Text>
             )}
           </TouchableOpacity>
