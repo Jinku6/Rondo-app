@@ -1,17 +1,56 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import {
+  View, Text, FlatList, TouchableOpacity,
+  ActivityIndicator, RefreshControl,
+} from 'react-native';
 import { supabase } from '@/lib/supabase';
 import { Match } from '@/types/database';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { EmptyState } from '@/components/ui/empty-state';
 import { isValidCoords, firstParam } from '@/lib/utils';
-import { Colors } from '@/constants/theme';
+import { Colors, Fonts, Radius } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { MatchCard } from '@/components/rondo/MatchCard';
 
 const c = Colors;
 
 const VALID_POSITIONS = new Set(['cualquiera', 'portero', 'defensa', 'mediocentro', 'delantero']);
+
+const POSITION_LABELS: Record<string, string> = {
+  cualquiera:  'Cualquiera',
+  portero:     'Portero',
+  defensa:     'Defensa',
+  mediocentro: 'Mediocentro',
+  delantero:   'Delantero',
+};
+
+function buildEyebrow(ciudad: string, dateStr: string, dateRangeStr: string, position: string): string {
+  const parts: string[] = [];
+
+  if (ciudad) parts.push(ciudad.slice(0, 20));
+
+  if (dateRangeStr === 'this_week') {
+    parts.push('Esta semana');
+  } else if (dateRangeStr === 'next_week') {
+    parts.push('Próx. semana');
+  } else if (dateStr === 'today') {
+    parts.push('Hoy');
+  } else if (dateStr) {
+    const match = dateStr.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (match) {
+      const d = new Date(Number(match[3]), Number(match[2]) - 1, Number(match[1]));
+      parts.push(d.toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' }));
+    } else {
+      parts.push('Próximos días');
+    }
+  } else {
+    parts.push('Próximos días');
+  }
+
+  parts.push(POSITION_LABELS[position] ?? 'Cualquiera');
+  return parts.join(' · ');
+}
 
 export default function SearchResultsScreen() {
   const { lat, lng, ciudad, date, position, dateRange } = useLocalSearchParams();
@@ -125,103 +164,65 @@ export default function SearchResultsScreen() {
   const onRefresh = () => { setRefreshing(true); fetchMatches(); };
 
   const ciudadLabel = ciudad ? firstParam(ciudad as string | string[]).slice(0, 50) : '';
+  const dateStr = firstParam(date as string | string[]) ?? '';
+  const dateRangeStr = firstParam(dateRange as string | string[]) ?? '';
+  const positionStr = firstParam(position as string | string[]) ?? 'cualquiera';
 
-  const renderMatchCard = ({ item }: { item: Match & { participants?: any[] } }) => {
-    const d = new Date(item.date_time);
-    const dateString = d.toLocaleDateString('es-ES', { weekday: 'short', month: 'short', day: 'numeric' });
-    const timeString = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-
-    const maxPlayers = item.requested_positions
-      ? Object.values(item.requested_positions).reduce((a: any, b: any) => a + b, 0)
-      : 0;
-
-    const approvedCount = item.participants?.filter(p => p.status === 'approved').length || 0;
-    const isFull = approvedCount >= maxPlayers;
-
-    return (
-      <TouchableOpacity
-        onPress={() => router.push(`/match/${item.id}`)}
-        style={{
-          backgroundColor: c.bgElev,
-          borderRadius: 20,
-          marginBottom: 12,
-          borderWidth: 1,
-          borderColor: c.border,
-          overflow: 'hidden',
-        }}
-      >
-        {/* Top accent */}
-        <View style={{ height: 3, backgroundColor: isFull ? c.textMuted : c.brand }} />
-
-        <View style={{ padding: 16 }}>
-          {/* Header row */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: c.text, flex: 1, marginRight: 12 }} numberOfLines={2}>
-              {item.title}
-            </Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              {item.team_a_color && <View style={{ width: 12, height: 12, borderRadius: 4, backgroundColor: item.team_a_color }} />}
-              {item.team_b_color && <View style={{ width: 12, height: 12, borderRadius: 4, backgroundColor: item.team_b_color }} />}
-              <View style={{
-                paddingHorizontal: 10, paddingVertical: 4, borderRadius: 100,
-                backgroundColor: isFull ? 'rgba(255,255,255,0.06)' : c.brandSoft,
-                borderWidth: 1, borderColor: isFull ? c.border : c.brand + '44',
-              }}>
-                <Text style={{ fontSize: 10, fontWeight: '700', color: isFull ? c.textMuted : c.brand, textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                  {isFull ? 'Completo' : 'Abierto'}
-                </Text>
-              </View>
-            </View>
-          </View>
-
-          {/* Details */}
-          <View style={{ gap: 6, marginBottom: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Ionicons name="location-outline" size={14} color={c.textDim} />
-              <Text style={{ color: c.textDim, marginLeft: 6, fontSize: 13 }} numberOfLines={1}>{item.location}</Text>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Ionicons name="calendar-outline" size={14} color={c.textDim} />
-              <Text style={{ color: c.textDim, marginLeft: 6, fontSize: 13 }}>{dateString} · {timeString}</Text>
-            </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <Ionicons name="people-outline" size={14} color={c.textDim} />
-              <Text style={{ color: c.textDim, marginLeft: 6, fontSize: 13 }}>Buscan {maxPlayers} jugadores</Text>
-            </View>
-          </View>
-
-          {/* Footer */}
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', borderTopWidth: 1, borderTopColor: c.border, paddingTop: 10 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <View style={{ width: 28, height: 28, borderRadius: 9, backgroundColor: c.brandSoft, justifyContent: 'center', alignItems: 'center', marginRight: 8 }}>
-                <Text style={{ fontWeight: '800', color: c.brand, fontSize: 12 }}>
-                  {item.organizer?.full_name?.charAt(0).toUpperCase() || '?'}
-                </Text>
-              </View>
-              <Text style={{ color: c.textDim, fontSize: 13 }} numberOfLines={1}>
-                {item.organizer?.full_name || item.organizer?.username}
-              </Text>
-            </View>
-            <Text style={{ fontWeight: '800', color: item.price_per_player > 0 ? c.brand : c.textDim, fontSize: 14 }}>
-              {item.price_per_player > 0 ? `${item.price_per_player}€` : 'Gratis'}
-            </Text>
-          </View>
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
-  const headerTitle = ciudadLabel ? `Partidos en ${ciudadLabel}` : 'Resultados';
+  const eyebrow = buildEyebrow(ciudadLabel, dateStr, dateRangeStr, positionStr);
+  const titleText = loading ? 'Buscando…' : `${matches.length} ${matches.length === 1 ? 'partido' : 'partidos'}`;
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>
-      <Stack.Screen options={{
-        title: headerTitle,
-        headerStyle: { backgroundColor: c.bg },
-        headerTintColor: c.text,
-        headerTitleStyle: { fontWeight: '700', color: c.text },
-        headerShadowVisible: false,
-      }} />
+      <Stack.Screen options={{ headerShown: false }} />
+
+      {/* Custom header */}
+      <View style={{ paddingTop: insets.top, backgroundColor: c.bg }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 }}>
+          {/* Back + title */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
+            <TouchableOpacity
+              onPress={() => router.back()}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Ionicons name="chevron-back" size={24} color={c.textDim} />
+            </TouchableOpacity>
+            <View style={{ minWidth: 0, flex: 1 }}>
+              <Text style={{ fontFamily: Fonts.mono, fontSize: 10, fontWeight: '700', letterSpacing: 2.5, textTransform: 'uppercase', color: c.textDim }}>
+                {eyebrow}
+              </Text>
+              <Text style={{ fontFamily: Fonts.display, fontSize: 22, fontWeight: '900', color: c.text, textTransform: 'uppercase', letterSpacing: -0.5, marginTop: 3, lineHeight: 24 }}>
+                {titleText}
+              </Text>
+            </View>
+          </View>
+          {/* Filter icon */}
+          <TouchableOpacity
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+          >
+            <Ionicons name="options-outline" size={22} color={c.textDim} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Modify search button */}
+        <View style={{ paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: c.border }}>
+          <TouchableOpacity
+            onPress={() => router.back()}
+            style={{
+              width: '100%', minHeight: 44, backgroundColor: c.bgSurface,
+              borderRadius: Radius.md, borderWidth: 1, borderColor: 'rgba(34,197,94,0.2)',
+              flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+            }}
+          >
+            <Text style={{ fontSize: 13, fontWeight: '600', color: c.textDim }}>
+              🔄 Modificar búsqueda
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Content */}
       {loading ? (
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
           <ActivityIndicator size="large" color={c.brand} />
@@ -230,15 +231,15 @@ export default function SearchResultsScreen() {
         <FlatList
           data={matches}
           keyExtractor={(item) => item.id}
-          renderItem={renderMatchCard}
-          contentContainerStyle={{ padding: 16 }}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.brand} colors={[c.brand]} />}
-          ListHeaderComponent={
-            matches.length > 0 ? (
-              <Text style={{ fontSize: 11, fontWeight: '700', color: c.textDim, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 14 }}>
-                {matches.length} {matches.length === 1 ? 'PARTIDO' : 'PARTIDOS'}
-              </Text>
-            ) : null
+          renderItem={({ item }) => (
+            <MatchCard
+              match={item as any}
+              onPress={() => router.push(`/match/${item.id}`)}
+            />
+          )}
+          contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 120, gap: 10 }}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.brand} colors={[c.brand]} />
           }
           ListEmptyComponent={
             <EmptyState
