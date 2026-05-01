@@ -1,13 +1,164 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Image, View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Platform, Linking, ActionSheetIOS, Modal } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
-import { supabase } from '@/lib/supabase';
-import { Match, MatchParticipant } from '@/types/database';
-import { useAuth } from '@/contexts/AuthContext';
+import {
+  View,
+  Text,
+  ScrollView,
+  Pressable,
+  Linking,
+  StyleSheet,
+  ActivityIndicator,
+  Alert,
+  Platform,
+  ActionSheetIOS,
+  Modal,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { isSafeUrl } from '@/lib/utils';
+import { ChevronRight } from 'lucide-react-native';
+import { supabase } from '@/lib/supabase';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  Match,
+  MatchLevel,
+  MatchParticipant,
+  PositionKey,
+  RequestedPositions,
+} from '@/types/database';
+import { Colors } from '@/constants/theme';
 import CancelMatchModal, { CancelWindow } from '@/components/CancelMatchModal';
+
+const c = Colors;
+
+// ─── config maps ─────────────────────────────────────────────────────────────
+
+const LEVEL_CONFIG: Record<
+  MatchLevel,
+  { label: string; color: string; bg: string; border: string }
+> = {
+  tranquilo: {
+    label: 'Tranquilo',
+    color: c.brand,
+    bg: c.brandSoft,
+    border: 'rgba(34,197,94,0.3)',
+  },
+  medio: {
+    label: 'Nivel Medio',
+    color: c.warning,
+    bg: 'rgba(245,158,11,0.13)',
+    border: 'rgba(245,158,11,0.3)',
+  },
+  competitivo: {
+    label: 'Competitivo',
+    color: c.danger,
+    bg: 'rgba(239,68,68,0.12)',
+    border: 'rgba(239,68,68,0.3)',
+  },
+};
+
+const STATUS_CONFIG: Record<
+  string,
+  { label: string; color: string; bg: string; border: string }
+> = {
+  open: {
+    label: 'Abierto',
+    color: c.brand,
+    bg: c.brandSoft,
+    border: 'rgba(34,197,94,0.3)',
+  },
+  full: {
+    label: 'Completo',
+    color: c.warning,
+    bg: 'rgba(245,158,11,0.13)',
+    border: 'rgba(245,158,11,0.3)',
+  },
+  completed: {
+    label: 'Finalizado',
+    color: c.textDim,
+    bg: 'rgba(255,255,255,0.06)',
+    border: c.border,
+  },
+  cancelled: {
+    label: 'Cancelado',
+    color: c.danger,
+    bg: 'rgba(239,68,68,0.10)',
+    border: 'rgba(239,68,68,0.3)',
+  },
+};
+
+const POSITION_CONFIG: Record<PositionKey, { icon: string; label: string }> = {
+  portero: { icon: '🧤', label: 'Portero' },
+  defensa: { icon: '🛡️', label: 'Defensa' },
+  mediocentro: { icon: '⚙️', label: 'Mediocentro' },
+  delantero: { icon: '⚡', label: 'Delantero' },
+  cualquiera: { icon: '🎯', label: 'Cualquiera' },
+};
+
+const AVATAR_COLORS = [
+  '#a855f7', '#f59e0b', '#10b981', '#3b82f6',
+  '#ec4899', '#ef4444', '#06b6d4', '#84cc16',
+];
+
+const AVATAR_COLOR_CLASSES = [
+  'bg-[#a855f7]',
+  'bg-[#f59e0b]',
+  'bg-[#10b981]',
+  'bg-[#3b82f6]',
+  'bg-[#ec4899]',
+  'bg-[#ef4444]',
+  'bg-[#06b6d4]',
+  'bg-[#84cc16]',
+];
+
+// ─── helpers ──────────────────────────────────────────────────────────────────
+
+function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('es-ES', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+}
+
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('es-ES', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+function avatarColor(name: string): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+  return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
+}
+
+function avatarColorClass(name: string): string {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
+  return AVATAR_COLOR_CLASSES[Math.abs(h) % AVATAR_COLOR_CLASSES.length];
+}
+
+function initials(name: string): string {
+  return name.trim().split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
+}
+
+function reliabilityLabel(score: number): string {
+  if (score >= 90) return '✅ Nunca falta';
+  if (score >= 75) return '🌟 Casi nunca falta';
+  if (score >= 50) return '⚠️ Falta con frecuencia';
+  return '🚫 Falta casi siempre';
+}
+
+function totalSlots(req: RequestedPositions): number {
+  return Object.values(req).reduce((acc, n) => acc + (n as number), 0);
+}
+
+function positionChips(req: RequestedPositions): { key: PositionKey; count: number }[] {
+  return (Object.entries(req) as [PositionKey, number][]).filter(([, n]) => n > 0).map(
+    ([key, count]) => ({ key, count }),
+  );
+}
 
 const getCancelWindow = (matchTime: number): CancelWindow => {
   const hoursLeft = (matchTime - Date.now()) / 3600000;
@@ -42,20 +193,101 @@ async function abrirOpcionMapa(opcion: MapOption) {
   Linking.openURL(soportado ? opcion.nativo : opcion.url);
 }
 
-const LEVEL_CONFIG: Record<string, { label: string; emoji: string; color: string }> = {
-  tranquilo: { label: 'Tranquilo',   emoji: '😌', color: 'text-green-600' },
-  medio:     { label: 'Medio',       emoji: '⚽', color: 'text-amber-600'   },
-  competitivo:{ label: 'Competitivo', emoji: '🔥', color: 'text-red-600'     },
-};
+// ─── sub-components ───────────────────────────────────────────────────────────
 
-const POSITION_LABELS: Record<string, string> = {
-  portero: 'Portero', defensa: 'Defensa', mediocentro: 'Medio', delantero: 'Delantero', cualquiera: 'Cualquiera',
-};
+function Badge({
+  label,
+  color,
+  bg,
+  border,
+}: {
+  label: string;
+  color: string;
+  bg: string;
+  border: string;
+}) {
+  return (
+    <View style={[s.badge, { backgroundColor: bg, borderColor: border }]}>
+      <Text style={[s.badgeText, { color }]}>{label}</Text>
+    </View>
+  );
+}
+
+function InfoCell({
+  label,
+  flex,
+  children,
+}: {
+  label: string;
+  flex?: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <View style={[s.infoCell, flex != null && { flex }]}>
+      <Text style={s.infoCellLabel}>{label}</Text>
+      {children}
+    </View>
+  );
+}
+
+function PlayerRow({
+  participant,
+  onPress,
+  rightContent,
+  isLast = false,
+  isOverflow = false,
+  overflowCount = 0,
+}: {
+  participant?: MatchParticipant;
+  onPress?: () => void;
+  rightContent?: React.ReactNode;
+  isLast?: boolean;
+  isOverflow?: boolean;
+  overflowCount?: number;
+}) {
+  const name = isOverflow ? 'Otros' : participant?.user?.full_name ?? 'Jugador';
+  const pos = participant?.user?.preferred_position;
+  const posCfg = pos ? POSITION_CONFIG[pos as PositionKey] : null;
+  const positionLabel = isOverflow ? 'Ver todos' : posCfg?.label;
+  const avatarText = isOverflow ? `+${overflowCount}` : initials(name);
+
+  return (
+    <Pressable
+      className={`flex-row items-center justify-between py-3 ${isLast ? '' : 'border-b-[0.5px] border-white/10'} ${isOverflow ? 'opacity-50' : ''}`}
+      style={({ pressed }) => pressed && { opacity: isOverflow ? 0.35 : 0.65 }}
+      onPress={onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={isOverflow ? 'Ver todos los jugadores apuntados' : `Ver perfil de ${name}`}
+    >
+      <View className="flex-row items-center gap-3 flex-1 min-w-0">
+        <View className={`h-9 w-9 shrink-0 items-center justify-center rounded-full ${isOverflow ? 'bg-[#8A938F]' : avatarColorClass(name)}`}>
+          <Text className="text-white text-[13px] font-black font-display">{avatarText}</Text>
+        </View>
+        <View className="flex-1 min-w-0 flex-col">
+          <Text className="text-[14px] font-semibold text-white" numberOfLines={1}>
+            {name}
+          </Text>
+          {!!positionLabel && (
+            <Text className="text-[11px] text-[#8A938F]" numberOfLines={1}>
+              {positionLabel}
+            </Text>
+          )}
+        </View>
+      </View>
+      <View className="ml-3 shrink-0">
+        {rightContent || <ChevronRight size={16} color="#8A938F" />}
+      </View>
+    </Pressable>
+  );
+}
+
+// ─── screen ───────────────────────────────────────────────────────────────────
 
 export default function MatchDetailScreen() {
   const { id } = useLocalSearchParams();
   const { user } = useAuth();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [match, setMatch] = useState<Match | null>(null);
   const [participants, setParticipants] = useState<MatchParticipant[]>([]);
@@ -88,22 +320,20 @@ export default function MatchDetailScreen() {
         .select('*, user:users(*, phone_data:user_private_data(phone))')
         .eq('match_id', id);
 
-      if (partError) {
-        if (__DEV__) console.error('Error fetching participants:', partError.message);
-      } else if (partData) {
+      if (!partError && partData) {
         setParticipants(partData as MatchParticipant[]);
       }
     } catch (e) {
-      if (__DEV__) console.error('fetchMatchDetails error:', e);
-      Alert.alert('Error de conexión', 'No se pudieron cargar los detalles del partido.');
+      Alert.alert('Error', 'No se pudieron cargar los detalles del partido.');
       router.back();
     } finally {
       setLoading(false);
     }
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { fetchMatchDetails(); }, [id]);
+  useEffect(() => {
+    fetchMatchDetails();
+  }, [id]);
 
   const handleJoin = async () => {
     if (!user || !match || joiningRef.current) return;
@@ -111,14 +341,21 @@ export default function MatchDetailScreen() {
     setActionLoading(true);
     const status = match.requires_approval ? 'pending' : 'joined';
     const { error } = await supabase.from('match_participants').insert({
-      match_id: match.id, user_id: user.id, status
+      match_id: match.id,
+      user_id: user.id,
+      status,
     });
     joiningRef.current = false;
     setActionLoading(false);
     if (error) {
       Alert.alert('Error al unirse', error.message);
     } else {
-      Alert.alert('¡Listo!', match.requires_approval ? 'Solicitud enviada al organizador' : '¡Te has unido al partido!');
+      Alert.alert(
+        '¡Listo!',
+        match.requires_approval
+          ? 'Solicitud enviada al organizador'
+          : '¡Te has unido al partido!'
+      );
       fetchMatchDetails();
     }
   };
@@ -128,14 +365,10 @@ export default function MatchDetailScreen() {
     const win = getCancelWindow(new Date(match.date_time).getTime());
 
     if (win === '48h_plus') {
-      Alert.alert(
-        'Abandonar partido',
-        '¿Seguro que quieres darte de baja?',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Darme de baja', style: 'destructive', onPress: () => executeLeave(win) },
-        ]
-      );
+      Alert.alert('Abandonar partido', '¿Seguro que quieres darte de baja?', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Darme de baja', style: 'destructive', onPress: () => executeLeave(win) },
+      ]);
     } else {
       setCancelWindow(win);
       setCancelModalVisible(true);
@@ -170,598 +403,1077 @@ export default function MatchDetailScreen() {
     }
   };
 
-  const handleApprove = async (participantId: string, _userId: string) => {
-    const { error } = await supabase.from('match_participants').update({ status: 'approved' }).eq('id', participantId);
+  const handleApprove = async (participantId: string) => {
+    const { error } = await supabase
+      .from('match_participants')
+      .update({ status: 'joined' })
+      .eq('id', participantId);
     if (error) {
       Alert.alert('Error', 'No se pudo aprobar al jugador');
-      if (__DEV__) console.error('Error approving participant:', error.message);
       return;
     }
     fetchMatchDetails();
   };
 
   const handleReject = async (participantId: string) => {
-    const { error } = await supabase.from('match_participants').update({ status: 'rejected' }).eq('id', participantId);
+    const { error } = await supabase
+      .from('match_participants')
+      .update({ status: 'rejected' })
+      .eq('id', participantId);
     if (error) {
       Alert.alert('Error', 'No se pudo rechazar al jugador');
-      if (__DEV__) console.error('Error rejecting participant:', error.message);
       return;
     }
     fetchMatchDetails();
   };
 
+  const handleFinalize = () => {
+    if (!match) return;
+    Alert.alert(
+      'Finalizar Partido',
+      '¿Estás seguro de que quieres finalizar este partido? Se generarán las notificaciones de valoración.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Finalizar',
+          style: 'destructive',
+          onPress: async () => {
+            setActionLoading(true);
+            try {
+              const { error: updateError } = await supabase
+                .from('matches')
+                .update({ status: 'completed' })
+                .eq('id', match.id);
+              if (updateError) throw updateError;
 
+              await supabase
+                .from('match_participants')
+                .update({ status: 'rejected' })
+                .eq('match_id', match.id)
+                .eq('status', 'pending');
+
+              await supabase.from('notifications').insert({
+                user_id: user!.id,
+                match_id: match.id,
+                type: 'pending_organizer_review',
+              });
+
+              Alert.alert(
+                '✅ Partido finalizado',
+                'Ahora puedes pasar lista y confirmar quién asistió.',
+                [
+                  {
+                    text: 'Pasar Lista',
+                    onPress: () =>
+                      router.replace(`/match/review-organizer/${match.id}` as any),
+                  },
+                ]
+              );
+            } catch (error) {
+              Alert.alert('Error', error instanceof Error ? error.message : String(error));
+            } finally {
+              setActionLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleCancelMatch = () => {
+    if (!match) return;
+    Alert.alert(
+      'Cancelar Partido',
+      getCancelWindow(new Date(match.date_time).getTime()) !== '48h_plus'
+        ? 'Cancelas con menos de 48h de antelación. Esto quedará registrado en tu historial de organizador.'
+        : 'Al cancelar, todos los jugadores serán notificados.',
+      [
+        { text: 'Volver', style: 'cancel' },
+        {
+          text: 'Cancelar partido',
+          style: 'destructive',
+          onPress: async () => {
+            setActionLoading(true);
+            try {
+              const { error } = await supabase
+                .from('matches')
+                .update({ status: 'cancelled' })
+                .eq('id', match.id);
+              if (error) throw error;
+
+              await supabase
+                .from('match_participants')
+                .update({ status: 'rejected' })
+                .eq('match_id', match.id)
+                .eq('status', 'pending');
+
+              Alert.alert('Partido cancelado', 'El partido ha sido cancelado.', [
+                { text: 'Aceptar', onPress: () => router.replace('/(tabs)/mymatches') },
+              ]);
+            } catch (error) {
+              Alert.alert('Error', error instanceof Error ? error.message : String(error));
+            } finally {
+              setActionLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const openMaps = () => {
+    if (!match) return;
+    const lat = match.location_lat;
+    const lng = match.location_lng;
+
+    if (lat && lng) {
+      const opciones = buildMapOptions(lat, lng);
+      if (Platform.OS === 'ios') {
+        ActionSheetIOS.showActionSheetWithOptions(
+          {
+            options: [...opciones.map(o => o.titulo), 'Cancelar'],
+            cancelButtonIndex: opciones.length,
+            title: 'Abrir en...',
+          },
+          index => {
+            if (index < opciones.length) abrirOpcionMapa(opciones[index]);
+          }
+        );
+      } else {
+        setMapOptions(opciones);
+        setMapModalVisible(true);
+      }
+    } else {
+      Linking.openURL(
+        `https://maps.google.com/?q=${encodeURIComponent(match.location)}`
+      );
+    }
+  };
+
+  const handleShare = () => {
+    // Basic share implementation (could be more advanced)
+    Alert.alert('Compartir', 'Función de compartir próximamente');
+  };
 
   if (loading || !match) {
-    return <View className="flex-1 justify-center items-center bg-slate-50 dark:bg-neutral-950"><ActivityIndicator size="large" color="#22C55E" /></View>;
+    return (
+      <View style={s.loadingRoot}>
+        <ActivityIndicator size="large" color={c.brand} />
+      </View>
+    );
   }
 
   const isOrganizer = user?.id === match.organizer_id;
   const isArchived = match.status === 'completed' || match.status === 'cancelled';
   const myParticipation = participants.find(p => p.user_id === user?.id);
-  const maxPlayers = match.requested_positions
-    ? Object.values(match.requested_positions).reduce((a: number, b: number) => a + b, 0)
-    : 0;
-  const approvedParticipants = participants.filter(p => p.status === 'joined' || p.status === 'approved');
+  const isJoined = myParticipation?.status === 'joined' || myParticipation?.status === 'approved';
+  const isPending = myParticipation?.status === 'pending';
+
+  const levelCfg = LEVEL_CONFIG[match.level];
+  const statusCfg = STATUS_CONFIG[match.status] ?? STATUS_CONFIG.open;
+  const organizer = match.organizer;
+  const joinedParticipants = participants.filter(p => p.status === 'joined' || p.status === 'approved');
   const pendingParticipants = participants.filter(p => p.status === 'pending');
   
-  // Exclude organizer from players list (#14)
-  const nonOrganizerApproved = approvedParticipants.filter(p => p.user_id !== match.organizer_id);
+  // Exclude organizer from players list if needed (Stadium rule #14)
+  const nonOrganizerApproved = joinedParticipants.filter(p => p.user_id !== match.organizer_id);
+  const visiblePlayerLimit = 3;
+  const visiblePlayers = nonOrganizerApproved.slice(0, visiblePlayerLimit);
+  const hiddenPlayersCount = Math.max(nonOrganizerApproved.length - visiblePlayerLimit, 0);
+
+  const slots = totalSlots(match.requested_positions);
+  const filled = joinedParticipants.length;
+  const slotsLeft = slots - filled;
+  const lowSlots = slotsLeft <= 2 && slotsLeft > 0;
+  const chips = positionChips(match.requested_positions);
+
+  const ctaDisabled =
+    isJoined || isOrganizer || isPending || match.status === 'full' || match.status !== 'open' || isArchived;
   
-  const isFull = approvedParticipants.length >= maxPlayers;
-  const calcAge = (birthday: string | null | undefined): number | null => {
-    if (!birthday) return null;
-    const birth = new Date(birthday);
-    const today = new Date();
-    let age = today.getFullYear() - birth.getFullYear();
-    const m = today.getMonth() - birth.getMonth();
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-    return age;
+  const getCtaLabel = () => {
+    if (isArchived) return match.status === 'completed' ? 'Partido Finalizado' : 'Partido Cancelado';
+    if (isJoined) return '✓ Apuntado';
+    if (isPending) return '⏳ Pendiente';
+    if (isOrganizer) return 'Tu partido';
+    if (match.status === 'full') return 'Partido Completo';
+    return 'Me apunto →';
   };
 
-  const date = new Date(match.date_time);
-  const dateString = date.toLocaleDateString('es-ES', { weekday: 'long', month: 'long', day: 'numeric' });
-  const timeString = date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-  const levelInfo = LEVEL_CONFIG[match.level] || LEVEL_CONFIG.medio;
-
   return (
-    <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top', 'bottom']}>
-      {/* Android: custom map picker modal */}
+    <View style={s.root}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={{ height: insets.top, backgroundColor: c.bg }} />
+      
+      {/* Header */}
+      <View style={s.header}>
+        <Pressable
+          style={({ pressed }) => [s.headerBtn, pressed && { opacity: 0.6 }]}
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Volver"
+          hitSlop={8}
+        >
+          <Ionicons name="chevron-back" size={20} color={c.textDim} />
+        </Pressable>
+        {isOrganizer && !isArchived && (
+          <Pressable
+            style={({ pressed }) => [s.headerBtn, pressed && { opacity: 0.6 }]}
+            onPress={() => router.push(`/match/edit/${match.id}` as any)}
+            accessibilityRole="button"
+            accessibilityLabel="Editar partido"
+            hitSlop={8}
+          >
+            <Ionicons name="create-outline" size={20} color={c.brand} />
+          </Pressable>
+        )}
+      </View>
+
+      <ScrollView
+        style={s.scroll}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 32 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ── Título + badges ─────────────────────────────────────────── */}
+        <View style={s.titleBlock}>
+          <Text style={s.titleText}>{match.title.toUpperCase()}</Text>
+          <View style={s.badgeRow}>
+            <Badge {...levelCfg} />
+            <Badge {...statusCfg} />
+          </View>
+          {!!match.description && (
+            <Text style={s.quote}>{`"${match.description}"`}</Text>
+          )}
+        </View>
+
+        {/* ── Info grid ───────────────────────────────────────────────── */}
+        <View style={s.infoSection}>
+          <Pressable
+            style={({ pressed }) => [s.locationCard, pressed && { opacity: 0.8 }]}
+            onPress={openMaps}
+            accessibilityRole="link"
+            accessibilityLabel={`Abrir ${match.location} en Google Maps`}
+          >
+            <Ionicons name="location-outline" size={18} color={c.brand} style={s.locationIcon} />
+            <View style={s.locationBody}>
+              <Text style={s.locationName}>{match.location}</Text>
+              {!!match.location_city && (
+                <Text style={s.locationCity}>{match.location_city}</Text>
+              )}
+              <Text style={s.locationLink}>Ver en el mapa →</Text>
+            </View>
+          </Pressable>
+
+          <View style={s.infoRow}>
+            <InfoCell label="Fecha" flex={1}>
+              <Text style={s.infoCellValue}>{formatDate(match.date_time)}</Text>
+            </InfoCell>
+            <InfoCell label="Hora" flex={1}>
+              <Text style={s.infoCellValue}>{formatTime(match.date_time)}</Text>
+            </InfoCell>
+          </View>
+
+          <View style={s.infoRow}>
+            <InfoCell label="Precio" flex={1}>
+              <Text
+                style={[
+                  s.infoCellValue,
+                  { color: match.price_per_player > 0 ? c.brand : c.textDim },
+                ]}
+              >
+                {match.price_per_player > 0 ? `${match.price_per_player}€` : 'Gratis'}
+              </Text>
+            </InfoCell>
+            <InfoCell label="Colores" flex={1}>
+              <View style={s.swatchRow}>
+                {match.team_a_color ? (
+                  <View style={[s.swatch, { backgroundColor: match.team_a_color }]} />
+                ) : null}
+                <Text style={{ color: c.textMuted, fontSize: 10 }}>VS</Text>
+                {match.team_b_color ? (
+                  <View style={[s.swatch, { backgroundColor: match.team_b_color }]} />
+                ) : null}
+              </View>
+            </InfoCell>
+          </View>
+
+          <InfoCell label="Cupos">
+            <Text style={[s.cuposValue, lowSlots && { color: c.danger }]}>
+              {filled}
+              <Text style={s.cuposTotal}>/{slots}</Text>
+            </Text>
+          </InfoCell>
+        </View>
+
+        {/* ── Posiciones solicitadas ──────────────────────────────────── */}
+        {chips.length > 0 && (
+          <View style={s.section}>
+            <Text style={s.sectionLabel}>Posiciones solicitadas</Text>
+            <View style={s.posRow}>
+              {chips.map(({ key, count }) => {
+                const cfg = POSITION_CONFIG[key];
+                return (
+                  <View key={key} style={s.posChip}>
+                    <Text style={s.posChipCount}>{count}×</Text>
+                    <Text style={s.posChipLabel}>
+                      {cfg.icon} {cfg.label}
+                    </Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        {/* ── Organizador ─────────────────────────────────────────────── */}
+        {organizer && (
+          <View style={s.section}>
+            <View style={s.orgRow}>
+              <Pressable 
+                style={s.orgLeft}
+                onPress={() => router.push(`/user/${organizer.id}` as any)}
+              >
+                <View
+                  style={[s.orgAvatar, { backgroundColor: avatarColor(organizer.full_name) }]}
+                >
+                  <Text style={s.orgAvatarText}>{initials(organizer.full_name)}</Text>
+                </View>
+                <View style={s.orgInfo}>
+                  <Text style={s.orgLabel}>Organiza</Text>
+                  <Text style={s.orgName}>{organizer.full_name}</Text>
+                  <Text style={[s.orgReliability, { color: c.brand }]}>
+                    {reliabilityLabel(organizer.reliability_score)}
+                  </Text>
+                </View>
+              </Pressable>
+              {!isOrganizer && (
+                <Pressable
+                  style={({ pressed }) => [s.chatChip, pressed && { opacity: 0.65 }]}
+                  onPress={() => router.push(`/chat/${match.id}/${user!.id}` as any)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Chat con el organizador"
+                >
+                  <Ionicons name="chatbubble-outline" size={12} color={c.textDim} />
+                  <Text style={s.chatChipText}>Chat</Text>
+                </Pressable>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* ── CTAs / User Context ──────────────────────────────────────── */}
+        <View style={s.ctaBlock}>
+          {isArchived ? (
+            <View style={[s.statusBanner, { backgroundColor: match.status === 'completed' ? c.brandSoft : 'rgba(239,68,68,0.1)' }]}>
+              <Text style={[s.statusBannerText, { color: match.status === 'completed' ? c.brand : c.danger }]}>
+                {match.status === 'completed' ? '✅ Partido finalizado' : '🚫 Partido cancelado'}
+              </Text>
+            </View>
+          ) : isPending ? (
+            <View style={s.pendingBlock}>
+              <View style={s.pendingBanner}>
+                <Text style={s.pendingBannerText}>⏳ Solicitud pendiente de aprobación</Text>
+              </View>
+              <Pressable style={s.btnLeave} onPress={handleLeave}>
+                <Text style={s.btnLeaveText}>Cancelar solicitud</Text>
+              </Pressable>
+            </View>
+          ) : isJoined ? (
+            <View style={s.joinedBlock}>
+              <View style={s.joinedBanner}>
+                <Text style={s.joinedBannerText}>✅ ¡Estás dentro del partido!</Text>
+              </View>
+              <View style={s.joinedActions}>
+                <Pressable 
+                  style={[s.joinedBtn, { borderRightWidth: 1, borderRightColor: c.border }]}
+                  onPress={() => router.push(`/chat/${match.id}/${user!.id}` as any)}
+                >
+                  <Ionicons name="chatbubbles-outline" size={16} color={c.brand} />
+                  <Text style={s.joinedBtnText}>Chat</Text>
+                </Pressable>
+                <Pressable style={s.joinedBtn} onPress={handleLeave}>
+                  <Text style={[s.joinedBtnText, { color: c.danger }]}>Baja</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : !isOrganizer && (
+            <>
+              <Pressable
+                style={({ pressed }) => [
+                  s.btnPrimary,
+                  (ctaDisabled || pressed) && { opacity: 0.65 },
+                ]}
+                onPress={!ctaDisabled ? handleJoin : undefined}
+                disabled={ctaDisabled || actionLoading}
+              >
+                {actionLoading ? <ActivityIndicator color="#000" /> : <Text style={s.btnPrimaryText}>{getCtaLabel()}</Text>}
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [s.btnGhost, pressed && { opacity: 0.7 }]}
+                onPress={handleShare}
+              >
+                <Ionicons name="share-outline" size={16} color={c.text} />
+                <Text style={s.btnGhostText}>Compartir partido</Text>
+              </Pressable>
+            </>
+          )}
+
+          {/* Organizer Panel */}
+          {isOrganizer && !isArchived && (
+            <View style={s.orgPanel}>
+              <Text style={s.orgPanelTitle}>Panel de Organizador</Text>
+              <Pressable 
+                style={[s.btnPrimary, { backgroundColor: c.brand }]}
+                onPress={handleFinalize}
+                disabled={actionLoading}
+              >
+                <View style={s.btnRow}>
+                  <Ionicons name="flag-outline" size={18} color="#000" />
+                  <Text style={s.btnPrimaryText}>Finalizar Partido</Text>
+                </View>
+              </Pressable>
+              <Pressable 
+                style={s.btnDangerGhost}
+                onPress={handleCancelMatch}
+                disabled={actionLoading}
+              >
+                <Text style={s.btnDangerGhostText}>Cancelar Partido</Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
+
+        {/* ── Pending Requests (Organizer Only) ────────────────────────── */}
+        {isOrganizer && pendingParticipants.length > 0 && !isArchived && (
+          <View style={s.section}>
+            <Text style={s.sectionLabel}>Solicitudes Pendientes ({pendingParticipants.length})</Text>
+            {pendingParticipants.map(p => (
+              <View key={p.id} style={s.pendingCard}>
+                <PlayerRow 
+                  participant={p} 
+                  onPress={() => router.push(`/user/${p.user?.id}` as any)}
+                  isLast
+                  rightContent={
+                    <View className="flex-row gap-2">
+                      <Pressable 
+                        style={s.actionBtnCheck} 
+                        onPress={() => handleApprove(p.id)}
+                      >
+                        <Ionicons name="checkmark" size={18} color={c.brand} />
+                      </Pressable>
+                      <Pressable 
+                        style={s.actionBtnClose} 
+                        onPress={() => handleReject(p.id)}
+                      >
+                        <Ionicons name="close" size={18} color={c.danger} />
+                      </Pressable>
+                    </View>
+                  }
+                />
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* ── Jugadores ───────────────────────────────────────────────── */}
+        <View style={[s.section, { borderBottomWidth: 0 }]}>
+          <Text className="mb-2.5 font-mono text-[9px] font-bold uppercase tracking-[1.5px] text-[#8A938F]">
+            JUGADORES APUNTADOS ({filled})
+          </Text>
+          {visiblePlayers.map((p, index) => (
+            <PlayerRow 
+              key={p.id} 
+              participant={p} 
+              onPress={() => router.push(`/user/${p.user?.id}` as any)} 
+              isLast={hiddenPlayersCount === 0 && index === visiblePlayers.length - 1}
+              rightContent={
+                isOrganizer ? (
+                  <Pressable 
+                    onPress={() => router.push(`/chat/${match.id}/${p.user_id}` as any)}
+                    className="p-1.5"
+                  >
+                    <Ionicons name="chatbubble-ellipses-outline" size={20} color={c.brand} />
+                  </Pressable>
+                ) : undefined
+              }
+            />
+          ))}
+          {hiddenPlayersCount > 0 && (
+            <PlayerRow
+              isOverflow
+              isLast
+              overflowCount={hiddenPlayersCount}
+            />
+          )}
+          {nonOrganizerApproved.length === 0 && (
+            <Text style={s.emptyText}>Aún no hay otros jugadores apuntados.</Text>
+          )}
+        </View>
+      </ScrollView>
+
+      {/* Modals */}
+      <CancelMatchModal
+        visible={cancelModalVisible}
+        window={cancelWindow}
+        onCancel={() => setCancelModalVisible(false)}
+        onConfirm={() => {
+          setCancelModalVisible(false);
+          executeLeave(cancelWindow);
+        }}
+      />
+
+      {/* Android Map Picker */}
       <Modal
         visible={mapModalVisible}
         transparent
         animationType="fade"
         onRequestClose={() => setMapModalVisible(false)}
       >
-        <TouchableOpacity
-          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' }}
-          activeOpacity={1}
+        <Pressable
+          style={s.modalOverlay}
           onPress={() => setMapModalVisible(false)}
         >
-          <View style={{ backgroundColor: '#111827', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 }}>
-            <Text style={{ color: '#fff', fontSize: 16, fontWeight: 'bold', marginBottom: 16, textAlign: 'center' }}>Abrir en...</Text>
+          <View style={s.modalContent}>
+            <Text style={s.modalTitle}>Abrir en...</Text>
             {mapOptions.map((op) => (
-              <TouchableOpacity
+              <Pressable
                 key={op.titulo}
-                style={{ backgroundColor: '#1f2937', borderRadius: 12, padding: 16, marginBottom: 10, flexDirection: 'row', alignItems: 'center' }}
+                style={s.modalOption}
                 onPress={() => { setMapModalVisible(false); abrirOpcionMapa(op); }}
               >
-                <Ionicons name="navigate-circle-outline" size={22} color="#22C55E" style={{ marginRight: 12 }} />
-                <Text style={{ color: '#fff', fontSize: 15, fontWeight: '600' }}>{op.titulo}</Text>
-              </TouchableOpacity>
+                <Ionicons name="navigate-circle-outline" size={22} color={c.brand} />
+                <Text style={s.modalOptionText}>{op.titulo}</Text>
+              </Pressable>
             ))}
-            <TouchableOpacity
-              style={{ backgroundColor: '#374151', borderRadius: 12, padding: 14, marginTop: 4, alignItems: 'center' }}
+            <Pressable
+              style={s.modalCancel}
               onPress={() => setMapModalVisible(false)}
             >
-              <Text style={{ color: '#9ca3af', fontWeight: '600' }}>Cancelar</Text>
-            </TouchableOpacity>
+              <Text style={s.modalCancelText}>Cancelar</Text>
+            </Pressable>
           </View>
-        </TouchableOpacity>
+        </Pressable>
       </Modal>
-
-    <ScrollView className="flex-1 bg-slate-50 dark:bg-neutral-950">
-      <Stack.Screen options={{
-        title: 'Detalles del Partido',
-        headerRight: () => isOrganizer ? (
-          <TouchableOpacity onPress={() => router.push(`/match/edit/${match.id}` as any)} className="mr-4">
-            <Ionicons name="pencil-outline" size={22} color="#22C55E" />
-          </TouchableOpacity>
-        ) : null,
-      }} />
-
-
-
-      {/* Header */}
-      <View className="bg-white dark:bg-gray-900 p-6 mb-4 shadow-sm border-b border-gray-200 dark:border-gray-800">
-        <Text className="text-3xl font-bold text-slate-900 dark:text-white mb-2">{match.title}</Text>
-
-        {/* Level pill */}
-        <View className="flex-row items-center mb-4">
-          <Text className={`text-base font-semibold ${levelInfo.color}`}>{levelInfo.emoji} Nivel {levelInfo.label}</Text>
-        </View>
-
-        {/* Description */}
-        {match.description ? (
-          <Text className="text-slate-600 dark:text-slate-400 mb-4 italic">&ldquo;{match.description}&rdquo;</Text>
-        ) : null}
-
-        <View className="space-y-3 mb-5">
-          {match.location_lat && match.location_lng ? (
-            <TouchableOpacity
-              className="flex-row items-center"
-              onPress={() => {
-                const opciones = buildMapOptions(match.location_lat!, match.location_lng!);
-                if (Platform.OS === 'ios') {
-                  ActionSheetIOS.showActionSheetWithOptions(
-                    { options: [...opciones.map(o => o.titulo), 'Cancelar'], cancelButtonIndex: opciones.length, title: 'Abrir en...' },
-                    (index) => { if (index < opciones.length) abrirOpcionMapa(opciones[index]); }
-                  );
-                } else {
-                  setMapOptions(opciones);
-                  setMapModalVisible(true);
-                }
-              }}
-            >
-              <View className="w-10 h-10 bg-green-50 dark:bg-green-900/30 rounded-full justify-center items-center mr-3">
-                <Ionicons name="navigate" size={20} color="#22C55E" />
-              </View>
-              <View className="flex-1">
-                <Text className="text-lg text-slate-700 dark:text-slate-300">{match.location}</Text>
-                <Text className="text-xs text-green-600 dark:text-green-500 mt-0.5">Toca para abrir en mapas →</Text>
-              </View>
-            </TouchableOpacity>
-          ) : (
-            <View className="flex-row items-center">
-              <View className="w-10 h-10 bg-slate-100 dark:bg-slate-700 rounded-full justify-center items-center mr-3">
-                <Ionicons name="location" size={20} color="#22C55E" />
-              </View>
-              <Text className="text-lg text-slate-700 dark:text-slate-300 flex-1">{match.location}</Text>
-            </View>
-          )}
-          <View className="flex-row items-center">
-            <View className="w-10 h-10 bg-slate-100 dark:bg-slate-700 rounded-full justify-center items-center mr-3">
-              <Ionicons name="calendar" size={20} color="#22C55E" />
-            </View>
-            <View>
-              <Text className="text-lg text-slate-700 dark:text-slate-300 capitalize">{dateString}</Text>
-              <Text className="text-slate-500 dark:text-slate-400">{timeString}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Stats bar */}
-        <View className="bg-slate-50 dark:bg-gray-900 p-4 rounded-xl border border-slate-200 dark:border-gray-800 flex-row justify-between items-center mb-5">
-          <View className="items-center">
-            <Text className="text-xs text-slate-500 dark:text-slate-400 mb-1">Precio</Text>
-            <Text className="text-lg font-bold text-green-600 dark:text-green-400">
-              {match.price_per_player > 0 ? `${match.price_per_player}€` : 'Gratis'}
-            </Text>
-            {match.price_per_player > 0 && (
-              <Text className="text-xs text-slate-400 dark:text-slate-500 mt-0.5">Pago en el campo / Bizum</Text>
-            )}
-          </View>
-          <View className="items-center">
-            <Text className="text-xs text-slate-500 dark:text-slate-400 mb-1">Equipos</Text>
-            <View className="flex-row gap-2 items-center">
-              {match.team_a_color && <View className="w-6 h-6 rounded-full border border-slate-200" style={{ backgroundColor: match.team_a_color }} />}
-              <Text className="text-slate-400">vs</Text>
-              {match.team_b_color && <View className="w-6 h-6 rounded-full border border-slate-200" style={{ backgroundColor: match.team_b_color }} />}
-            </View>
-          </View>
-          <View className="items-center">
-            <Text className="text-xs text-slate-500 dark:text-slate-400 mb-1">Cupos</Text>
-            <Text className="text-lg font-bold text-slate-900 dark:text-white">
-              {approvedParticipants.length} / {maxPlayers}
-            </Text>
-          </View>
-        </View>
-
-        {/* Posiciones solicitadas (#9) */}
-        {match.requested_positions && (
-          <View className="mb-5">
-            <Text className="text-slate-700 dark:text-slate-300 font-bold mb-3">Posiciones solicitadas</Text>
-            <View className="flex-row flex-wrap gap-2">
-              {Object.entries(match.requested_positions)
-                .filter(([, count]) => (count as number) > 0)
-                .map(([pos, count]) => (
-                  <View key={pos} className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-700 px-3 py-2 rounded-lg flex-row items-center">
-                    <Text className="text-green-700 dark:text-green-300 font-semibold text-sm">{count as number}x</Text>
-                    <Text className="text-green-600 dark:text-green-400 text-sm ml-1 capitalize">{POSITION_LABELS[pos] || pos}</Text>
-                  </View>
-                ))}
-            </View>
-          </View>
-        )}
-
-        {/* Organizador */}
-        {match.organizer && (
-          <View className="mb-6">
-            <Text className="text-slate-700 dark:text-slate-300 font-bold mb-3">Organizado por</Text>
-            <TouchableOpacity onPress={() => router.push(`/user/${match.organizer?.id}` as any)} className="bg-white dark:bg-gray-900 p-3 rounded-xl flex-row items-center border border-slate-200 dark:border-slate-800 shadow-sm">
-              {isSafeUrl(match.organizer?.avatar_url) ? (
-                <Image source={{ uri: `${match.organizer?.avatar_url}?t=${Date.now()}` }} className="w-10 h-10 rounded-full mr-3 border border-slate-200" />
-              ) : (
-                <View className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 justify-center items-center mr-3">
-                  <Text className="font-bold text-slate-500 dark:text-slate-300 text-base">
-                    {match.organizer?.full_name?.charAt(0).toUpperCase() || '?'}
-                  </Text>
-                </View>
-              )}
-              <View className="flex-1">
-                <Text className="font-bold text-slate-900 dark:text-white">{match.organizer?.full_name}</Text>
-                <Text className="text-slate-500 dark:text-slate-400 text-xs">@{match.organizer?.username}</Text>
-                {/* @ts-ignore - phone_data injected via join */}
-                {match.organizer?.phone_data?.[0]?.phone && (
-                  <View className="flex-row items-center mt-1">
-                    <Ionicons name="call-outline" size={12} color="#22C55E" />
-                    <Text className="text-green-600 dark:text-green-400 text-xs font-bold ml-1">
-                      {/* @ts-ignore */}
-                      {match.organizer.phone_data[0].phone}
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <Ionicons name="chevron-forward" size={18} color="#9ca3af" />
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Acción jugador */}
-        {!isOrganizer && (
-          <View>
-            {match.status === 'cancelled' ? (
-              <View className="bg-red-50 dark:bg-red-900/20 p-4 rounded-xl border border-red-200 dark:border-red-800">
-                <Text className="text-red-600 dark:text-red-400 font-semibold text-center">🚫 Este partido ha sido cancelado por el organizador</Text>
-              </View>
-            ) : match.status === 'completed' ? (
-              <View className="bg-green-50 dark:bg-green-900/20 p-4 rounded-xl border border-green-200 dark:border-green-800">
-                <Text className="text-green-600 dark:text-green-400 font-semibold text-center">✅ Este partido ha finalizado</Text>
-              </View>
-            ) : !myParticipation ? (
-              <View className="space-y-3">
-                <TouchableOpacity
-                  className={`w-full p-4 rounded-xl items-center shadow-sm min-h-[48px] ${isFull ? 'bg-slate-300 dark:bg-gray-900' : 'bg-green-500'}`}
-                  onPress={isFull ? undefined : handleJoin}
-                  disabled={actionLoading || isFull}
-                >
-                  {actionLoading ? <ActivityIndicator color="#fff" /> :
-                    <Text className={`${isFull ? 'text-slate-500 dark:text-slate-400' : 'text-white'} font-bold text-lg`}>{isFull ? 'Partido Completo' : (match.requires_approval ? 'Solicitar Unirse' : '¡Unirse al Partido!')}</Text>
-                  }
-                </TouchableOpacity>
-
-                {match.organizer && (
-                  <TouchableOpacity
-                    className="w-full p-3 rounded-xl items-center border border-green-500 flex-row justify-center"
-                    onPress={() => router.push(`/chat/${match.id}/${user!.id}` as any)}
-                  >
-                    <Ionicons name="chatbubbles-outline" size={20} color="#22C55E" style={{ marginRight: 8 }} />
-                    <Text className="text-green-600 dark:text-green-500 font-bold">Chatear con {match.organizer.full_name?.split(' ')[0]}</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            ) : myParticipation.status === 'pending' ? (
-              <View>
-                <View className="bg-amber-100 dark:bg-amber-900/30 p-4 rounded-xl border border-amber-200 dark:border-amber-700 mb-3">
-                  <Text className="text-amber-800 dark:text-amber-400 font-semibold text-center">⏳ Solicitud pendiente de aprobación</Text>
-                  <TouchableOpacity className="mt-3 py-2" onPress={handleLeave}>
-                    <Text className="text-red-500 font-medium text-center">Cancelar solicitud</Text>
-                  </TouchableOpacity>
-                </View>
-                {match.organizer && (
-                  <TouchableOpacity
-                    className="w-full p-3 rounded-xl items-center border border-green-500 flex-row justify-center"
-                    onPress={() => router.push(`/chat/${match.id}/${user!.id}` as any)}
-                  >
-                    <Ionicons name="chatbubbles-outline" size={20} color="#22C55E" style={{ marginRight: 8 }} />
-                    <Text className="text-green-600 dark:text-green-500 font-bold">Chatear con {match.organizer.full_name?.split(' ')[0]}</Text>
-                  </TouchableOpacity>
-                )}
-              </View>
-            ) : (
-              <View>
-                <View className="bg-green-100 dark:bg-green-900/30 p-4 rounded-t-xl border border-green-200 dark:border-green-800 border-b-0">
-                  <Text className="text-green-800 dark:text-green-400 font-semibold text-center">✅ ¡Estás dentro del partido!</Text>
-                </View>
-                <View className="flex-row">
-                  <TouchableOpacity
-                    className="flex-1 bg-white dark:bg-gray-900 p-3 rounded-bl-xl border border-green-200 dark:border-green-800 items-center justify-center flex-row"
-                    onPress={() => router.push(`/chat/${match.id}/${user!.id}` as any)}
-                  >
-                    <Ionicons name="chatbubbles-outline" size={18} color="#22C55E" style={{ marginRight: 6 }} />
-                    <Text className="text-green-600 dark:text-green-400 font-medium">Chat</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    className="flex-1 bg-white dark:bg-gray-900 p-3 rounded-br-xl border-t border-b border-r border-green-200 dark:border-green-800 items-center justify-center"
-                    onPress={handleLeave}
-                    disabled={actionLoading}
-                  >
-                    <Text className="text-red-500 font-medium">Darme de baja</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Panel organizador */}
-        {isOrganizer && (
-          <View className="bg-green-100 dark:bg-green-900/30 p-4 rounded-xl border border-green-200 dark:border-green-800">
-            <Text className="text-green-800 dark:text-green-300 font-bold text-center mb-3">👑 Eres el organizador</Text>
-            
-            {(match.status === 'open' || match.status === 'full') && (
-              <View className="gap-3">
-                <TouchableOpacity
-                  className="bg-green-500 rounded-xl p-4 items-center flex-row justify-center"
-                  style={{ minHeight: 48 }}
-                  disabled={actionLoading}
-                  onPress={() => {
-                    Alert.alert(
-                      'Finalizar Partido',
-                      '¿Estás seguro de que quieres finalizar este partido? Se generarán las notificaciones de valoración.',
-                      [
-                        { text: 'Cancelar', style: 'cancel' },
-                        {
-                          text: 'Finalizar',
-                          style: 'destructive',
-                          onPress: async () => {
-                            setActionLoading(true);
-                            try {
-                              // 1. Update match status
-                              const { error: updateError } = await supabase
-                                .from('matches')
-                                .update({ status: 'completed' })
-                                .eq('id', match.id);
-                              if (updateError) throw updateError;
-
-                              // 2. Rechazar automáticamente las solicitudes pendientes
-                              await supabase
-                                .from('match_participants')
-                                .update({ status: 'rejected' })
-                                .eq('match_id', match.id)
-                                .eq('status', 'pending');
-
-                              // 3. Notificación solo para el organizador (pasa lista)
-                              // Las notificaciones de los jugadores se crean tras confirmar asistencia
-                              await supabase.from('notifications').insert({
-                                user_id: user!.id,
-                                match_id: match.id,
-                                type: 'pending_organizer_review'
-                              });
-
-                              Alert.alert('✅ Partido finalizado', 'Ahora puedes pasar lista y confirmar quién asistió.', [
-                                { text: 'Pasar Lista', onPress: () => router.replace(`/match/review-organizer/${match.id}` as any) },
-                              ]);
-                            } catch (error) {
-                              Alert.alert('Error', error instanceof Error ? error.message : String(error));
-                            } finally {
-                              setActionLoading(false);
-                            }
-                          }
-                        }
-                      ]
-                    );
-                  }}
-                >
-                  {actionLoading ? <ActivityIndicator color="#fff" /> : (
-                    <>
-                      <Ionicons name="flag-outline" size={22} color="#fff" style={{ marginRight: 8 }} />
-                      <Text className="text-white font-bold text-lg">Finalizar Partido</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  className="bg-red-50 dark:bg-red-900/20 border border-red-300 dark:border-red-800 rounded-xl p-4 items-center flex-row justify-center"
-                  style={{ minHeight: 48 }}
-                  disabled={actionLoading}
-                  onPress={() => {
-                    Alert.alert(
-                      'Cancelar Partido',
-                      getCancelWindow(new Date(match.date_time).getTime()) !== '48h_plus'
-                        ? 'Cancelas con menos de 48h de antelación. Esto quedará registrado en tu historial de organizador.'
-                        : 'Al cancelar, todos los jugadores serán notificados.',
-                        // Rondo Free: reembolsos automáticos desactivados por ahora
-                        // ? '...recibirán un reembolso automático del 100%.'
-                        // : '...Si hay pagos aprobados, recibirán un reembolso automático del 100%.'
-                      [
-                        { text: 'Volver', style: 'cancel' },
-                        {
-                          text: 'Cancelar partido',
-                          style: 'destructive',
-                          onPress: async () => {
-                            setActionLoading(true);
-                            try {
-                              const { error } = await supabase
-                                .from('matches')
-                                .update({ status: 'cancelled' })
-                                .eq('id', match.id);
-                              if (error) throw error;
-
-                              // Rechazar automáticamente las solicitudes pendientes
-                              await supabase
-                                .from('match_participants')
-                                .update({ status: 'rejected' })
-                                .eq('match_id', match.id)
-                                .eq('status', 'pending');
-
-                              Alert.alert('Partido cancelado', 'El partido ha sido cancelado.', [
-                                { text: 'Aceptar', onPress: () => router.replace('/(tabs)/mymatches') },
-                              ]);
-                            } catch (error) {
-                              Alert.alert('Error', error instanceof Error ? error.message : String(error));
-                            } finally {
-                              setActionLoading(false);
-                            }
-                          }
-                        }
-                      ]
-                    );
-                  }}
-                >
-                  <Ionicons name="close-circle-outline" size={22} color="#ef4444" style={{ marginRight: 8 }} />
-                  <Text className="text-red-500 dark:text-red-400 font-bold text-base">Cancelar Partido</Text>
-                </TouchableOpacity>
-              </View>
-            )}
-
-            {match.status === 'completed' && (
-              <View className="bg-green-100 dark:bg-green-900/30 p-3 rounded-lg border border-green-200 dark:border-green-800">
-                <Text className="text-green-700 dark:text-green-400 text-center font-semibold text-sm">✅ Partido finalizado</Text>
-              </View>
-            )}
-
-            {match.status === 'cancelled' && (
-              <View className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg border border-red-200 dark:border-red-800">
-                <Text className="text-red-600 dark:text-red-400 text-center font-semibold text-sm">🚫 Partido cancelado</Text>
-              </View>
-            )}
-          </View>
-        )}
-      </View>
-
-      {/* Panel de solicitudes pendientes para el organizador (#10) */}
-      {isOrganizer && !isArchived && pendingParticipants.length > 0 && (
-        <View className="mx-4 mb-4">
-          <Text className="text-xl font-bold text-slate-900 dark:text-white mb-3">
-            Solicitudes pendientes ({pendingParticipants.length})
-          </Text>
-          {pendingParticipants.map(p => (
-            <TouchableOpacity onPress={() => router.push(`/user/${p.user?.id}` as any)} key={p.id} className="bg-white dark:bg-gray-900 p-4 rounded-xl mb-3 border border-amber-200 dark:border-amber-800 shadow-sm">
-              <View className="flex-row items-center mb-3">
-                {isSafeUrl(p.user?.avatar_url) ? (
-                  <Image source={{ uri: `${p.user.avatar_url}?t=${Date.now()}` }} className="w-12 h-12 rounded-full mr-3 border border-slate-200" />
-                ) : (
-                  <View className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900 justify-center items-center mr-3">
-                    <Text className="font-bold text-amber-600 dark:text-amber-300 text-lg">
-                      {p.user?.full_name?.charAt(0).toUpperCase() || '?'}
-                    </Text>
-                  </View>
-                )}
-                <View className="flex-1">
-                  <Text className="font-bold text-slate-900 dark:text-white">{p.user?.full_name}</Text>
-                  <View className="flex-row items-center flex-wrap gap-x-2">
-                    <Text className="text-slate-500 dark:text-slate-400 text-sm">@{p.user?.username}</Text>
-                    {/* @ts-ignore */}
-                    {calcAge(p.user?.birthday) !== null && (
-                      <Text className="text-slate-400 dark:text-slate-500 text-xs">
-                        {/* @ts-ignore */}
-                        {calcAge(p.user?.birthday)} años
-                      </Text>
-                    )}
-                  </View>
-                  {p.user?.preferred_position && (
-                    <Text className="text-green-600 dark:text-green-400 text-xs capitalize mt-0.5">
-                      Posición: {p.user.preferred_position}
-                    </Text>
-                  )}
-                  {/* @ts-ignore */}
-                  {p.user?.phone_data?.[0]?.phone && (
-                    <View className="flex-row items-center mt-1">
-                      <Ionicons name="call" size={12} color="#22C55E" />
-                      <Text className="text-green-600 dark:text-green-400 text-xs font-bold ml-1">
-                        {/* @ts-ignore */}
-                        {p.user.phone_data[0].phone}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-                <View className="items-end">
-                  {(p.user?.reliability_score ?? 0) > 0 && (() => {
-                    const s = p.user!.reliability_score!;
-                    const { label, icon, color } =
-                      s >= 90 ? { label: 'Nunca falta',        icon: '✅', color: 'text-green-500'  } :
-                      s >= 75 ? { label: 'Casi nunca falta',   icon: '🌟', color: 'text-amber-500'  } :
-                      s >= 50 ? { label: 'Falta con frecuencia', icon: '⚠️', color: 'text-orange-500' } :
-                                { label: 'Falta casi siempre', icon: '🚫', color: 'text-red-600'    };
-                    return (
-                      <Text className={`text-xs font-bold ${color}`}>{icon} {label}</Text>
-                    );
-                  })()}
-                  {(p.user?.matches_played ?? 0) > 0 && (
-                    <Text className="text-xs text-slate-400">{p.user?.matches_played} partidos</Text>
-                  )}
-                </View>
-              </View>
-              <View className="flex-row gap-3">
-                <TouchableOpacity
-                  className="flex-1 bg-green-500 p-3 rounded-xl items-center"
-                  onPress={() => handleApprove(p.id, p.user_id)}
-                >
-                  <Text className="text-white font-bold">✅ Aprobar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  className="flex-1 bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 p-3 rounded-lg items-center"
-                  onPress={() => handleReject(p.id)}
-                >
-                  <Text className="text-red-600 dark:text-red-400 font-bold">❌ Rechazar</Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
-          ))}
-        </View>
-      )}
-
-      {/* Lista de Jugadores (#14: sin el organizador) */}
-      <View className="p-4 pb-10">
-        <Text className="text-xl font-bold text-slate-900 dark:text-white mb-4">
-          Jugadores Apuntados ({nonOrganizerApproved.length})
-        </Text>
-        {nonOrganizerApproved.map(p => (
-          <TouchableOpacity onPress={() => router.push(`/user/${p.user?.id}` as any)} key={p.id} className="bg-white dark:bg-gray-900 p-4 rounded-xl mb-3 flex-row items-center shadow-sm border border-gray-200 dark:border-gray-800">
-            {isSafeUrl(p.user?.avatar_url) ? (
-              <Image source={{ uri: `${p.user.avatar_url}?t=${Date.now()}` }} className="w-12 h-12 rounded-full mr-4 border border-slate-200" />
-            ) : (
-              <View className="w-12 h-12 rounded-full bg-slate-200 dark:bg-slate-600 justify-center items-center mr-4">
-                <Text className="font-bold text-slate-500 dark:text-slate-400 text-lg">
-                  {p.user?.full_name?.charAt(0).toUpperCase() || '?'}
-                </Text>
-              </View>
-            )}
-            <View className="flex-1">
-              <Text className="font-bold text-slate-900 dark:text-white">{p.user?.full_name}</Text>
-              <Text className="text-slate-500 dark:text-slate-400 text-sm">@{p.user?.username}</Text>
-              {/* @ts-ignore */}
-              {p.user?.phone_data?.[0]?.phone && (
-                <View className="flex-row items-center mt-1">
-                  <Ionicons name="call-outline" size={12} color="#22C55E" />
-                  <Text className="text-green-600 dark:text-green-400 text-xs font-bold ml-1">
-                    {/* @ts-ignore */}
-                    {p.user.phone_data[0].phone}
-                  </Text>
-                </View>
-              )}
-            </View>
-            {p.user?.preferred_position && (
-              <View className="bg-slate-100 dark:bg-slate-700 px-2 py-1 rounded">
-                <Text className="text-xs font-medium text-slate-500 dark:text-slate-300 capitalize">{p.user.preferred_position}</Text>
-              </View>
-            )}
-            {isOrganizer && (
-              <TouchableOpacity 
-                className="ml-3 p-2 bg-green-50 dark:bg-green-900/20 rounded-full"
-                onPress={() => router.push(`/chat/${match.id}/${p.user_id}` as any)}
-              >
-                <Ionicons name="chatbubble-ellipses" size={22} color="#22C55E" />
-              </TouchableOpacity>
-            )}
-          </TouchableOpacity>
-        ))}
-        {nonOrganizerApproved.length === 0 && (
-          <Text className="text-slate-400 italic text-center mt-4">Aún no hay jugadores apuntados</Text>
-        )}
-      </View>
-    </ScrollView>
-
-    <CancelMatchModal
-      visible={cancelModalVisible}
-      window={cancelWindow}
-      onCancel={() => setCancelModalVisible(false)}
-      onConfirm={() => {
-        setCancelModalVisible(false);
-        executeLeave(cancelWindow);
-      }}
-    />
-    </SafeAreaView>
+    </View>
   );
 }
+
+// ─── styles ───────────────────────────────────────────────────────────────────
+
+const s = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: c.bg,
+  },
+  loadingRoot: {
+    flex: 1,
+    backgroundColor: c.bg,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  // Header
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: c.border,
+  },
+  headerBtn: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  scroll: { flex: 1 },
+
+  // Title
+  titleBlock: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: c.border,
+  },
+  titleText: {
+    fontFamily: 'Archivo_900Black',
+    fontSize: 28,
+    fontWeight: '900',
+    color: c.text,
+    lineHeight: 32,
+    letterSpacing: -0.3,
+    marginBottom: 10,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+    marginBottom: 8,
+  },
+  badge: {
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 100,
+    borderWidth: 1,
+  },
+  badgeText: {
+    fontFamily: 'JetBrainsMono_700Bold',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  quote: {
+    fontSize: 12,
+    color: c.textDim,
+    fontStyle: 'italic',
+    marginTop: 2,
+  },
+
+  // Info section
+  infoSection: {
+    padding: 16,
+    gap: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: c.border,
+  },
+  locationCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    backgroundColor: c.bgSurface,
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.12)',
+    borderRadius: 14,
+    padding: 14,
+  },
+  locationIcon: {
+    marginTop: 1,
+  },
+  locationBody: {
+    flex: 1,
+    minWidth: 0,
+  },
+  locationName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: c.text,
+  },
+  locationCity: {
+    fontSize: 12,
+    color: c.textDim,
+    marginTop: 2,
+  },
+  locationLink: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: c.brand,
+    marginTop: 4,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  infoCell: {
+    backgroundColor: c.bgSurface,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+  },
+  infoCellLabel: {
+    fontFamily: 'JetBrainsMono_500Medium',
+    fontSize: 9,
+    letterSpacing: 1.5,
+    color: c.textDim,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    marginBottom: 5,
+  },
+  infoCellValue: {
+    fontFamily: 'Archivo_900Black',
+    fontSize: 16,
+    fontWeight: '900',
+    color: c.text,
+    textAlign: 'center',
+  },
+  swatchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 2,
+  },
+  swatch: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: c.border,
+  },
+  cuposValue: {
+    fontFamily: 'JetBrainsMono_700Bold',
+    fontSize: 18,
+    fontWeight: '700',
+    color: c.text,
+  },
+  cuposTotal: {
+    fontFamily: 'JetBrainsMono_500Medium',
+    fontSize: 12,
+    color: c.textDim,
+    fontWeight: '400',
+  },
+
+  // Section
+  section: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: c.border,
+  },
+  sectionLabel: {
+    fontFamily: 'JetBrainsMono_500Medium',
+    fontSize: 9,
+    letterSpacing: 1.5,
+    color: c.textDim,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    marginBottom: 10,
+  },
+
+  // Position chips
+  posRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 7,
+  },
+  posChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 13,
+    paddingVertical: 7,
+    borderRadius: 100,
+    backgroundColor: c.brandSoft,
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.3)',
+  },
+  posChipCount: {
+    fontFamily: 'Archivo_900Black',
+    fontSize: 14,
+    fontWeight: '900',
+    color: c.brand,
+  },
+  posChipLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: c.brand,
+  },
+
+  // Organizer
+  orgRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  orgLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  orgAvatar: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  orgAvatarText: {
+    fontFamily: 'Archivo_900Black',
+    fontSize: 15,
+    fontWeight: '900',
+    color: '#fff',
+  },
+  orgInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  orgLabel: {
+    fontFamily: 'JetBrainsMono_500Medium',
+    fontSize: 9,
+    letterSpacing: 1.2,
+    color: c.textDim,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+  },
+  orgName: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: c.text,
+    marginTop: 2,
+  },
+  orgReliability: {
+    fontSize: 11,
+    marginTop: 2,
+  },
+  chatChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderWidth: 1,
+    borderColor: c.border,
+    flexShrink: 0,
+  },
+  chatChipText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: c.textDim,
+  },
+
+  // CTAs
+  ctaBlock: {
+    padding: 16,
+    gap: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: c.border,
+  },
+  btnPrimary: {
+    width: '100%',
+    minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: c.brand,
+    borderRadius: 14,
+    shadowColor: c.brandGlow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 1,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  btnPrimaryText: {
+    fontFamily: 'Archivo_900Black',
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#000',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  btnGhost: {
+    flexDirection: 'row',
+    width: '100%',
+    minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: c.bgSurface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: c.border,
+  },
+  btnGhostText: {
+    fontFamily: 'Archivo_900Black',
+    fontSize: 16,
+    fontWeight: '800',
+    color: c.text,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
+  btnRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+
+  // Banners
+  statusBanner: {
+    padding: 14,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusBannerText: {
+    fontWeight: '700',
+    fontSize: 14,
+  },
+
+  // Pending State
+  pendingBlock: {
+    gap: 10,
+  },
+  pendingBanner: {
+    padding: 14,
+    backgroundColor: 'rgba(245,158,11,0.1)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.2)',
+    alignItems: 'center',
+  },
+  pendingBannerText: {
+    color: c.warning,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  btnLeave: {
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  btnLeaveText: {
+    color: c.danger,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  // Joined State
+  joinedBlock: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.3)',
+  },
+  joinedBanner: {
+    backgroundColor: c.brandSoft,
+    padding: 12,
+    alignItems: 'center',
+  },
+  joinedBannerText: {
+    color: c.brand,
+    fontWeight: '700',
+    fontSize: 13,
+  },
+  joinedActions: {
+    flexDirection: 'row',
+    backgroundColor: c.bgSurface,
+  },
+  joinedBtn: {
+    flex: 1,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  joinedBtnText: {
+    color: c.brand,
+    fontWeight: '700',
+    fontSize: 14,
+  },
+
+  // Organizer Panel
+  orgPanel: {
+    backgroundColor: c.bgElev,
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: c.border,
+  },
+  orgPanelTitle: {
+    fontFamily: 'JetBrainsMono_700Bold',
+    fontSize: 11,
+    color: c.brand,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+  btnDangerGhost: {
+    width: '100%',
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.2)',
+  },
+  btnDangerGhostText: {
+    color: c.danger,
+    fontWeight: '700',
+    fontSize: 14,
+  },
+
+  // Pending Requests
+  pendingCard: {
+    backgroundColor: c.bgSurface,
+    borderRadius: 14,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(245,158,11,0.1)',
+  },
+  actionBtnCheck: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: c.brandSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionBtnClose: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(239,68,68,0.1)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // Player rows
+  emptyText: {
+    fontSize: 13,
+    color: c.textMuted,
+    textAlign: 'center',
+    paddingVertical: 16,
+  },
+
+  // Modal (Android Maps)
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: c.bgElev,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 24,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+  },
+  modalTitle: {
+    color: c.text,
+    fontSize: 18,
+    fontWeight: '900',
+    fontFamily: 'Archivo_900Black',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  modalOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: c.bgSurface,
+    padding: 16,
+    borderRadius: 14,
+    marginBottom: 10,
+    gap: 12,
+  },
+  modalOptionText: {
+    color: c.text,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalCancel: {
+    marginTop: 8,
+    padding: 16,
+    alignItems: 'center',
+  },
+  modalCancelText: {
+    color: c.textDim,
+    fontWeight: '600',
+  },
+});
