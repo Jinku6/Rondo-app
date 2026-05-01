@@ -15,7 +15,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { ChevronRight } from 'lucide-react-native';
+import { ArrowRight, ChevronRight, Share2 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import {
@@ -798,21 +798,38 @@ export default function MatchDetailScreen() {
           ) : !isOrganizer && (
             <>
               <Pressable
+                className="min-h-[52px] w-full flex-row items-center justify-center gap-2 rounded-md-r bg-brand px-5 py-3.5"
                 style={({ pressed }) => [
-                  s.btnPrimary,
+                  s.primaryCtaShadow,
                   (ctaDisabled || pressed) && { opacity: 0.65 },
                 ]}
                 onPress={!ctaDisabled ? handleJoin : undefined}
                 disabled={ctaDisabled || actionLoading}
+                accessibilityRole="button"
+                accessibilityLabel={getCtaLabel()}
               >
-                {actionLoading ? <ActivityIndicator color="#000" /> : <Text style={s.btnPrimaryText}>{getCtaLabel()}</Text>}
+                {actionLoading ? (
+                  <ActivityIndicator color={c.brandInk} />
+                ) : (
+                  <>
+                    <Text className="font-display text-base font-extrabold uppercase tracking-[0.64px] text-white">
+                      {getCtaLabel().replace(' →', '')}
+                    </Text>
+                    {!ctaDisabled && <ArrowRight size={18} color={c.brandInk} />}
+                  </>
+                )}
               </Pressable>
               <Pressable
-                style={({ pressed }) => [s.btnGhost, pressed && { opacity: 0.7 }]}
+                className="min-h-[52px] w-full flex-row items-center justify-center gap-2 rounded-md-r border border-white/10 bg-bg-surface px-5 py-3.5"
+                style={({ pressed }) => pressed && { opacity: 0.7 }}
                 onPress={handleShare}
+                accessibilityRole="button"
+                accessibilityLabel="Compartir partido"
               >
-                <Ionicons name="share-outline" size={16} color={c.text} />
-                <Text style={s.btnGhostText}>Compartir partido</Text>
+                <Share2 size={18} color={c.text} />
+                <Text className="font-display text-base font-extrabold uppercase tracking-[0.64px] text-[#F4F3EE]">
+                  Compartir partido
+                </Text>
               </Pressable>
             </>
           )}
@@ -1240,10 +1257,18 @@ const s = StyleSheet.create({
 
   // CTAs
   ctaBlock: {
-    padding: 16,
-    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 9,
     borderBottomWidth: 1,
     borderBottomColor: c.border,
+  },
+  primaryCtaShadow: {
+    shadowColor: c.brandGlow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 1,
+    shadowRadius: 24,
+    elevation: 8,
   },
   btnPrimary: {
     width: '100%',
@@ -1262,7 +1287,7 @@ const s = StyleSheet.create({
     fontFamily: 'Archivo_900Black',
     fontSize: 16,
     fontWeight: '800',
-    color: '#000',
+    color: c.brandInk,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },

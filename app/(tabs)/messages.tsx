@@ -1,14 +1,17 @@
+import { ConversationListItem, ConversationListItemData } from '@/components/messages/ConversationListItem';
+import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
+import { SegmentedTabs, SegmentedTabOption } from '@/components/ui/SegmentedTabs';
+import { Colors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
-import { Ionicons } from '@expo/vector-icons';
+import { isSafeUrl } from '@/lib/utils';
+import { ChevronLeft, MoreHorizontal } from 'lucide-react-native';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useState, useEffect } from 'react';
-import { ActivityIndicator, FlatList, Image, Text, TouchableOpacity, View, RefreshControl } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Colors } from '@/constants/theme';
-import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
 
-const c = Colors;
+type MessagesTab = 'active' | 'archived';
 
 interface ChatThread {
   match_id: string;
@@ -23,278 +26,235 @@ interface ChatThread {
   other_user_avatar: string | null;
 }
 
-interface ReviewNotification {
-  id: string;
-  user_id: string;
-  match_id: string;
-  type: 'pending_organizer_review' | 'pending_player_review';
-  read: boolean;
-  created_at: string;
-  match?: { title: string } | null;
+const tabs: readonly SegmentedTabOption<MessagesTab>[] = [
+  { label: 'Activos', value: 'active', accessibilityLabel: 'Ver conversaciones activas' },
+  { label: 'Archivados', value: 'archived', accessibilityLabel: 'Ver conversaciones archivadas' },
+];
+
+const avatarClasses = ['bg-purple-500', 'bg-amber-500', 'bg-emerald-500', 'bg-blue-500'] as const;
+
+function formatTimeLabel(dateString: string) {
+  const date = new Date(dateString);
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const startOfDate = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const dayDiff = Math.floor((startOfToday - startOfDate) / 86_400_000);
+
+  if (dayDiff <= 0) {
+    return date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  if (dayDiff === 1) return 'Ayer';
+
+  return date.toLocaleDateString('es-ES', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+}
+
+function toConversation(thread: ChatThread, currentUserId?: string): ConversationListItemData {
+  const name = thread.other_user_name || 'Jugador';
+  const initial = name.trim().charAt(0).toUpperCase() || '?';
+  const colorIndex = Math.abs(initial.charCodeAt(0)) % avatarClasses.length;
+
+  return {
+    id: `${thread.match_id}_${thread.player_id}`,
+    matchId: thread.match_id,
+    playerId: thread.player_id,
+    name,
+    initials: initial,
+    lastMessage: `${thread.sender_id === currentUserId ? 'Tú: ' : ''}${thread.last_message}`,
+    timeLabel: formatTimeLabel(thread.last_message_at),
+    avatarClassName: avatarClasses[colorIndex],
+    avatarUrl: isSafeUrl(thread.other_user_avatar) ? thread.other_user_avatar : null,
+    archived: false,
+    unread: !thread.is_read && thread.sender_id !== currentUserId,
+  };
 }
 
 export default function MessagesScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-
-  const [chatThreads, setChatThreads] = useState<ChatThread[]>([]);
-  const [notifications, setNotifications] = useState<ReviewNotification[]>([]);
+  const [selectedTab, setSelectedTab] = useState<MessagesTab>('active');
+  const [threads, setThreads] = useState<ChatThread[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const fetchData = async (isRefresh = false) => {
-    if (!user) return;
-    if (!isRefresh) setLoading(true);
-    else setRefreshing(true);
+  const conversations = useMemo(
+    () => threads
+      .map((thread) => toConversation(thread, user?.id))
+      .filter((conversation) => conversation.archived === (selectedTab === 'archived')),
+    [selectedTab, threads, user?.id],
+  );
 
-    const { data: threads, error: threadsError } = await supabase.rpc('get_user_chat_threads');
-    if (threadsError) {
-      if (__DEV__) console.error('Error fetching chat threads:', threadsError.message);
-    } else if (threads) {
-      setChatThreads(threads as ChatThread[]);
+  const fetchThreads = useCallback(async (isRefresh = false) => {
+    if (!user) {
+      setThreads([]);
+      setLoading(false);
+      setRefreshing(false);
+      return;
     }
 
-    const { data: notifs, error: notifsError } = await supabase
-      .from('notifications')
-      .select('*, match:matches(title)')
-      .eq('user_id', user.id)
-      .eq('read', false)
-      .in('type', ['pending_organizer_review', 'pending_player_review'])
-      .order('created_at', { ascending: false });
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
+    }
+    setErrorMessage(null);
 
-    if (notifsError) {
-      if (__DEV__) console.error('Error fetching notifications:', notifsError.message);
-    } else if (notifs) {
-      setNotifications(notifs as ReviewNotification[]);
+    const { data, error } = await supabase.rpc('get_user_chat_threads');
+
+    if (error) {
+      if (__DEV__) console.error('Error fetching chat threads:', error.message);
+      setErrorMessage('No se pudieron cargar tus mensajes.');
+    } else {
+      setThreads((data ?? []) as ChatThread[]);
     }
 
     setLoading(false);
     setRefreshing(false);
-  };
-
-  useEffect(() => {
-    if (!user) return;
-    const channel = supabase
-      .channel(`messages-screen-realtime-${Date.now()}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'chat_messages' }, () => fetchData(true))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${user.id}` }, () => fetchData(true))
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   useFocusEffect(
     useCallback(() => {
-      fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user]),
+      fetchThreads();
+    }, [fetchThreads]),
   );
 
-  const handleNotificationPress = (notif: ReviewNotification) => {
-    if (notif.type === 'pending_organizer_review') {
-      router.push(`/match/review-organizer/${notif.match_id}` as any);
-    } else {
-      router.push(`/match/review-player/${notif.match_id}` as any);
+  const handleBackPress = () => {
+    if (router.canGoBack()) {
+      router.back();
     }
   };
 
-  const handleChatPress = (thread: ChatThread) => {
-    router.push(`/chat/${thread.match_id}/${thread.player_id}` as any);
+  const handleConversationPress = (conversation: ConversationListItemData) => {
+    router.push({
+      pathname: '/chat/[match_id]/[player_id]',
+      params: {
+        match_id: conversation.matchId,
+        player_id: conversation.playerId,
+      },
+    });
   };
 
-  const formatTimeAgo = (dateStr: string) => {
-    const now = new Date();
-    const date = new Date(dateStr);
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    if (diffMins < 1) return 'Ahora';
-    if (diffMins < 60) return `${diffMins}m`;
-    const diffHours = Math.floor(diffMins / 60);
-    if (diffHours < 24) return `${diffHours}h`;
-    const diffDays = Math.floor(diffHours / 24);
-    if (diffDays < 7) return `${diffDays}d`;
-    return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
-  };
+  const renderListEmpty = () => {
+    if (loading) {
+      return (
+        <View className="items-center justify-center pt-16">
+          <ActivityIndicator size="large" color={Colors.brand} />
+        </View>
+      );
+    }
 
-  const renderNotification = ({ item }: { item: ReviewNotification }) => (
-    <TouchableOpacity
-      onPress={() => handleNotificationPress(item)}
-      style={{
-        backgroundColor: 'rgba(245,158,11,0.08)',
-        padding: 14,
-        borderRadius: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: 'rgba(245,158,11,0.25)',
-        marginBottom: 10,
-      }}
-    >
-      <View style={{ width: 44, height: 44, borderRadius: 14, backgroundColor: 'rgba(245,158,11,0.15)', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
-        <Ionicons name="star-outline" size={22} color="#F59E0B" />
-      </View>
-      <View style={{ flex: 1 }}>
-        <Text style={{ color: c.text, fontWeight: '700', fontSize: 14 }}>
-          {item.type === 'pending_organizer_review' ? 'Asistencia pendiente' : 'Valoración pendiente'}
-        </Text>
-        <Text style={{ color: c.textDim, fontSize: 12, marginTop: 2 }} numberOfLines={1}>
-          {item.match?.title || 'Partido'}
-        </Text>
-      </View>
-      <Ionicons name="chevron-forward" size={18} color={c.textMuted} />
-    </TouchableOpacity>
-  );
-
-  const renderChatThread = ({ item }: { item: ChatThread }) => {
-    const isUnread = !item.is_read && item.sender_id !== user?.id;
-    return (
-      <TouchableOpacity
-        onPress={() => handleChatPress(item)}
-        style={{
-          backgroundColor: c.bgElev,
-          padding: 14,
-          borderRadius: 18,
-          flexDirection: 'row',
-          alignItems: 'center',
-          borderWidth: 1,
-          borderColor: isUnread ? c.brand + '33' : c.border,
-          marginBottom: 10,
-        }}
-      >
-        {/* Avatar */}
-        {item.other_user_avatar ? (
-          <Image
-            source={{ uri: `${item.other_user_avatar}?t=${Date.now()}` }}
-            style={{ width: 46, height: 46, borderRadius: 14, marginRight: 12, borderWidth: 1, borderColor: c.border }}
-          />
-        ) : (
-          <View style={{ width: 46, height: 46, borderRadius: 14, backgroundColor: c.brandSoft, justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
-            <Text style={{ color: c.brand, fontWeight: '800', fontSize: 17 }}>
-              {item.other_user_name?.charAt(0).toUpperCase() || '?'}
-            </Text>
-          </View>
-        )}
-
-        {/* Content */}
-        <View style={{ flex: 1 }}>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 }}>
-            <Text style={{ fontSize: 14, fontWeight: isUnread ? '800' : '600', color: c.text }} numberOfLines={1}>
-              {item.other_user_name}
-            </Text>
-            <Text style={{ fontSize: 11, color: isUnread ? c.brand : c.textMuted, fontWeight: isUnread ? '700' : '400' }}>
-              {formatTimeAgo(item.last_message_at)}
-            </Text>
-          </View>
-
-          <TouchableOpacity
-            style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 3, alignSelf: 'flex-start' }}
-            onPress={(e) => { e.stopPropagation(); router.push(`/match/${item.match_id}` as any); }}
+    if (errorMessage) {
+      return (
+        <View className="items-center px-6 pt-16">
+          <Text className="font-body text-base font-bold text-ink">No se han podido cargar</Text>
+          <Text className="mt-1.5 text-center font-body text-[13px] text-ink-dim">{errorMessage}</Text>
+          <Pressable
+            onPress={() => fetchThreads(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Reintentar cargar mensajes"
+            className="mt-5 rounded-xl bg-brand px-5 py-3"
+            style={({ pressed }) => ({ opacity: pressed ? 0.72 : 1 })}
           >
-            <Ionicons name="football-outline" size={11} color={c.brand} />
-            <Text style={{ color: c.brand, fontSize: 11, marginLeft: 4, fontWeight: '600' }} numberOfLines={1}>
-              {item.match_title}
-            </Text>
-          </TouchableOpacity>
+            <Text className="font-display text-xs uppercase tracking-wider text-white">Reintentar</Text>
+          </Pressable>
+        </View>
+      );
+    }
 
-          <Text style={{ fontSize: 13, color: isUnread ? c.textDim : c.textMuted }} numberOfLines={1}>
-            {item.sender_id === user?.id ? 'Tú: ' : ''}{item.last_message}
+    return (
+      <View className="items-center px-6 pt-16">
+        <Text className="font-body text-base font-bold text-ink">No tienes mensajes activos</Text>
+        <Text className="mt-1.5 text-center font-body text-[13px] text-ink-dim">
+          Cuando empieces una conversación desde un partido, aparecerá aquí.
+        </Text>
+      </View>
+    );
+  };
+
+  return (
+    <View className="flex-1 bg-bg">
+      <Stack.Screen options={{ headerShown: false }} />
+
+      <View
+        className="flex-row items-center border-b border-white/10 px-4 pb-3"
+        style={{ paddingTop: insets.top + 10 }}
+      >
+        <Pressable
+          onPress={handleBackPress}
+          accessibilityRole="button"
+          accessibilityLabel="Volver"
+          hitSlop={8}
+          className="h-8 w-8 items-center justify-center"
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+        >
+          <ChevronLeft size={20} color={Colors.textDim} strokeWidth={2.5} />
+        </Pressable>
+
+        <View className="flex-1 px-3">
+          <Text className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink-dim">
+            CHAT
+          </Text>
+          <Text className="mt-0.5 font-display text-lg uppercase text-ink">
+            MIS MENSAJES
           </Text>
         </View>
 
-        {isUnread && (
-          <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: c.brand, marginLeft: 8 }} />
-        )}
-      </TouchableOpacity>
-    );
-  };
-
-  if (loading) {
-    return (
-      <View style={{ flex: 1, backgroundColor: c.bg, justifyContent: 'center', alignItems: 'center' }}>
-        <Stack.Screen options={{ headerShown: false }} />
-        <ActivityIndicator size="large" color={c.brand} />
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Opciones de mensajes"
+          hitSlop={8}
+          className="h-8 w-8 items-center justify-center"
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
+        >
+          <MoreHorizontal size={20} color={Colors.textDim} strokeWidth={2} />
+        </Pressable>
       </View>
-    );
-  }
 
-  const hasNotifications = notifications.length > 0;
-  const hasChats = chatThreads.length > 0;
-  const isEmpty = !hasNotifications && !hasChats;
+      <View className="px-4 pt-2.5">
+        <SegmentedTabs options={tabs} value={selectedTab} onChange={setSelectedTab} />
+      </View>
 
-  return (
-    <View style={{ flex: 1, backgroundColor: c.bg }}>
-      <Stack.Screen options={{ headerShown: false }} />
-
-      <FlatList
-        data={[]}
-        renderItem={null}
-        keyExtractor={() => 'dummy'}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: FLOATING_TAB_BAR_HEIGHT + 16 }}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => fetchData(true)} colors={[c.brand]} tintColor={c.brand} />
-        }
-        ListHeaderComponent={
-          <>
-            {/* Header */}
-            <View style={{ paddingTop: insets.top + 16, marginBottom: 24 }}>
-              <Text style={{ fontSize: 10, fontWeight: '700', color: c.textDim, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 6 }}>
-                BANDEJA
-              </Text>
-              <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 28, fontWeight: '900', color: c.text, letterSpacing: -0.5 }}>
-                Mensajes
-              </Text>
-            </View>
-
-            {/* Notifications */}
-            {hasNotifications && (
-              <View style={{ marginBottom: 20 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-                  <Ionicons name="notifications-outline" size={16} color="#F59E0B" />
-                  <Text style={{ fontSize: 11, fontWeight: '700', color: c.textDim, letterSpacing: 1.5, textTransform: 'uppercase' }}>
-                    Pendientes
-                  </Text>
-                </View>
-                {notifications.map((notif) => (
-                  <View key={notif.id}>
-                    {renderNotification({ item: notif })}
-                  </View>
-                ))}
-              </View>
-            )}
-
-            {/* Chat threads */}
-            {hasChats && (
-              <View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 12 }}>
-                  <Ionicons name="chatbubbles-outline" size={16} color={c.brand} />
-                  <Text style={{ fontSize: 11, fontWeight: '700', color: c.textDim, letterSpacing: 1.5, textTransform: 'uppercase' }}>
-                    Chats
-                  </Text>
-                </View>
-                {chatThreads.map((thread) => (
-                  <View key={`${thread.match_id}_${thread.player_id}`}>
-                    {renderChatThread({ item: thread })}
-                  </View>
-                ))}
-              </View>
-            )}
-
-            {/* Empty state */}
-            {isEmpty && (
-              <View style={{ alignItems: 'center', justifyContent: 'center', paddingTop: 80, paddingHorizontal: 24 }}>
-                <View style={{ width: 72, height: 72, borderRadius: 36, backgroundColor: c.bgElev, borderWidth: 1, borderColor: c.border, justifyContent: 'center', alignItems: 'center', marginBottom: 16 }}>
-                  <Ionicons name="chatbubbles-outline" size={36} color={c.textMuted} />
-                </View>
-                <Text style={{ fontSize: 18, fontWeight: '700', color: c.text, marginBottom: 8 }}>Sin mensajes</Text>
-                <Text style={{ color: c.textDim, textAlign: 'center', fontSize: 14, lineHeight: 20 }}>
-                  Cuando te apuntes a un partido o alguien se apunte al tuyo, aquí aparecerán tus conversaciones.
-                </Text>
-              </View>
-            )}
-          </>
-        }
-      />
+      {selectedTab === 'archived' ? (
+        <View
+          className="items-center px-5 pt-10"
+          style={{ paddingBottom: insets.bottom + FLOATING_TAB_BAR_HEIGHT }}
+        >
+          <Text className="mb-3 text-[40px]">📦</Text>
+          <Text className="font-body text-base font-bold text-ink">No hay chats archivados</Text>
+          <Text className="mt-1.5 font-body text-[13px] text-ink-dim">
+            Los chats archivados aparecerán aquí
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={conversations}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <ConversationListItem conversation={item} onPress={handleConversationPress} />
+          )}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => fetchThreads(true)}
+              tintColor={Colors.brand}
+              colors={[Colors.brand]}
+            />
+          }
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            paddingTop: 12,
+            paddingBottom: insets.bottom + FLOATING_TAB_BAR_HEIGHT + 16,
+          }}
+          ListEmptyComponent={renderListEmpty}
+          showsVerticalScrollIndicator={false}
+        />
+      )}
     </View>
   );
 }
