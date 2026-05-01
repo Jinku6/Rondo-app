@@ -11,8 +11,10 @@ import {
   Platform,
   ActionSheetIOS,
   Modal,
+  Share,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import * as ExpoLinking from 'expo-linking';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ArrowRight, ChevronRight, Share2 } from 'lucide-react-native';
@@ -550,9 +552,29 @@ export default function MatchDetailScreen() {
     }
   };
 
-  const handleShare = () => {
-    // Basic share implementation (could be more advanced)
-    Alert.alert('Compartir', 'Función de compartir próximamente');
+  const handleShare = async () => {
+    if (!match) return;
+
+    try {
+      const matchUrl = ExpoLinking.createURL(`/match/${match.id}`);
+      const message = [
+        `Partido en Rondo: ${match.title}`,
+        `${formatDate(match.date_time)} a las ${formatTime(match.date_time)}`,
+        match.location,
+        matchUrl,
+      ].join('\n');
+
+      await Share.share({
+        title: match.title,
+        message,
+        url: matchUrl,
+      });
+    } catch (error) {
+      Alert.alert(
+        'No se pudo compartir',
+        error instanceof Error ? error.message : 'Intentalo de nuevo en unos segundos.',
+      );
+    }
   };
 
   if (loading || !match) {
@@ -797,42 +819,28 @@ export default function MatchDetailScreen() {
               </View>
             </View>
           ) : !isOrganizer && (
-            <>
-              <Pressable
-                className="min-h-[52px] w-full flex-row items-center justify-center gap-2 rounded-md-r bg-brand px-5 py-3.5"
-                style={({ pressed }) => [
-                  s.primaryCtaShadow,
-                  (ctaDisabled || pressed) && { opacity: 0.65 },
-                ]}
-                onPress={!ctaDisabled ? handleJoin : undefined}
-                disabled={ctaDisabled || actionLoading}
-                accessibilityRole="button"
-                accessibilityLabel={getCtaLabel()}
-              >
-                {actionLoading ? (
-                  <ActivityIndicator color={c.brandInk} />
-                ) : (
-                  <>
-                    <Text className="font-display text-base font-extrabold uppercase tracking-[0.64px] text-white">
-                      {getCtaLabel().replace(' →', '')}
-                    </Text>
-                    {!ctaDisabled && <ArrowRight size={18} color={c.brandInk} />}
-                  </>
-                )}
-              </Pressable>
-              <Pressable
-                className="min-h-[52px] w-full flex-row items-center justify-center gap-2 rounded-md-r border border-white/10 bg-bg-surface px-5 py-3.5"
-                style={({ pressed }) => pressed && { opacity: 0.7 }}
-                onPress={handleShare}
-                accessibilityRole="button"
-                accessibilityLabel="Compartir partido"
-              >
-                <Share2 size={18} color={c.text} />
-                <Text className="font-display text-base font-extrabold uppercase tracking-[0.64px] text-[#F4F3EE]">
-                  Compartir partido
-                </Text>
-              </Pressable>
-            </>
+            <Pressable
+              className="min-h-[52px] w-full flex-row items-center justify-center gap-2 rounded-md-r bg-brand px-5 py-3.5"
+              style={({ pressed }) => [
+                s.primaryCtaShadow,
+                (ctaDisabled || pressed) && { opacity: 0.65 },
+              ]}
+              onPress={!ctaDisabled ? handleJoin : undefined}
+              disabled={ctaDisabled || actionLoading}
+              accessibilityRole="button"
+              accessibilityLabel={getCtaLabel()}
+            >
+              {actionLoading ? (
+                <ActivityIndicator color={c.brandInk} />
+              ) : (
+                <>
+                  <Text className="font-display text-base font-extrabold uppercase tracking-[0.64px] text-white">
+                    {getCtaLabel().replace(' →', '')}
+                  </Text>
+                  {!ctaDisabled && <ArrowRight size={18} color={c.brandInk} />}
+                </>
+              )}
+            </Pressable>
           )}
 
           {/* Organizer Panel */}
@@ -857,6 +865,21 @@ export default function MatchDetailScreen() {
                 <Text style={s.btnDangerGhostText}>Cancelar Partido</Text>
               </Pressable>
             </View>
+          )}
+
+          {!isArchived && (
+            <Pressable
+              className="min-h-[52px] w-full flex-row items-center justify-center gap-2 rounded-md-r border border-white/10 bg-bg-surface px-5 py-3.5"
+              style={({ pressed }) => pressed && { opacity: 0.7 }}
+              onPress={handleShare}
+              accessibilityRole="button"
+              accessibilityLabel="Compartir partido"
+            >
+              <Share2 size={18} color={c.text} />
+              <Text className="font-display text-base font-extrabold uppercase tracking-[0.64px] text-[#F4F3EE]">
+                Compartir partido
+              </Text>
+            </Pressable>
           )}
         </View>
 
