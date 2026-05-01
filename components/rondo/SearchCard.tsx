@@ -60,7 +60,7 @@ export const SearchCard: React.FC<SearchCardProps> = ({
         borderColor: colors.border,
         ...shadows.md,
         zIndex: 10,
-        overflow: 'hidden',
+        overflow: 'visible',
       }}
     >
       {/* Location row */}

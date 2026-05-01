@@ -13,6 +13,9 @@ import { UbicacionInput } from '@/components/UbicacionInput';
 import type { GeoResult } from '@/lib/geocoding';
 import { isValidHexColor } from '@/lib/utils';
 import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
+import { ScreenTitle } from '@/components/ui/ScreenTitle';
+import { ColorSwatch } from '@/components/ui/ColorSwatch';
+import { TEAM_COLOR_OPTIONS } from '@/constants/teamColors';
 
 const CreateMatchSchema = z.object({
   title: z.string().min(3, 'El título debe tener al menos 3 caracteres'),
@@ -40,6 +43,39 @@ const SectionHeader = ({ num, title }: { num: number; title: string }) => (
   </View>
 );
 
+function PickerModal({
+  visible,
+  title,
+  onCancel,
+  onConfirm,
+  children,
+}: {
+  visible: boolean;
+  title: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Modal transparent animationType="slide" visible={visible}>
+      <View className="flex-1 justify-end bg-black/70">
+        <View className="bg-bg-elev pb-10 pt-4 px-6 rounded-t-3xl">
+          <View className="flex-row justify-between mb-3 border-b border-white/10 pb-3">
+            <TouchableOpacity onPress={onCancel}>
+              <Text className="text-danger font-semibold text-base">Cancelar</Text>
+            </TouchableOpacity>
+            <Text className="text-ink font-bold text-base">{title}</Text>
+            <TouchableOpacity onPress={onConfirm}>
+              <Text className="text-brand font-bold text-base">Confirmar</Text>
+            </TouchableOpacity>
+          </View>
+          {children}
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
 export default function CreateMatchScreen() {
   const { user } = useAuth();
   const router = useRouter();
@@ -54,6 +90,8 @@ export default function CreateMatchScreen() {
   const [level, setLevel] = useState<MatchLevel>('medio');
 
   const [dateObj, setDateObj] = useState(new Date());
+  const [draftDateObj, setDraftDateObj] = useState(new Date());
+  const [draftTimeObj, setDraftTimeObj] = useState(new Date());
   const [dateText, setDateText] = useState('');
   const [timeText, setTimeText] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -65,7 +103,6 @@ export default function CreateMatchScreen() {
 
   const [teamAColor, setTeamAColor] = useState('#EF4444');
   const [teamBColor, setTeamBColor] = useState('#3B82F6');
-  const presetColors = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#111827', '#FFFFFF'];
 
   const [price, setPrice] = useState('0');
   const [requiresApproval, setRequiresApproval] = useState(false);
@@ -97,6 +134,10 @@ export default function CreateMatchScreen() {
   const onDatePickerChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
     if (Platform.OS === 'android') setShowDatePicker(false);
     if (selectedDate) {
+      if (Platform.OS === 'ios') {
+        setDraftDateObj(selectedDate);
+        return;
+      }
       setDateObj(selectedDate);
       if (Platform.OS === 'android') {
         const d = selectedDate;
@@ -105,15 +146,25 @@ export default function CreateMatchScreen() {
     }
   };
 
+  const openDatePicker = () => {
+    setDraftDateObj(dateObj);
+    setShowDatePicker(true);
+  };
+
   const confirmDateIOS = () => {
     setShowDatePicker(false);
-    const d = dateObj;
+    const d = draftDateObj;
+    setDateObj(d);
     setDateText(`${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`);
   };
 
   const onTimePickerChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
     if (Platform.OS === 'android') setShowTimePicker(false);
     if (selectedDate) {
+      if (Platform.OS === 'ios') {
+        setDraftTimeObj(selectedDate);
+        return;
+      }
       setDateObj(selectedDate);
       if (Platform.OS === 'android') {
         setTimeText(`${String(selectedDate.getHours()).padStart(2, '0')}:${String(selectedDate.getMinutes()).padStart(2, '0')}`);
@@ -121,9 +172,15 @@ export default function CreateMatchScreen() {
     }
   };
 
+  const openTimePicker = () => {
+    setDraftTimeObj(dateObj);
+    setShowTimePicker(true);
+  };
+
   const confirmTimeIOS = () => {
     setShowTimePicker(false);
-    setTimeText(`${String(dateObj.getHours()).padStart(2, '0')}:${String(dateObj.getMinutes()).padStart(2, '0')}`);
+    setDateObj(draftTimeObj);
+    setTimeText(`${String(draftTimeObj.getHours()).padStart(2, '0')}:${String(draftTimeObj.getMinutes()).padStart(2, '0')}`);
   };
 
   const validateAndParseDateTime = () => {
@@ -209,25 +266,6 @@ export default function CreateMatchScreen() {
 
   const totalPlayers = Object.values(positions).reduce((a, b) => a + b, 0);
 
-  const PickerModal = ({ visible, title: t, onCancel, onConfirm, children }: any) => (
-    <Modal transparent animationType="slide" visible={visible}>
-      <View className="flex-1 justify-end bg-black/70">
-        <View className="bg-bg-elev pb-10 pt-4 px-6 rounded-t-3xl">
-          <View className="flex-row justify-between mb-3 border-b border-white/10 pb-3">
-            <TouchableOpacity onPress={onCancel}>
-              <Text className="text-danger font-semibold text-base">Cancelar</Text>
-            </TouchableOpacity>
-            <Text className="text-ink font-bold text-base">{t}</Text>
-            <TouchableOpacity onPress={onConfirm}>
-              <Text className="text-brand font-bold text-base">Confirmar</Text>
-            </TouchableOpacity>
-          </View>
-          {children}
-        </View>
-      </View>
-    </Modal>
-  );
-
   return (
     <View className="flex-1 bg-bg">
       <Stack.Screen options={{ headerShown: false }} />
@@ -238,9 +276,9 @@ export default function CreateMatchScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Header */}
-        <Text className="font-display text-[28px] font-black text-ink tracking-tight mb-6">
+        <ScreenTitle style={{ marginBottom: 24 }}>
           Crear Partido
-        </Text>
+        </ScreenTitle>
 
         {/* 1. Información General */}
         <View className="bg-bg-elev border border-white/10 p-5 rounded-lg-r mb-4">
@@ -320,7 +358,7 @@ export default function CreateMatchScreen() {
               <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Día</Text>
               <TouchableOpacity
                 className="bg-white/5 border border-white/10 rounded-md-r px-4 py-3.5 flex-row items-center justify-between"
-                onPress={() => { if (Platform.OS !== 'web') setShowDatePicker(true); }}
+                onPress={() => { if (Platform.OS !== 'web') openDatePicker(); }}
                 activeOpacity={Platform.OS === 'web' ? 1 : 0.7}
               >
                 {Platform.OS !== 'web' ? (
@@ -348,7 +386,7 @@ export default function CreateMatchScreen() {
               <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Hora</Text>
               <TouchableOpacity
                 className="bg-white/5 border border-white/10 rounded-md-r px-4 py-3.5 flex-row items-center justify-between"
-                onPress={() => { if (Platform.OS !== 'web') setShowTimePicker(true); }}
+                onPress={() => { if (Platform.OS !== 'web') openTimePicker(); }}
                 activeOpacity={Platform.OS === 'web' ? 1 : 0.7}
               >
                 {Platform.OS !== 'web' ? (
@@ -382,7 +420,7 @@ export default function CreateMatchScreen() {
         )}
         {Platform.OS === 'ios' && (
           <PickerModal visible={showDatePicker} title="Fecha del partido" onCancel={() => setShowDatePicker(false)} onConfirm={confirmDateIOS}>
-            <DateTimePicker value={dateObj} mode="date" display="spinner" onChange={onDatePickerChange} minimumDate={new Date()} locale="es-ES" />
+            <DateTimePicker value={draftDateObj} mode="date" display="spinner" onChange={onDatePickerChange} minimumDate={new Date()} locale="es-ES" />
           </PickerModal>
         )}
         {Platform.OS === 'android' && showTimePicker && (
@@ -390,7 +428,7 @@ export default function CreateMatchScreen() {
         )}
         {Platform.OS === 'ios' && (
           <PickerModal visible={showTimePicker} title="Hora del partido" onCancel={() => setShowTimePicker(false)} onConfirm={confirmTimeIOS}>
-            <DateTimePicker value={dateObj} mode="time" display="spinner" onChange={onTimePickerChange} is24Hour locale="es-ES" />
+            <DateTimePicker value={draftTimeObj} mode="time" display="spinner" onChange={onTimePickerChange} is24Hour locale="es-ES" />
           </PickerModal>
         )}
 
@@ -441,26 +479,26 @@ export default function CreateMatchScreen() {
         {/* 5. Colores de Equipos */}
         <View className="bg-bg-elev border border-white/10 p-5 rounded-lg-r mb-4">
           <SectionHeader num={5} title="Colores de Camiseta" />
-          <View className="gap-4">
+          <View className="flex-row gap-3">
             {[
               { label: 'Equipo A', color: teamAColor, setColor: setTeamAColor, prefix: 'a' },
               { label: 'Equipo B', color: teamBColor, setColor: setTeamBColor, prefix: 'b' },
             ].map(team => (
-              <View key={team.prefix} className="flex-row items-center justify-between">
+              <View key={team.prefix} className="flex-1 gap-3">
                 <View className="flex-row items-center gap-3">
-                  <View className="w-7 h-7 rounded-full border-2 border-white/20" style={{ backgroundColor: team.color }} />
+                  <View className="w-7 h-7 rounded-full border border-white/40" style={{ backgroundColor: team.color }} />
                   <Text className="text-ink font-body font-semibold text-sm">{team.label}</Text>
                 </View>
-                <View className="flex-row gap-2">
-                  {presetColors.map(col => (
-                    <TouchableOpacity
-                      key={`${team.prefix}-${col}`}
-                      onPress={() => team.setColor(col)}
-                      style={{ backgroundColor: col, borderColor: team.color === col ? '#22C55E' : 'transparent' }}
-                      className="w-8 h-8 rounded-full border-2 items-center justify-center shadow-sm"
-                    >
-                      {team.color === col && <View className="w-3 h-3 rounded-full bg-black/30" />}
-                    </TouchableOpacity>
+                <View className="flex-row flex-wrap gap-2">
+                  {TEAM_COLOR_OPTIONS.map((option) => (
+                    <ColorSwatch
+                      key={`${team.prefix}-${option.value}`}
+                      color={option.value}
+                      label={option.label}
+                      selected={team.color === option.value}
+                      onPress={() => team.setColor(option.value)}
+                      size={30}
+                    />
                   ))}
                 </View>
               </View>

@@ -13,6 +13,8 @@ import { decode } from 'base64-arraybuffer';
 import { calculateAge, isSafeUrl } from '@/lib/utils';
 import { Colors } from '@/constants/theme';
 import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
+import { getErrorMessage, logSupabaseError } from '@/lib/supabaseErrors';
+import { containsProfanity } from '@/lib/profanityFilter';
 
 const c = Colors;
 
@@ -99,6 +101,7 @@ export default function ProfileScreen() {
   const [preferredPosition, setPreferredPosition] = useState('');
   const [bio, setBio] = useState('');
   const [phone, setPhone] = useState('');
+  const [initialPhone, setInitialPhone] = useState('');
   const [loadingPhone, setLoadingPhone] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -118,7 +121,9 @@ export default function ProfileScreen() {
     if (error) {
       if (__DEV__) console.error('fetchPhone error:', error.message);
     } else {
-      setPhone(data?.phone || '');
+      const nextPhone = data?.phone || '';
+      setPhone(nextPhone);
+      setInitialPhone(nextPhone);
     }
     setLoadingPhone(false);
   };
@@ -207,7 +212,8 @@ export default function ProfileScreen() {
       await refreshProfile();
       showAlert('Éxito', 'Foto de perfil actualizada');
     } catch (error) {
-      showAlert('Error', error instanceof Error ? error.message : String(error));
+      logSupabaseError('profile avatar upload error', error);
+      showAlert('Error', getErrorMessage(error, 'No se pudo actualizar la foto de perfil.'));
     } finally {
       setUploading(false);
     }
@@ -217,24 +223,34 @@ export default function ProfileScreen() {
     if (!username.trim()) { showAlert('Error', 'El nombre de usuario no puede estar vacío'); return; }
     if (usernameError) { showAlert('Error', 'Corrige el nombre de usuario antes de guardar'); return; }
     if (usernameChecking) { showAlert('Error', 'Espera a que se valide el nombre de usuario'); return; }
+    if (containsProfanity(bio)) { showAlert('Error', 'La bio contiene vocabulario no permitido.'); return; }
     setSaving(true);
     try {
-      const [usersResult, phoneResult] = await Promise.all([
-        supabase.from('users').update({
-          full_name: fullName,
-          username: username.toLowerCase().trim(),
-          preferred_position: preferredPosition || null,
-          bio: bio.trim() || null,
-        }).eq('id', user.id),
-        supabase.from('user_private_data').upsert({ user_id: user.id, phone, updated_at: new Date().toISOString() }),
-      ]);
-      if (usersResult.error) throw usersResult.error;
-      if (phoneResult.error) throw phoneResult.error;
+      const { error: usersError } = await supabase.from('users').update({
+        full_name: fullName.trim(),
+        username: username.toLowerCase().trim(),
+        preferred_position: preferredPosition || null,
+        bio: bio.trim() || null,
+      }).eq('id', user.id);
+      if (usersError) throw usersError;
+
+      const normalizedPhone = phone.trim();
+      if (normalizedPhone !== initialPhone.trim()) {
+        const { error: phoneError } = await supabase
+          .from('user_private_data')
+          .upsert(
+            { user_id: user.id, phone: normalizedPhone, updated_at: new Date().toISOString() },
+            { onConflict: 'user_id' },
+          );
+        if (phoneError) throw phoneError;
+        setInitialPhone(normalizedPhone);
+      }
       await refreshProfile();
       setIsEditing(false);
       showAlert('Guardado', 'Perfil actualizado correctamente');
     } catch (e) {
-      showAlert('Error', e instanceof Error ? e.message : String(e));
+      logSupabaseError('profile save error', e);
+      showAlert('Error', getErrorMessage(e, 'No se pudo guardar el perfil.'));
     } finally {
       setSaving(false);
     }
@@ -251,7 +267,8 @@ export default function ProfileScreen() {
       showAlert('Confirmación enviada', `Te hemos enviado un enlace de confirmación a ${newEmail}.`);
       setNewEmail('');
     } catch (e) {
-      showAlert('Error', e instanceof Error ? e.message : String(e));
+      logSupabaseError('profile email update error', e);
+      showAlert('Error', getErrorMessage(e, 'No se pudo actualizar el email.'));
     } finally {
       setSavingEmail(false);
     }
@@ -266,7 +283,8 @@ export default function ProfileScreen() {
       showAlert('Contraseña actualizada', 'Tu contraseña ha sido cambiada correctamente.');
       setNewPassword('');
     } catch (e) {
-      showAlert('Error', e instanceof Error ? e.message : String(e));
+      logSupabaseError('profile password update error', e);
+      showAlert('Error', getErrorMessage(e, 'No se pudo actualizar la contrasena.'));
     } finally {
       setSavingPassword(false);
     }
@@ -292,7 +310,8 @@ export default function ProfileScreen() {
       if (authError && __DEV__) console.warn('delete_own_account RPC no disponible:', authError.message);
       await signOut();
     } catch (e) {
-      showAlert('Error', e instanceof Error ? e.message : String(e));
+      logSupabaseError('profile delete account error', e);
+      showAlert('Error', getErrorMessage(e, 'No se pudo eliminar la cuenta.'));
     }
   };
 
@@ -304,39 +323,11 @@ export default function ProfileScreen() {
 
     return (
       <View style={{ flex: 1, backgroundColor: c.bg }}>
-        {/* ── Header ─────────────────────────────────────────────── */}
-        <View style={{
-          paddingTop: insets.top + 8,
-          paddingBottom: 12,
-          paddingHorizontal: 20,
-          flexDirection: 'row',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}>
-          <View style={{ width: 40 }} />
-          <Text style={{
-            fontFamily: 'Archivo_900Black',
-            fontSize: 17,
-            fontWeight: '900',
-            color: c.text,
-            letterSpacing: -0.3,
-          }}>
-            Mi Perfil
-          </Text>
-          <TouchableOpacity
-            onPress={startEditing}
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-            style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
-          >
-            <Ionicons name="settings-outline" size={22} color={c.textDim} />
-          </TouchableOpacity>
-        </View>
-
         <ScrollView
           style={{ flex: 1 }}
           contentContainerStyle={{
             paddingHorizontal: 20,
-            paddingTop: 8,
+            paddingTop: insets.top + 16,
             paddingBottom: FLOATING_TAB_BAR_HEIGHT + 24,
           }}
           showsVerticalScrollIndicator={false}
@@ -350,9 +341,9 @@ export default function ProfileScreen() {
                 <Image
                   source={{ uri: profile.avatar_url! }}
                   style={{
-                    width: 100,
-                    height: 100,
-                    borderRadius: 50,
+                    width: 132,
+                    height: 132,
+                    borderRadius: 66,
                     borderWidth: 3,
                     borderColor: c.brand,
                     marginBottom: 16,
@@ -360,9 +351,9 @@ export default function ProfileScreen() {
                 />
               ) : (
                 <View style={{
-                  width: 100,
-                  height: 100,
-                  borderRadius: 50,
+                  width: 132,
+                  height: 132,
+                  borderRadius: 66,
                   backgroundColor: c.brandSoft,
                   justifyContent: 'center',
                   alignItems: 'center',
@@ -370,7 +361,7 @@ export default function ProfileScreen() {
                   borderColor: c.brand,
                   marginBottom: 16,
                 }}>
-                  <Text style={{ fontSize: 40, color: c.brand, fontWeight: '800' }}>
+                  <Text style={{ fontSize: 52, color: c.brand, fontWeight: '800' }}>
                     {profile.full_name?.charAt(0)?.toUpperCase() || '?'}
                   </Text>
                 </View>
@@ -378,23 +369,23 @@ export default function ProfileScreen() {
               <TouchableOpacity
                 style={{
                   position: 'absolute', bottom: 16, right: 0,
-                  backgroundColor: c.brand, width: 32, height: 32,
-                  borderRadius: 10, alignItems: 'center', justifyContent: 'center',
+                  backgroundColor: c.brand, width: 38, height: 38,
+                  borderRadius: 12, alignItems: 'center', justifyContent: 'center',
                   borderWidth: 2, borderColor: c.bgElev
                 }}
                 onPress={pickImage}
                 disabled={uploading}
               >
-                {uploading ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="camera" size={16} color="#fff" />}
+                {uploading ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="camera" size={18} color="#fff" />}
               </TouchableOpacity>
             </View>
 
             <Text style={{
               fontFamily: 'Archivo_900Black',
-              fontSize: 26,
+              fontSize: 34,
               fontWeight: '900',
               color: c.text,
-              letterSpacing: -0.5,
+              letterSpacing: -0.4,
               marginBottom: 4,
               textAlign: 'center',
             }}>
@@ -578,6 +569,22 @@ export default function ProfileScreen() {
             </View>
           )}
 
+          <TouchableOpacity
+            onPress={startEditing}
+            style={{
+              backgroundColor: 'rgba(255,255,255,0.05)',
+              borderWidth: 1,
+              borderColor: c.border,
+              borderRadius: 16,
+              paddingVertical: 14,
+              alignItems: 'center',
+              marginTop: 4,
+              marginBottom: 10,
+            }}
+          >
+            <Text style={{ color: c.text, fontWeight: '700' }}>Editar perfil</Text>
+          </TouchableOpacity>
+
           {/* Sign out */}
           <TouchableOpacity
             onPress={signOut}
@@ -611,7 +618,11 @@ export default function ProfileScreen() {
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: insets.top + 8, paddingBottom: 48 }}
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          paddingTop: insets.top + 8,
+          paddingBottom: FLOATING_TAB_BAR_HEIGHT + insets.bottom + 24,
+        }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >

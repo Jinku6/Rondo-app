@@ -1,15 +1,14 @@
 import { ConversationListItem, ConversationListItemData } from '@/components/messages/ConversationListItem';
 import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
-import { SegmentedTabs, SegmentedTabOption } from '@/components/ui/SegmentedTabs';
 import { Colors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { isSafeUrl } from '@/lib/utils';
-import { ChevronLeft, MoreHorizontal } from 'lucide-react-native';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { ScreenTitle } from '@/components/ui/ScreenTitle';
 
 type MessagesTab = 'active' | 'archived';
 
@@ -25,11 +24,6 @@ interface ChatThread {
   other_user_name: string;
   other_user_avatar: string | null;
 }
-
-const tabs: readonly SegmentedTabOption<MessagesTab>[] = [
-  { label: 'Activos', value: 'active', accessibilityLabel: 'Ver conversaciones activas' },
-  { label: 'Archivados', value: 'archived', accessibilityLabel: 'Ver conversaciones archivadas' },
-];
 
 const avatarClasses = ['bg-purple-500', 'bg-amber-500', 'bg-emerald-500', 'bg-blue-500'] as const;
 
@@ -124,12 +118,6 @@ export default function MessagesScreen() {
     }, [fetchThreads]),
   );
 
-  const handleBackPress = () => {
-    if (router.canGoBack()) {
-      router.back();
-    }
-  };
-
   const handleConversationPress = (conversation: ConversationListItemData) => {
     router.push({
       pathname: '/chat/[match_id]/[player_id]',
@@ -167,6 +155,18 @@ export default function MessagesScreen() {
       );
     }
 
+    if (selectedTab === 'archived') {
+      return (
+        <View className="items-center px-6 pt-16">
+          <Text className="mb-3 text-[40px]">📦</Text>
+          <Text className="font-body text-base font-bold text-ink">No hay chats archivados</Text>
+          <Text className="mt-1.5 text-center font-body text-[13px] text-ink-dim">
+            Los chats archivados aparecerán aquí.
+          </Text>
+        </View>
+      );
+    }
+
     return (
       <View className="items-center px-6 pt-16">
         <Text className="font-body text-base font-bold text-ink">No tienes mensajes activos</Text>
@@ -181,58 +181,7 @@ export default function MessagesScreen() {
     <View className="flex-1 bg-bg">
       <Stack.Screen options={{ headerShown: false }} />
 
-      <View
-        className="flex-row items-center border-b border-white/10 px-4 pb-3"
-        style={{ paddingTop: insets.top + 10 }}
-      >
-        <Pressable
-          onPress={handleBackPress}
-          accessibilityRole="button"
-          accessibilityLabel="Volver"
-          hitSlop={8}
-          className="h-8 w-8 items-center justify-center"
-          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
-        >
-          <ChevronLeft size={20} color={Colors.textDim} strokeWidth={2.5} />
-        </Pressable>
-
-        <View className="flex-1 px-3">
-          <Text className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink-dim">
-            CHAT
-          </Text>
-          <Text className="mt-0.5 font-display text-lg uppercase text-ink">
-            MIS MENSAJES
-          </Text>
-        </View>
-
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Opciones de mensajes"
-          hitSlop={8}
-          className="h-8 w-8 items-center justify-center"
-          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
-        >
-          <MoreHorizontal size={20} color={Colors.textDim} strokeWidth={2} />
-        </Pressable>
-      </View>
-
-      <View className="px-4 pt-2.5">
-        <SegmentedTabs options={tabs} value={selectedTab} onChange={setSelectedTab} />
-      </View>
-
-      {selectedTab === 'archived' ? (
-        <View
-          className="items-center px-5 pt-10"
-          style={{ paddingBottom: insets.bottom + FLOATING_TAB_BAR_HEIGHT }}
-        >
-          <Text className="mb-3 text-[40px]">📦</Text>
-          <Text className="font-body text-base font-bold text-ink">No hay chats archivados</Text>
-          <Text className="mt-1.5 font-body text-[13px] text-ink-dim">
-            Los chats archivados aparecerán aquí
-          </Text>
-        </View>
-      ) : (
-        <FlatList
+      <FlatList
           data={conversations}
           keyExtractor={(item) => item.id}
           renderItem={({ item }) => (
@@ -248,13 +197,41 @@ export default function MessagesScreen() {
           }
           contentContainerStyle={{
             paddingHorizontal: 16,
-            paddingTop: 12,
+            paddingTop: 0,
             paddingBottom: insets.bottom + FLOATING_TAB_BAR_HEIGHT + 16,
           }}
+          ListHeaderComponent={
+            <View style={{ paddingTop: insets.top + 16, marginBottom: 20 }}>
+              <Text className="font-mono text-xs text-ink-dim tracking-[0.2em] uppercase mb-1">
+                CHAT
+              </Text>
+              <View className="mb-6">
+                <ScreenTitle>
+                  Mis Mensajes
+                </ScreenTitle>
+              </View>
+
+              <View className="flex-row bg-surface p-1 rounded-xl mb-2">
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setSelectedTab('active')}
+                  className={`flex-1 items-center justify-center py-3 rounded-lg ${selectedTab === 'active' ? 'bg-brand border border-brand' : 'bg-white/5 border border-white/5'}`}
+                >
+                  <Text className={`font-display uppercase text-xs tracking-wider ${selectedTab === 'active' ? 'text-white' : 'text-ink-dim'}`}>Activos</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => setSelectedTab('archived')}
+                  className={`flex-1 items-center justify-center py-3 rounded-lg ${selectedTab === 'archived' ? 'bg-white/15 border border-white/20' : 'bg-white/5 border border-white/5'}`}
+                >
+                  <Text className={`font-display uppercase text-xs tracking-wider ${selectedTab === 'archived' ? 'text-white' : 'text-ink-dim'}`}>Archivados</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          }
           ListEmptyComponent={renderListEmpty}
           showsVerticalScrollIndicator={false}
-        />
-      )}
+      />
     </View>
   );
 }

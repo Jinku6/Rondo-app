@@ -1,6 +1,6 @@
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Text, View, TouchableOpacity, Platform } from 'react-native';
+import { Text, View, TouchableOpacity } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -16,6 +16,7 @@ const RIGHT_TABS = [
 
 const TAB_H = 66;
 const FAB_SIZE = 52;
+const FAB_FLOAT_OFFSET = -18;
 
 export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarProps) {
   const { colors } = useTheme();
@@ -91,7 +92,7 @@ export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarP
             elevation: 8,
             borderColor: '#000',
             borderWidth: 4,
-            marginTop: -24, // floats slightly above
+            marginTop: FAB_FLOAT_OFFSET,
           }}
           accessibilityLabel="Crear partido"
           accessibilityRole="button"

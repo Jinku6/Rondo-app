@@ -74,6 +74,7 @@ GoogleService-Info.plist
 
 # Supabase (Specifics)
 supabase/.temp/
+supabase/functions/
 supabase/functions/*/node_modules/
 
 # EAS / Build artifacts

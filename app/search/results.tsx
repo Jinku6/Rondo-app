@@ -12,6 +12,7 @@ import { isValidCoords, firstParam } from '@/lib/utils';
 import { Colors, Fonts, Radius } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MatchCard } from '@/components/rondo/MatchCard';
+import { ScreenTitle } from '@/components/ui/ScreenTitle';
 
 const c = Colors;
 
@@ -177,7 +178,7 @@ export default function SearchResultsScreen() {
 
       {/* Custom header */}
       <View style={{ paddingTop: insets.top, backgroundColor: c.bg }}>
-        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14 }}>
           {/* Back + title */}
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
             <TouchableOpacity
@@ -191,18 +192,11 @@ export default function SearchResultsScreen() {
               <Text style={{ fontFamily: Fonts.mono, fontSize: 10, fontWeight: '700', letterSpacing: 2.5, textTransform: 'uppercase', color: c.textDim }}>
                 {eyebrow}
               </Text>
-              <Text style={{ fontFamily: Fonts.display, fontSize: 22, fontWeight: '900', color: c.text, textTransform: 'uppercase', letterSpacing: -0.5, marginTop: 3, lineHeight: 24 }}>
+              <ScreenTitle style={{ marginTop: 3 }} numberOfLines={1}>
                 {titleText}
-              </Text>
+              </ScreenTitle>
             </View>
           </View>
-          {/* Filter icon */}
-          <TouchableOpacity
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-            style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
-          >
-            <Ionicons name="options-outline" size={22} color={c.textDim} />
-          </TouchableOpacity>
         </View>
 
         {/* Modify search button */}

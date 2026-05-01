@@ -25,25 +25,25 @@ export function ConversationListItem({ conversation, onPress }: ConversationList
       onPress={() => onPress(conversation)}
       accessibilityRole="button"
       accessibilityLabel={`Abrir conversación con ${conversation.name}`}
-      className="flex-row items-center gap-2.5 border-b border-white/10 py-3"
+      className="flex-row items-center gap-3 border-b border-white/10 py-4"
       style={({ pressed }) => ({ opacity: pressed ? 0.65 : 1 })}
     >
       {conversation.avatarUrl ? (
         <Image
           source={{ uri: conversation.avatarUrl }}
-          className="h-9 w-9 shrink-0 rounded-full border border-white/10"
+          className="h-11 w-11 shrink-0 rounded-full border border-white/10"
         />
       ) : (
         <View
-          className={`h-9 w-9 shrink-0 items-center justify-center rounded-full ${conversation.avatarClassName}`}
+          className={`h-11 w-11 shrink-0 items-center justify-center rounded-full ${conversation.avatarClassName}`}
         >
-          <Text className="font-display text-sm text-white">{conversation.initials}</Text>
+          <Text className="font-display text-base text-white">{conversation.initials}</Text>
         </View>
       )}
 
       <View className="min-w-0 flex-1">
         <View className="flex-row items-baseline justify-between gap-2">
-          <Text className="flex-1 font-body text-sm font-bold text-ink" numberOfLines={1}>
+          <Text className="flex-1 font-body text-base font-bold text-ink" numberOfLines={1}>
             {conversation.name}
           </Text>
           <Text className={`font-mono text-[10px] ${conversation.unread ? 'text-brand' : 'text-ink-dim'}`} numberOfLines={1}>
@@ -51,7 +51,7 @@ export function ConversationListItem({ conversation, onPress }: ConversationList
           </Text>
         </View>
 
-        <Text className={`mt-0.5 font-body text-[13px] ${conversation.unread ? 'text-ink' : 'text-ink-dim'}`} numberOfLines={1}>
+        <Text className={`mt-1 font-body text-sm ${conversation.unread ? 'text-ink' : 'text-ink-dim'}`} numberOfLines={1}>
           {conversation.lastMessage}
         </Text>
       </View>

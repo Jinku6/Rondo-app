@@ -201,14 +201,14 @@ export default function RegisterScreen() {
           {/* Header */}
           <View style={{ alignItems: 'center', marginBottom: 32 }}>
             <Image
-              source={require('@/assets/images/rondo-icon-white.png')}
+              source={require('@/assets/images/rondo-icon.png')}
               style={{ width: 64, height: 64, marginBottom: 16 }}
               resizeMode="contain"
             />
             <Text style={{ fontSize: 10, fontWeight: '700', color: c.textDim, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>
               REGISTRO
             </Text>
-            <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 28, fontWeight: '900', color: c.text, letterSpacing: -0.5 }}>
+            <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 28, fontWeight: '900', color: c.brand, letterSpacing: -0.5 }}>
               Únete a Rondo
             </Text>
           </View>

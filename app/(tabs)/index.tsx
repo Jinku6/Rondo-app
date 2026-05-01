@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { PendingReviewsAlert } from '@/components/PendingReviewsAlert';
 import { HomeHero } from '@/components/rondo/HomeHero';
@@ -11,6 +12,7 @@ import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
 
 export default function SearchScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [ciudadLabel, setCiudadLabel] = useState('');
   const [ciudadLat, setCiudadLat] = useState<number | null>(null);
@@ -81,31 +83,33 @@ export default function SearchScreen() {
     <View style={{ flex: 1, backgroundColor: c.bg }}>
       <ScrollView
         style={{ flex: 1 }}
-        contentContainerStyle={{ paddingBottom: FLOATING_TAB_BAR_HEIGHT + 16 }}
+        contentContainerStyle={{ paddingBottom: FLOATING_TAB_BAR_HEIGHT + insets.bottom + 16 }}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
         <HomeHero />
 
-        <SearchCard
-          ciudadLabel={ciudadLabel}
-          ciudadPreset={ciudadPreset}
-          position={position}
-          searchDate={searchDate}
-          onCiudadSelect={(r: GeoResult) => {
-            setCiudadLabel(r.ciudad);
-            setCiudadLat(r.lat);
-            setCiudadLng(r.lng);
-            setCiudadPreset(null);
-          }}
-          onCiudadClear={() => { setCiudadLabel(''); setCiudadLat(null); setCiudadLng(null); setCiudadPreset(null); }}
-          onPositionChange={setPosition}
-          onDateChange={setSearchDate}
-          onSearch={() => handleSearch()}
-          onQuickAction={handleQuickAction}
-        />
+        <View style={{ position: 'relative', zIndex: 20 }}>
+          <SearchCard
+            ciudadLabel={ciudadLabel}
+            ciudadPreset={ciudadPreset}
+            position={position}
+            searchDate={searchDate}
+            onCiudadSelect={(r: GeoResult) => {
+              setCiudadLabel(r.ciudad);
+              setCiudadLat(r.lat);
+              setCiudadLng(r.lng);
+              setCiudadPreset(null);
+            }}
+            onCiudadClear={() => { setCiudadLabel(''); setCiudadLat(null); setCiudadLng(null); setCiudadPreset(null); }}
+            onPositionChange={setPosition}
+            onDateChange={setSearchDate}
+            onSearch={() => handleSearch()}
+            onQuickAction={handleQuickAction}
+          />
+        </View>
 
-        <View style={{ marginTop: 16, paddingHorizontal: 14 }}>
+        <View style={{ marginTop: 16, paddingHorizontal: 14, position: 'relative', zIndex: 1 }}>
           <PendingReviewsAlert />
         </View>
 

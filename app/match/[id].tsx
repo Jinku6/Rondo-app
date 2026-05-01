@@ -751,8 +751,9 @@ export default function MatchDetailScreen() {
                   onPress={() => router.push(`/chat/${match.id}/${user!.id}` as any)}
                   accessibilityRole="button"
                   accessibilityLabel="Chat con el organizador"
+                  hitSlop={6}
                 >
-                  <Ionicons name="chatbubble-outline" size={12} color={c.textDim} />
+                  <Ionicons name="chatbubble-ellipses-outline" size={17} color={c.brand} />
                   <Text style={s.chatChipText}>Chat</Text>
                 </Pressable>
               )}
@@ -1015,10 +1016,10 @@ const s = StyleSheet.create({
   },
   titleText: {
     fontFamily: 'Archivo_900Black',
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: '900',
     color: c.text,
-    lineHeight: 32,
+    lineHeight: 34,
     letterSpacing: -0.3,
     marginBottom: 10,
   },
@@ -1121,15 +1122,15 @@ const s = StyleSheet.create({
   swatchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
     marginTop: 2,
   },
   swatch: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: c.border,
+    borderColor: c.borderStrong,
   },
   cuposValue: {
     fontFamily: 'JetBrainsMono_700Bold',
@@ -1240,19 +1241,21 @@ const s = StyleSheet.create({
   chatChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 100,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    justifyContent: 'center',
+    gap: 7,
+    minHeight: 44,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: c.brandSoft,
     borderWidth: 1,
-    borderColor: c.border,
+    borderColor: 'rgba(34,197,94,0.35)',
     flexShrink: 0,
   },
   chatChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: c.textDim,
+    fontSize: 13,
+    fontWeight: '800',
+    color: c.brand,
   },
 
   // CTAs

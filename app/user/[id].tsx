@@ -11,6 +11,7 @@ import { UserProfile } from '@/types/database';
 import { isValidUUID, firstParam, isSafeUrl, calculateAge } from '@/lib/utils';
 import { Colors } from '@/constants/theme';
 import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
+import { ScreenTitle } from '@/components/ui/ScreenTitle';
 
 const c = Colors;
 
@@ -111,15 +112,9 @@ export default function UserProfileScreen() {
           <Ionicons name="chevron-back" size={26} color={c.text} />
         </TouchableOpacity>
 
-        <Text style={{
-          fontFamily: 'Archivo_900Black',
-          fontSize: 17,
-          fontWeight: '900',
-          color: c.text,
-          letterSpacing: -0.3,
-        }}>
+        <ScreenTitle style={{ flex: 1, textAlign: 'center' }}>
           Perfil
-        </Text>
+        </ScreenTitle>
 
         {isOwnProfile ? (
           <TouchableOpacity

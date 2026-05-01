@@ -75,9 +75,9 @@ export function CiudadInput({ value, onSelect, onClear, presetResult }: Props) {
   };
 
   return (
-    <View>
+    <View style={{ minHeight: 36 }}>
       {/* Input row — sin bordes propios, encaja en el contenedor padre */}
-      <View className="flex-row items-center flex-1">
+      <View className="flex-row items-center flex-1" style={{ minHeight: 36 }}>
         {loading
           ? <ActivityIndicator size="small" color="#22C55E" style={{ marginRight: 4 }} />
           : <Ionicons name="location-outline" size={24} color={bloqueado ? '#22C55E' : '#94a3b8'} />

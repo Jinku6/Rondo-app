@@ -7,6 +7,8 @@ import { useRouter, useFocusEffect } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
+import { ScreenTitle } from '@/components/ui/ScreenTitle';
+import { StatCard } from '@/components/ui/StatCard';
 
 type MyMatch = Match & { _role: 'organizer' | 'player'; _pendingCount?: number };
 
@@ -222,9 +224,9 @@ export default function MyMatchesScreen() {
               AGENDA
             </Text>
             <View className="flex-row justify-between items-center mb-6">
-              <Text className="font-display text-3xl text-ink uppercase tracking-tight">
+              <ScreenTitle>
                 Mis Partidos
-              </Text>
+              </ScreenTitle>
             </View>
 
             {/* SegmentedTabs */}
@@ -232,14 +234,14 @@ export default function MyMatchesScreen() {
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={() => setShowArchived(false)}
-                className={`flex-1 items-center justify-center py-3 rounded-lg ${!showArchived ? 'bg-brand' : 'bg-transparent'}`}
+                className={`flex-1 items-center justify-center py-3 rounded-lg ${!showArchived ? 'bg-brand border border-brand' : 'bg-white/5 border border-white/5'}`}
               >
                 <Text className={`font-display uppercase text-xs tracking-wider ${!showArchived ? 'text-white' : 'text-ink-dim'}`}>Activos</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={() => setShowArchived(true)}
-                className={`flex-1 items-center justify-center py-3 rounded-lg ${showArchived ? 'bg-brand' : 'bg-transparent'}`}
+                className={`flex-1 items-center justify-center py-3 rounded-lg ${showArchived ? 'bg-white/15 border border-white/20' : 'bg-white/5 border border-white/5'}`}
               >
                 <Text className={`font-display uppercase text-xs tracking-wider ${showArchived ? 'text-white' : 'text-ink-dim'}`}>Archivados</Text>
               </TouchableOpacity>
@@ -248,24 +250,22 @@ export default function MyMatchesScreen() {
             {/* Filter Cards */}
             <View className="flex-row gap-4 mb-4">
               {/* Organizo */}
-              <TouchableOpacity
-                activeOpacity={0.7}
+              <StatCard
+                label="Organizo"
+                value={organizedCount}
+                tone="warning"
+                selected={filter === 'organizer'}
+                accessibilityLabel="Filtrar partidos que organizo"
                 onPress={() => setFilter(filter === 'organizer' ? 'all' : 'organizer')}
-                className={`flex-1 bg-surface rounded-xl p-4 border ${filter === 'organizer' ? 'border-warning/40 bg-warning/5' : 'border-white/5'}`}
-              >
-                <Text className="font-mono text-[10px] text-ink-dim uppercase mb-1">Organizo 👑</Text>
-                <Text className="font-display text-4xl text-warning">{organizedCount}</Text>
-              </TouchableOpacity>
-
-              {/* Apuntado */}
-              <TouchableOpacity
-                activeOpacity={0.7}
+              />
+              <StatCard
+                label="Apuntado"
+                value={playerCount}
+                tone="brand"
+                selected={filter === 'player'}
+                accessibilityLabel="Filtrar partidos en los que estoy apuntado"
                 onPress={() => setFilter(filter === 'player' ? 'all' : 'player')}
-                className={`flex-1 bg-surface rounded-xl p-4 border ${filter === 'player' ? 'border-brand/40 bg-brand/5' : 'border-white/5'}`}
-              >
-                <Text className="font-mono text-[10px] text-ink-dim uppercase mb-1">Apuntado ⚽</Text>
-                <Text className="font-display text-4xl text-brand">{playerCount}</Text>
-              </TouchableOpacity>
+              />
             </View>
           </View>
         }
