@@ -166,14 +166,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
-    if (Platform.OS === 'web') {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: window.location.origin },
-      });
-      if (error) Alert.alert('Error Google', error.message);
-      return;
-    }
+    try {
+      if (Platform.OS === 'web') {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: 'google',
+          options: { redirectTo: getAuthRedirectUrl('/') },
+        });
+        if (error) Alert.alert('Error Google', error.message);
+        return;
+      }
 
     // Native: use expo-web-browser for the OAuth flow
     const redirectUrl = Linking.createURL('/');
@@ -202,6 +203,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     } else if (result.type === 'cancel') {
       // User closed the browser — no action needed
+    }
+    } catch (error) {
+      Alert.alert('Error Google', getAuthErrorMessage(error, 'No se pudo iniciar sesion con Google.'));
     }
   };
 

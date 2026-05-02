@@ -54,9 +54,14 @@ export function CiudadInput({ value, onSelect, onClear, presetResult }: Props) {
 
     timeoutRef.current = setTimeout(async () => {
       setLoading(true);
-      const res = await buscarCiudad(text);
-      setResultados(res);
-      setLoading(false);
+      try {
+        const res = await buscarCiudad(text);
+        setResultados(res);
+      } catch {
+        setResultados([]);
+      } finally {
+        setLoading(false);
+      }
     }, 350);
   }, []);
 

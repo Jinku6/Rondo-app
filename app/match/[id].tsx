@@ -4,13 +4,9 @@ import {
   Text,
   ScrollView,
   Pressable,
-  Linking,
   StyleSheet,
   ActivityIndicator,
   Alert,
-  Platform,
-  ActionSheetIOS,
-  Modal,
   Share,
   Image,
 } from 'react-native';
@@ -30,6 +26,7 @@ import {
 } from '@/types/database';
 import { Colors } from '@/constants/theme';
 import CancelMatchModal, { CancelWindow } from '@/components/CancelMatchModal';
+import { openDirections } from '@/lib/location/openDirections';
 
 const c = Colors;
 
@@ -153,31 +150,6 @@ const getCancelWindow = (matchTime: number): CancelWindow => {
   if (hoursLeft > 4)  return '4_24h';
   return 'sub_4h';
 };
-
-interface MapOption { titulo: string; url: string; nativo: string }
-
-function buildMapOptions(lat: number, lng: number): MapOption[] {
-  return [
-    {
-      titulo: 'Google Maps',
-      url: `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`,
-      nativo: `comgooglemaps://?daddr=${lat},${lng}&directionsmode=driving`,
-    },
-    {
-      titulo: 'Waze',
-      url: `https://waze.com/ul?ll=${lat},${lng}&navigate=yes`,
-      nativo: `waze://?ll=${lat},${lng}&navigate=yes`,
-    },
-    ...(Platform.OS === 'ios'
-      ? [{ titulo: 'Apple Maps', url: `maps://?daddr=${lat},${lng}&dirflg=d`, nativo: `maps://?daddr=${lat},${lng}&dirflg=d` }]
-      : []),
-  ];
-}
-
-async function abrirOpcionMapa(opcion: MapOption) {
-  const soportado = await Linking.canOpenURL(opcion.nativo);
-  Linking.openURL(soportado ? opcion.nativo : opcion.url);
-}
 
 // ─── sub-components ───────────────────────────────────────────────────────────
 
@@ -336,8 +308,6 @@ export default function MatchDetailScreen() {
   const [participants, setParticipants] = useState<MatchParticipant[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [mapModalVisible, setMapModalVisible] = useState(false);
-  const [mapOptions, setMapOptions] = useState<MapOption[]>([]);
   const [cancelModalVisible, setCancelModalVisible] = useState(false);
   const [cancelWindow, setCancelWindow] = useState<CancelWindow>('48h_plus');
   const joiningRef = useRef(false);
@@ -366,7 +336,7 @@ export default function MatchDetailScreen() {
       if (!partError && partData) {
         setParticipants(partData as MatchParticipant[]);
       }
-    } catch (e) {
+    } catch {
       Alert.alert('Error', 'No se pudieron cargar los detalles del partido.');
       router.back();
     } finally {
@@ -564,33 +534,23 @@ export default function MatchDetailScreen() {
     );
   };
 
-  const openMaps = () => {
+  const openMaps = async () => {
     if (!match) return;
-    const lat = match.location_lat;
-    const lng = match.location_lng;
+    const matchWithSnapshots = match as Match & {
+      latitude_snapshot?: number | null;
+      longitude_snapshot?: number | null;
+      location_name_snapshot?: string | null;
+    };
+    const latitude = matchWithSnapshots.latitude_snapshot ?? match.location_lat;
+    const longitude = matchWithSnapshots.longitude_snapshot ?? match.location_lng;
+    const label = matchWithSnapshots.location_name_snapshot || match.location;
 
-    if (lat && lng) {
-      const opciones = buildMapOptions(lat, lng);
-      if (Platform.OS === 'ios') {
-        ActionSheetIOS.showActionSheetWithOptions(
-          {
-            options: [...opciones.map(o => o.titulo), 'Cancelar'],
-            cancelButtonIndex: opciones.length,
-            title: 'Abrir en...',
-          },
-          index => {
-            if (index < opciones.length) abrirOpcionMapa(opciones[index]);
-          }
-        );
-      } else {
-        setMapOptions(opciones);
-        setMapModalVisible(true);
-      }
-    } else {
-      Linking.openURL(
-        `https://maps.google.com/?q=${encodeURIComponent(match.location)}`
-      );
+    if (!latitude || !longitude) {
+      Alert.alert('No hemos podido abrir la app de mapas.');
+      return;
     }
+
+    await openDirections({ latitude, longitude, label });
   };
 
   const handleShare = async () => {
@@ -601,7 +561,7 @@ export default function MatchDetailScreen() {
       const message = [
         `Partido en Rondo: ${match.title}`,
         `${formatDate(match.date_time)} a las ${formatTime(match.date_time)}`,
-        match.location,
+        (match as any).location_name_snapshot || match.location,
         matchUrl,
       ].join('\n');
 
@@ -634,6 +594,10 @@ export default function MatchDetailScreen() {
 
   const levelCfg = LEVEL_CONFIG[match.level];
   const statusCfg = STATUS_CONFIG[match.status] ?? STATUS_CONFIG.open;
+  const matchWithSnapshots = match as Match & {
+    location_name_snapshot?: string | null;
+  };
+  const locationLabel = matchWithSnapshots.location_name_snapshot || match.location;
   const organizer = match.organizer;
   const joinedParticipants = participants.filter(p => p.status === 'joined' || p.status === 'approved');
   const pendingParticipants = participants.filter(p => p.status === 'pending');
@@ -714,15 +678,15 @@ export default function MatchDetailScreen() {
             style={({ pressed }) => [s.locationCard, pressed && { opacity: 0.8 }]}
             onPress={openMaps}
             accessibilityRole="link"
-            accessibilityLabel={`Abrir ${match.location} en Google Maps`}
+            accessibilityLabel={`Cómo llegar a ${locationLabel}`}
           >
             <Ionicons name="location-outline" size={18} color={c.brand} style={s.locationIcon} />
             <View style={s.locationBody}>
-              <Text style={s.locationName}>{match.location}</Text>
+              <Text style={s.locationName}>{locationLabel}</Text>
               {!!match.location_city && (
                 <Text style={s.locationCity}>{match.location_city}</Text>
               )}
-              <Text style={s.locationLink}>Ver en el mapa →</Text>
+              <Text style={s.locationLink}>Como llegar →</Text>
             </View>
           </Pressable>
 
@@ -1003,39 +967,6 @@ export default function MatchDetailScreen() {
           executeLeave(cancelWindow);
         }}
       />
-
-      {/* Android Map Picker */}
-      <Modal
-        visible={mapModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setMapModalVisible(false)}
-      >
-        <Pressable
-          style={s.modalOverlay}
-          onPress={() => setMapModalVisible(false)}
-        >
-          <View style={s.modalContent}>
-            <Text style={s.modalTitle}>Abrir en...</Text>
-            {mapOptions.map((op) => (
-              <Pressable
-                key={op.titulo}
-                style={s.modalOption}
-                onPress={() => { setMapModalVisible(false); abrirOpcionMapa(op); }}
-              >
-                <Ionicons name="navigate-circle-outline" size={22} color={c.brand} />
-                <Text style={s.modalOptionText}>{op.titulo}</Text>
-              </Pressable>
-            ))}
-            <Pressable
-              style={s.modalCancel}
-              onPress={() => setMapModalVisible(false)}
-            >
-              <Text style={s.modalCancelText}>Cancelar</Text>
-            </Pressable>
-          </View>
-        </Pressable>
-      </Modal>
     </View>
   );
 }
@@ -1523,50 +1454,5 @@ const s = StyleSheet.create({
     color: c.textMuted,
     textAlign: 'center',
     paddingVertical: 16,
-  },
-
-  // Modal (Android Maps)
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: c.bgElev,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 24,
-    paddingBottom: Platform.OS === 'ios' ? 40 : 24,
-  },
-  modalTitle: {
-    color: c.text,
-    fontSize: 18,
-    fontWeight: '900',
-    fontFamily: 'Archivo_900Black',
-    marginBottom: 16,
-    textAlign: 'center',
-  },
-  modalOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: c.bgSurface,
-    padding: 16,
-    borderRadius: 14,
-    marginBottom: 10,
-    gap: 12,
-  },
-  modalOptionText: {
-    color: c.text,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  modalCancel: {
-    marginTop: 8,
-    padding: 16,
-    alignItems: 'center',
-  },
-  modalCancelText: {
-    color: c.textDim,
-    fontWeight: '600',
   },
 });

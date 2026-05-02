@@ -97,6 +97,9 @@ export default function EditMatchScreen() {
   const [locationLat, setLocationLat] = useState<number | null>(null);
   const [locationLng, setLocationLng] = useState<number | null>(null);
   const [locationCity, setLocationCity] = useState<string | null>(null);
+  const [venueId, setVenueId] = useState<string | null>(null);
+  const [locationAddressSnapshot, setLocationAddressSnapshot] = useState<string | null>(null);
+  const [locationQualityStatus, setLocationQualityStatus] = useState<'confirmed' | 'user_adjusted' | 'external_unverified'>('confirmed');
   const [description, setDescription] = useState('');
   const [level, setLevel] = useState<MatchLevel>('medio');
 
@@ -146,6 +149,9 @@ export default function EditMatchScreen() {
       setLocationLat((data as any).location_lat ?? null);
       setLocationLng((data as any).location_lng ?? null);
       setLocationCity((data as any).location_city ?? null);
+      setVenueId((data as any).venue_id ?? null);
+      setLocationAddressSnapshot((data as any).address_snapshot ?? null);
+      setLocationQualityStatus((data as any).location_quality_status ?? 'confirmed');
       setDescription(data.description || '');
       setLevel(loadedLevel);
       setTeamAColor(loadedTeamAColor);
@@ -162,6 +168,7 @@ export default function EditMatchScreen() {
       setInitialStateStr(JSON.stringify({
         title: data.title,
         location: data.location,
+        venueId: (data as any).venue_id ?? null,
         description: data.description || '',
         level: loadedLevel,
         teamAColor: loadedTeamAColor,
@@ -277,6 +284,11 @@ export default function EditMatchScreen() {
       return;
     }
 
+    if (!locationLat || !locationLng || !locationCity) {
+      Alert.alert('UbicaciÃ³n sin geolocalizar', 'Selecciona la ubicaciÃ³n desde el desplegable de sugerencias.');
+      return;
+    }
+
     const finalDateObj = validateAndParseDateTime();
     if (!finalDateObj) {
       Alert.alert('Error', 'La fecha u hora tienen un formato incorrecto. Usa DD/MM/YYYY y HH:MM.');
@@ -298,6 +310,12 @@ export default function EditMatchScreen() {
           location_lat: locationLat,
           location_lng: locationLng,
           location_city: locationCity,
+          venue_id: venueId,
+          location_name_snapshot: location,
+          address_snapshot: locationAddressSnapshot,
+          latitude_snapshot: locationLat,
+          longitude_snapshot: locationLng,
+          location_quality_status: locationQualityStatus,
           description,
           level,
           date_time: finalDateObj.toISOString(),
@@ -312,7 +330,7 @@ export default function EditMatchScreen() {
       if (error) throw error;
 
       setInitialStateStr(JSON.stringify({
-        title, location, description, level, teamAColor, teamBColor, price, requiresApproval, positions, dateText, timeText,
+        title, location, venueId, description, level, teamAColor, teamBColor, price, requiresApproval, positions, dateText, timeText,
       }));
 
       Alert.alert('Actualizado', 'Los cambios del partido se guardaron correctamente.', [
@@ -328,7 +346,7 @@ export default function EditMatchScreen() {
 
   const handleCancel = () => {
     const currentStateStr = JSON.stringify({
-      title, location, description, level, teamAColor, teamBColor, price, requiresApproval, positions, dateText, timeText,
+      title, location, venueId, description, level, teamAColor, teamBColor, price, requiresApproval, positions, dateText, timeText,
     });
 
     if (currentStateStr !== initialStateStr && !loading && !loadingData) {
@@ -391,13 +409,25 @@ export default function EditMatchScreen() {
               <View className="bg-white/5 border border-white/10 rounded-md-r px-4 py-1">
                 <UbicacionInput
                   value={location}
-                  onChangeText={setLocation}
+                  createdBy={user?.id}
+                  onChangeText={(text) => {
+                    setLocation(text);
+                    setVenueId(null);
+                    setLocationLat(null);
+                    setLocationLng(null);
+                    setLocationCity(null);
+                    setLocationAddressSnapshot(null);
+                    setLocationQualityStatus('confirmed');
+                  }}
                   onSelect={(r: GeoResult) => {
                     const label = [r.nombre, r.direccion, r.ciudad].filter(Boolean).join(', ');
                     setLocation(label);
                     setLocationLat(r.lat);
                     setLocationLng(r.lng);
                     setLocationCity(r.ciudad);
+                    setVenueId(r.venueId || null);
+                    setLocationAddressSnapshot(r.direccion || null);
+                    setLocationQualityStatus(r.qualityStatus || 'confirmed');
                   }}
                 />
               </View>

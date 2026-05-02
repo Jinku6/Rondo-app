@@ -86,6 +86,9 @@ export default function CreateMatchScreen() {
   const [locationLat, setLocationLat] = useState<number | null>(null);
   const [locationLng, setLocationLng] = useState<number | null>(null);
   const [locationCity, setLocationCity] = useState<string | null>(null);
+  const [venueId, setVenueId] = useState<string | null>(null);
+  const [locationAddressSnapshot, setLocationAddressSnapshot] = useState<string | null>(null);
+  const [locationQualityStatus, setLocationQualityStatus] = useState<'confirmed' | 'user_adjusted' | 'external_unverified'>('confirmed');
   const [description, setDescription] = useState('');
   const [level, setLevel] = useState<MatchLevel>('medio');
 
@@ -237,6 +240,12 @@ export default function CreateMatchScreen() {
         .insert({
           organizer_id: user.id, title, location,
           location_lat: locationLat, location_lng: locationLng, location_city: locationCity,
+          venue_id: venueId,
+          location_name_snapshot: location,
+          address_snapshot: locationAddressSnapshot,
+          latitude_snapshot: locationLat,
+          longitude_snapshot: locationLng,
+          location_quality_status: locationQualityStatus,
           description, level, date_time: finalDateObj.toISOString(),
           requested_positions: positions, team_a_color: teamAColor, team_b_color: teamBColor,
           price_per_player: parseFloat(price) || 0, requires_approval: requiresApproval, status: 'open',
@@ -248,6 +257,7 @@ export default function CreateMatchScreen() {
         { text: 'Ir al inicio', onPress: () => router.push('/(tabs)') },
       ]);
       setTitle(''); setLocation(''); setLocationLat(null); setLocationLng(null); setLocationCity(null);
+      setVenueId(null); setLocationAddressSnapshot(null); setLocationQualityStatus('confirmed');
       setDescription(''); setLevel('medio'); setDateText(''); setTimeText('');
       setPositions({ portero: 0, defensa: 0, mediocentro: 0, delantero: 0, cualquiera: 0 });
     } catch (e) {
@@ -301,10 +311,25 @@ export default function CreateMatchScreen() {
               <View className="bg-white/5 border border-white/10 rounded-md-r px-4 py-1">
                 <UbicacionInput
                   value={location}
-                  onChangeText={setLocation}
+                  createdBy={user?.id}
+                  onChangeText={(text) => {
+                    setLocation(text);
+                    setVenueId(null);
+                    setLocationLat(null);
+                    setLocationLng(null);
+                    setLocationCity(null);
+                    setLocationAddressSnapshot(null);
+                    setLocationQualityStatus('confirmed');
+                  }}
                   onSelect={(r: GeoResult) => {
                     const label = [r.nombre, r.direccion, r.ciudad].filter(Boolean).join(', ');
-                    setLocation(label); setLocationLat(r.lat); setLocationLng(r.lng); setLocationCity(r.ciudad);
+                    setLocation(label);
+                    setLocationLat(r.lat);
+                    setLocationLng(r.lng);
+                    setLocationCity(r.ciudad);
+                    setVenueId(r.venueId || null);
+                    setLocationAddressSnapshot(r.direccion || null);
+                    setLocationQualityStatus(r.qualityStatus || 'confirmed');
                   }}
                 />
               </View>
