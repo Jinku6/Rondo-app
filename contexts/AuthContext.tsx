@@ -98,7 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       password,
       options: {
         captchaToken,
-        emailRedirectTo: Linking.createURL('/'),
+        emailRedirectTo: Linking.createURL('/login'),
         data: {
           username: username.toLowerCase(),
           full_name: fullName,

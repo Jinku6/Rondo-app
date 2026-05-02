@@ -174,8 +174,46 @@ function RootLayoutNav() {
 
     // Manejar enlaces de recuperación de contraseña entrantes (Deep Linking)
     const handleDeepLink = async (url: string) => {
-      if (url.includes('#access_token') || url.includes('token=') || url.includes('type=recovery')) {
-        await supabase.auth.getSession();
+      const [, hash = ''] = url.split('#');
+      const query = url.includes('?') ? url.split('?')[1]?.split('#')[0] ?? '' : '';
+      const params = new URLSearchParams(query);
+      const hashParams = new URLSearchParams(hash);
+      const type = params.get('type') ?? hashParams.get('type');
+      const code = params.get('code') ?? hashParams.get('code');
+      const accessToken = params.get('access_token') ?? hashParams.get('access_token');
+      const refreshToken = params.get('refresh_token') ?? hashParams.get('refresh_token');
+      const isRecoveryLink = type === 'recovery' || url.includes('reset-password');
+      const isAuthLink = isRecoveryLink || type === 'signup' || type === 'email_change' || !!code || (!!accessToken && !!refreshToken);
+
+      if (!isAuthLink) return;
+
+      passwordRecoveryRef.current = isRecoveryLink;
+
+      try {
+        if (code) {
+          const { error } = await supabase.auth.exchangeCodeForSession(code);
+          if (error) throw error;
+        } else if (accessToken && refreshToken) {
+          const { error } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken,
+          });
+          if (error) throw error;
+        }
+
+        if (isRecoveryLink) {
+          router.replace('/(auth)/reset-password');
+        } else {
+          router.replace('/(auth)/login');
+        }
+      } catch (e) {
+        passwordRecoveryRef.current = false;
+        const message = e instanceof Error ? e.message : 'El enlace de recuperaciÃ³n no es vÃ¡lido o ha caducado.';
+        if (Platform.OS === 'web') {
+          window.alert(`Error: ${message}`);
+        } else {
+          Alert.alert('Error', message);
+        }
       }
     };
 
