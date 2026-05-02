@@ -12,6 +12,7 @@ interface AuthContextValue {
   profile: UserProfile | null;
   loading: boolean;
   signUp: (email: string, password: string, username: string, fullName: string, preferredPosition: string, phone: string, birthday: string, captchaToken?: string) => Promise<{ error: string | null }>;
+  resendSignUpConfirmation: (email: string, captchaToken?: string) => Promise<{ error: string | null }>;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -19,6 +20,23 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+
+const getAuthRedirectUrl = (path: string) => {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    return `${window.location.origin}${path}`;
+  }
+  return Linking.createURL(path);
+};
+
+const getAuthErrorMessage = (error: unknown, fallback: string) => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'string') return error;
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return fallback;
+  }
+};
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -93,22 +111,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signUp = async (email: string, password: string, username: string, fullName: string, preferredPosition: string, phone: string, birthday: string, captchaToken?: string) => {
-    const { error, data } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        captchaToken,
-        emailRedirectTo: Linking.createURL('/login'),
-        data: {
-          username: username.toLowerCase(),
-          full_name: fullName,
-          preferred_position: preferredPosition,
-          phone: phone,
-          birthday: birthday,
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          captchaToken,
+          emailRedirectTo: getAuthRedirectUrl('/login'),
+          data: {
+            username: username.toLowerCase(),
+            full_name: fullName,
+            preferred_position: preferredPosition,
+            phone: phone,
+            birthday: birthday,
+          },
         },
-      },
-    });
-    return { error: error?.message ?? null };
+      });
+      return { error: error?.message ?? null };
+    } catch (error) {
+      return { error: getAuthErrorMessage(error, 'No se pudo completar el registro.') };
+    }
+  };
+
+  const resendSignUpConfirmation = async (email: string, captchaToken?: string) => {
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: {
+          captchaToken,
+          emailRedirectTo: getAuthRedirectUrl('/login'),
+        },
+      });
+      return { error: error?.message ?? null };
+    } catch (error) {
+      return { error: getAuthErrorMessage(error, 'No se pudo reenviar la confirmación.') };
+    }
   };
 
   const signIn = async (email: string, password: string) => {
@@ -175,6 +213,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         profile,
         loading,
         signUp,
+        resendSignUpConfirmation,
         signIn,
         signInWithGoogle,
         signOut,

@@ -12,6 +12,7 @@ import {
   ActionSheetIOS,
   Modal,
   Share,
+  Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ExpoLinking from 'expo-linking';
@@ -101,17 +102,6 @@ const AVATAR_COLORS = [
   '#ec4899', '#ef4444', '#06b6d4', '#84cc16',
 ];
 
-const AVATAR_COLOR_CLASSES = [
-  'bg-[#a855f7]',
-  'bg-[#f59e0b]',
-  'bg-[#10b981]',
-  'bg-[#3b82f6]',
-  'bg-[#ec4899]',
-  'bg-[#ef4444]',
-  'bg-[#06b6d4]',
-  'bg-[#84cc16]',
-];
-
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
 function formatDate(iso: string): string {
@@ -133,12 +123,6 @@ function avatarColor(name: string): string {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
   return AVATAR_COLORS[Math.abs(h) % AVATAR_COLORS.length];
-}
-
-function avatarColorClass(name: string): string {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = name.charCodeAt(i) + ((h << 5) - h);
-  return AVATAR_COLOR_CLASSES[Math.abs(h) % AVATAR_COLOR_CLASSES.length];
 }
 
 function initials(name: string): string {
@@ -232,6 +216,58 @@ function InfoCell({
   );
 }
 
+function ProfileAvatar({
+  name,
+  avatarUrl,
+  size,
+  textSize,
+  isOverflow = false,
+  overflowCount = 0,
+}: {
+  name: string;
+  avatarUrl?: string | null;
+  size: number;
+  textSize: number;
+  isOverflow?: boolean;
+  overflowCount?: number;
+}) {
+  const label = isOverflow ? `+${overflowCount}` : initials(name);
+
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+        overflow: 'hidden',
+        backgroundColor: isOverflow ? '#8A938F' : avatarColor(name),
+      }}
+    >
+      {!!avatarUrl && !isOverflow ? (
+        <Image
+          source={{ uri: avatarUrl }}
+          style={StyleSheet.absoluteFillObject}
+          resizeMode="cover"
+        />
+      ) : (
+        <Text
+          style={{
+            fontFamily: 'Archivo_900Black',
+            fontSize: textSize,
+            fontWeight: '900',
+            color: '#fff',
+          }}
+        >
+          {label}
+        </Text>
+      )}
+    </View>
+  );
+}
+
 function PlayerRow({
   participant,
   onPress,
@@ -251,7 +287,7 @@ function PlayerRow({
   const pos = participant?.user?.preferred_position;
   const posCfg = pos ? POSITION_CONFIG[pos as PositionKey] : null;
   const positionLabel = isOverflow ? 'Ver todos' : posCfg?.label;
-  const avatarText = isOverflow ? `+${overflowCount}` : initials(name);
+  const avatarUrl = participant?.user?.avatar_url;
 
   return (
     <Pressable
@@ -262,9 +298,14 @@ function PlayerRow({
       accessibilityLabel={isOverflow ? 'Ver todos los jugadores apuntados' : `Ver perfil de ${name}`}
     >
       <View className="flex-row items-center gap-3 flex-1 min-w-0">
-        <View className={`h-9 w-9 shrink-0 items-center justify-center rounded-full ${isOverflow ? 'bg-[#8A938F]' : avatarColorClass(name)}`}>
-          <Text className="text-white text-[13px] font-black font-display">{avatarText}</Text>
-        </View>
+        <ProfileAvatar
+          name={name}
+          avatarUrl={avatarUrl}
+          size={36}
+          textSize={13}
+          isOverflow={isOverflow}
+          overflowCount={overflowCount}
+        />
         <View className="flex-1 min-w-0 flex-col">
           <Text className="text-[14px] font-semibold text-white" numberOfLines={1}>
             {name}
@@ -754,11 +795,12 @@ export default function MatchDetailScreen() {
                 style={s.orgLeft}
                 onPress={() => router.push(`/user/${organizer.id}` as any)}
               >
-                <View
-                  style={[s.orgAvatar, { backgroundColor: avatarColor(organizer.full_name) }]}
-                >
-                  <Text style={s.orgAvatarText}>{initials(organizer.full_name)}</Text>
-                </View>
+                <ProfileAvatar
+                  name={organizer.full_name}
+                  avatarUrl={organizer.avatar_url}
+                  size={44}
+                  textSize={15}
+                />
                 <View style={s.orgInfo}>
                   <Text style={s.orgLabel}>Organiza</Text>
                   <Text style={s.orgName}>{organizer.full_name}</Text>

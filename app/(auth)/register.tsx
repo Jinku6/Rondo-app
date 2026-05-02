@@ -10,11 +10,8 @@ import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { z } from 'zod';
-import ConfirmHcaptcha from '@hcaptcha/react-native-hcaptcha';
 import { Colors } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const HCAPTCHA_SITE_KEY = process.env.EXPO_PUBLIC_HCAPTCHA_SITE_KEY ?? '';
 
 const RegisterSchema = z.object({
   fullName: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
@@ -89,10 +86,8 @@ export default function RegisterScreen() {
   const [usernameChecking, setUsernameChecking] = useState(false);
   const [usernameError, setUsernameError] = useState('');
   const usernameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const captchaRef = useRef<ConfirmHcaptcha>(null);
-  const pendingRegisterRef = useRef(false);
 
-  const { signUp, signInWithGoogle } = useAuth();
+  const { signUp, resendSignUpConfirmation, signInWithGoogle } = useAuth();
   const router = useRouter();
 
   const checkUsername = (val: string) => {
@@ -137,16 +132,28 @@ export default function RegisterScreen() {
     return true;
   }, [birthday, fullName, username, preferredPosition, email, password, phone, usernameError]);
 
-  const doRegister = useCallback(async (captchaToken: string) => {
+  const doRegister = useCallback(async () => {
     setLoading(true);
+    try {
     const birthdayIso = birthday ? birthday.toISOString().split('T')[0] : '';
-    const { data: emailExists } = await supabase.rpc('email_exists', { search_email: email.toLowerCase() });
+    const normalizedEmail = email.trim().toLowerCase();
+    const emailExists = false;
     if (emailExists) {
+      const { error } = await resendSignUpConfirmation(normalizedEmail);
       setLoading(false);
-      showAlert('Error', 'Este correo electrónico ya está registrado.');
+      if (error) {
+        if (__DEV__) console.error('Error reenviando confirmación:', error);
+        showAlert('Error de confirmación', error);
+        return;
+      }
+      showAlert(
+        'Confirmación reenviada',
+        'Si tu cuenta sigue pendiente de confirmar, te hemos enviado otro email. Revisa también spam o promociones.',
+        () => router.replace('/(auth)/login'),
+      );
       return;
     }
-    const { error } = await signUp(email, password, username.toLowerCase(), fullName, preferredPosition, phone, birthdayIso, captchaToken);
+    const { error } = await signUp(normalizedEmail, password, username.toLowerCase(), fullName, preferredPosition, phone, birthdayIso);
     setLoading(false);
     if (error) {
       if (__DEV__) console.error('Error de registro:', error);
@@ -158,28 +165,17 @@ export default function RegisterScreen() {
         () => router.replace('/(auth)/login'),
       );
     }
-  }, [birthday, email, password, username, fullName, preferredPosition, phone, signUp, router]);
-
-  const handleCaptchaMessage = useCallback((event: any) => {
-    const data = event?.nativeEvent?.data;
-    if (!pendingRegisterRef.current) return;
-    if (!data || data === 'error' || data === 'expired') {
-      pendingRegisterRef.current = false;
-      showAlert('Error de verificación', 'No se pudo verificar el captcha. Inténtalo de nuevo.');
-      return;
+    } catch (error) {
+      setLoading(false);
+      const message = error instanceof Error ? error.message : 'No se pudo completar el registro.';
+      if (__DEV__) console.error('Error de registro:', message);
+      showAlert('Error de registro', message);
     }
-    if (data === 'cancel') {
-      pendingRegisterRef.current = false;
-      return;
-    }
-    pendingRegisterRef.current = false;
-    doRegister(data);
-  }, [doRegister]);
+  }, [birthday, email, password, username, fullName, preferredPosition, phone, signUp, resendSignUpConfirmation, router]);
 
   async function handleRegister() {
     if (!validateForm()) return;
-    pendingRegisterRef.current = true;
-    captchaRef.current?.show();
+    doRegister();
   }
 
   const pwdValidation = validatePassword(password);
@@ -418,13 +414,6 @@ export default function RegisterScreen() {
                 ))}
               </View>
             </View>
-
-            <ConfirmHcaptcha
-              ref={captchaRef}
-              siteKey={HCAPTCHA_SITE_KEY}
-              onMessage={handleCaptchaMessage}
-              size="invisible"
-            />
 
             {/* CTA */}
             <TouchableOpacity
