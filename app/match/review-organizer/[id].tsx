@@ -201,7 +201,7 @@ export default function ReviewOrganizerScreen() {
               <View className="flex-row items-center justify-between mb-2">
                 <Text className="text-slate-700 dark:text-slate-300 font-medium">Asistió al partido</Text>
                 <Switch
-                  value={p.attended}
+                  value={p.attended ?? false}
                   onValueChange={() => { if (!attendanceLocked) toggleAttendance(p.id); }}
                   disabled={attendanceLocked}
                   trackColor={{ false: '#ef4444', true: '#22c55e' }}
@@ -238,7 +238,7 @@ export default function ReviewOrganizerScreen() {
                         return (
                           <TouchableOpacity
                             key={opt.val}
-                            onPress={() => setParticipantAttitude(p.id, opt.val)}
+                            onPress={() => setParticipantAttitude(p.id, opt.val as 'positive' | 'neutral' | 'negative')}
                             className={`px-3 py-2 rounded-full border ${isActive ? 'bg-green-500/20 border-green-500' : 'bg-transparent border-gray-200 dark:border-gray-700'}`}
                           >
                             <Text className={`font-semibold text-sm ${isActive ? 'text-green-600 dark:text-green-500' : 'text-slate-600 dark:text-slate-300'}`}>

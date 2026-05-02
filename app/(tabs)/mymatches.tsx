@@ -1,19 +1,38 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { Match } from '@/types/database';
-import { useRouter, useFocusEffect, Stack } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
+import { ScreenTitle } from '@/components/ui/ScreenTitle';
+import { StatCard } from '@/components/ui/StatCard';
 
 type MyMatch = Match & { _role: 'organizer' | 'player'; _pendingCount?: number };
 
 const ACTIVE_STATUSES = ['open', 'full'];
 const ARCHIVED_STATUSES = ['completed', 'cancelled'];
 
+const formatDayName = (dateStr: string) => {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('es-ES', { weekday: 'short' }).toUpperCase();
+};
+
+const formatDayNumber = (dateStr: string) => {
+  const d = new Date(dateStr);
+  return d.getDate().toString();
+};
+
+const formatTime = (dateStr: string) => {
+  const d = new Date(dateStr);
+  return d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+};
+
 export default function MyMatchesScreen() {
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [matches, setMatches] = useState<MyMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -70,7 +89,7 @@ export default function MyMatchesScreen() {
     const playedTagged: MyMatch[] = played.map(m => ({ ...m, _role: 'player' }));
 
     const combined = [...organizedTagged, ...playedTagged].sort(
-      (a, b) => new Date(a.date_time).getTime() - new Date(b.date_time).getTime()
+      (a, b) => new Date(a.date_time).getTime() - new Date(b.date_time).getTime(),
     );
 
     setMatches(combined);
@@ -80,7 +99,7 @@ export default function MyMatchesScreen() {
 
   useFocusEffect(
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    useCallback(() => { fetchMyMatches(); }, [user])
+    useCallback(() => { fetchMyMatches(); }, [user]),
   );
 
   const onRefresh = () => { setRefreshing(true); fetchMyMatches(); };
@@ -96,70 +115,82 @@ export default function MyMatchesScreen() {
     : applyRoleFilter(activeMatches);
 
   const renderCard = ({ item }: { item: MyMatch }) => {
-    const date = new Date(item.date_time);
-    const dateString = date.toLocaleDateString('es-ES', { weekday: 'short', month: 'short', day: 'numeric' });
-    const timeString = date.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-    const maxPlayers = item.requested_positions
-      ? Object.values(item.requested_positions).reduce((a: number, b: number) => a + b, 0)
-      : 0;
-
     const isOrganizer = item._role === 'organizer';
     const isArchived = ARCHIVED_STATUSES.includes(item.status);
 
+    const borderColorClass = isOrganizer ? 'border-t-warning' : 'border-t-brand';
+    const badgeColorClass = isOrganizer ? 'bg-warning/10 border-warning/30' : 'bg-brand/10 border-brand/30';
+    const badgeTextClass = isOrganizer ? 'text-warning' : 'text-brand';
+    const badgeLabel = isOrganizer ? '👑 ORGANIZO' : '⚽ APUNTADO';
+
     return (
       <TouchableOpacity
+        activeOpacity={0.7}
         onPress={() => router.push(`/match/${item.id}`)}
-        className={`bg-white dark:bg-gray-900 rounded-xl mb-4 shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden ${isArchived ? 'opacity-75' : ''}`}
+        className={`flex-row bg-surface rounded-xl overflow-hidden mb-4 border border-white/5 border-t-4 ${borderColorClass} ${isArchived ? 'opacity-60' : 'opacity-100'}`}
       >
-        <View className={`h-1.5 w-full ${isOrganizer ? 'bg-purple-600' : 'bg-green-500'}`} />
+        {/* Left Block (Date/Time) */}
+        <View className="bg-brand w-20 items-center justify-center py-4">
+          <Text className="font-display text-white/90 text-sm tracking-wider">{formatDayName(item.date_time)}</Text>
+          <Text className="font-display text-white text-3xl leading-tight -mt-1">{formatDayNumber(item.date_time)}</Text>
+          <Text className="font-mono text-white/80 text-xs mt-1">{formatTime(item.date_time)}</Text>
+        </View>
 
-        <View className="p-4">
-          <View className="flex-row justify-between items-start mb-3">
-            <Text className="text-xl font-bold text-slate-900 dark:text-white flex-1 mr-3">{item.title}</Text>
+        {/* Right Block (Content) */}
+        <View className="flex-1 p-3 px-4 justify-between">
+          {/* Header row */}
+          <View className="flex-row justify-between items-start mb-2">
+            <Text className="font-display text-ink text-base leading-tight flex-1 mr-2" numberOfLines={2}>
+              {item.title}
+            </Text>
+            <View className={`px-2 py-1 rounded-md border ${badgeColorClass}`}>
+              <Text className={`font-display text-[10px] tracking-wider uppercase ${badgeTextClass}`}>
+                {badgeLabel}
+              </Text>
+            </View>
+          </View>
+
+          {/* Location */}
+          <View className="flex-row items-center mb-3">
+            <Ionicons name="location-outline" size={14} color="#8A938F" />
+            <Text className="font-body text-ink-dim text-xs ml-1 flex-1" numberOfLines={1}>
+              {item.location}
+            </Text>
+          </View>
+
+          {/* Separator */}
+          <View className="border-t border-dashed border-white/10 mb-3" />
+
+          {/* Footer Row */}
+          <View className="flex-row justify-between items-center">
+            <View className="flex-row items-center">
+              {/* Stack Avatars */}
+              <View className="flex-row items-center">
+                <View className="w-6 h-6 rounded-full bg-surface2 border border-surface z-20 items-center justify-center">
+                  <Ionicons name="person" size={12} color="#8A938F" />
+                </View>
+                <View className="w-6 h-6 rounded-full bg-surface2 border border-surface z-10 -ml-2 items-center justify-center">
+                  <Ionicons name="person" size={12} color="#8A938F" />
+                </View>
+                <View className="w-6 h-6 rounded-full bg-surface2 border border-surface z-0 -ml-2 items-center justify-center">
+                  <Ionicons name="person" size={12} color="#8A938F" />
+                </View>
+              </View>
+              <Text className="font-mono text-ink-dim text-xs ml-2">{item.participant_count || 0}/{Object.values(item.requested_positions || {}).reduce((a, b) => a + (b as number), 0)}</Text>
+            </View>
+
+            {/* Status Badges */}
             <View className="flex-row items-center gap-2">
               {isOrganizer && (item._pendingCount ?? 0) > 0 && (
-                <View className="bg-red-500 rounded-full min-w-[22px] h-[22px] justify-center items-center px-1.5">
-                  <Text className="text-white text-xs font-bold">{item._pendingCount}</Text>
+                <View className="bg-warning/20 px-2 py-0.5 rounded border border-warning/30">
+                  <Text className="font-body text-warning text-[10px] font-semibold">{item._pendingCount} pend.</Text>
                 </View>
               )}
-              <View className={`px-3 py-1 rounded-full ${isOrganizer ? 'bg-purple-100 dark:bg-purple-900/40' : 'bg-green-100 dark:bg-green-900/40'}`}>
-                <Text className={`text-xs font-bold ${isOrganizer ? 'text-purple-700 dark:text-purple-300' : 'text-green-700 dark:text-green-300'}`}>
-                  {isOrganizer ? 'Organizador' : 'Jugador'}
+              <View className="bg-brand/20 px-2 py-0.5 rounded border border-brand/30">
+                <Text className="font-display text-brand text-[10px] uppercase">
+                  {item.status === 'open' ? 'ABIERTO' : item.status === 'full' ? 'COMPLETO' : item.status}
                 </Text>
               </View>
-            </View>
-          </View>
-
-          <View className="space-y-1.5 mb-3">
-            <View className="flex-row items-center">
-              <Ionicons name="location-outline" size={16} color="#64748b" />
-              <Text className="text-slate-600 dark:text-slate-300 ml-2 text-sm">{item.location}</Text>
-            </View>
-            <View className="flex-row items-center">
-              <Ionicons name="calendar-outline" size={16} color="#64748b" />
-              <Text className="text-slate-600 dark:text-slate-300 ml-2 text-sm capitalize">{dateString} · {timeString}</Text>
-            </View>
-          </View>
-
-          <View className="flex-row justify-between items-center border-t border-slate-100 dark:border-gray-800 pt-3">
-            <View className="flex-row items-center gap-2">
-              {item.team_a_color && <View className="w-4 h-4 rounded-full border border-slate-200" style={{ backgroundColor: item.team_a_color }} />}
-              {item.team_b_color && <View className="w-4 h-4 rounded-full border border-slate-200" style={{ backgroundColor: item.team_b_color }} />}
-              <Text className="text-slate-400 text-sm">{maxPlayers} jugadores</Text>
-            </View>
-
-            <View className={`px-2 py-1 rounded-full ${
-              item.status === 'open' ? 'bg-green-100 dark:bg-green-900/40' :
-              item.status === 'full' ? 'bg-blue-100 dark:bg-blue-900/40' :
-              'bg-slate-100 dark:bg-slate-700'
-            }`}>
-              <Text className={`text-xs font-medium ${
-                item.status === 'open' ? 'text-green-700 dark:text-green-300' :
-                item.status === 'full' ? 'text-blue-700 dark:text-blue-300' :
-                'text-slate-500 dark:text-slate-400'
-              }`}>
-                {item.status === 'open' ? 'Abierto' : item.status === 'full' ? 'Completo' : item.status === 'completed' ? 'Finalizado' : 'Cancelado'}
-              </Text>
             </View>
           </View>
         </View>
@@ -168,114 +199,108 @@ export default function MyMatchesScreen() {
   };
 
   if (loading) {
-    return <View className="flex-1 justify-center items-center bg-slate-50 dark:bg-neutral-950"><ActivityIndicator size="large" color="#22C55E" /></View>;
+    return (
+      <View className="flex-1 bg-bg justify-center items-center">
+        <ActivityIndicator size="large" color="#22C55E" />
+      </View>
+    );
   }
 
-  const hasAny = matches.length > 0;
-  const hasActive = activeMatches.length > 0;
-  const hasArchived = archivedMatches.length > 0;
+  const organizedCount = (showArchived ? archivedMatches : activeMatches).filter(m => m._role === 'organizer').length;
+  const playerCount = (showArchived ? archivedMatches : activeMatches).filter(m => m._role === 'player').length;
 
   return (
-    <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top', 'bottom']}>
+    <View className="flex-1 bg-bg">
       <FlatList
         data={visibleMatches}
         keyExtractor={item => item.id + item._role}
         renderItem={renderCard}
-        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: FLOATING_TAB_BAR_HEIGHT + 32 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#22C55E" colors={['#22C55E']} />}
         ListHeaderComponent={
-          <View className="mb-5">
-            {/* Title row */}
-            <View className="flex-row justify-between items-center mb-5">
-              <Text className="text-3xl font-bold text-slate-900 dark:text-white">Mis partidos</Text>
-              {filter !== 'all' && (
-                <TouchableOpacity onPress={() => setFilter('all')} className="bg-slate-200 dark:bg-slate-700 px-3 py-1 rounded-full">
-                  <Text className="text-xs font-semibold text-slate-700 dark:text-slate-300">Quitar filtro ✕</Text>
-                </TouchableOpacity>
-              )}
+          <View style={{ paddingTop: insets.top + 16, marginBottom: 20 }}>
+            {/* Header: Eyebrow + title */}
+            <Text className="font-mono text-xs text-ink-dim tracking-[0.2em] uppercase mb-1">
+              AGENDA
+            </Text>
+            <View className="flex-row justify-between items-center mb-6">
+              <ScreenTitle>
+                Mis Partidos
+              </ScreenTitle>
             </View>
 
-            {/* Active / Archived toggle */}
-            {hasAny && (
-              <View className="flex-row bg-slate-200 dark:bg-gray-800 rounded-xl p-1 mb-4 border border-slate-300 dark:border-slate-700">
-                <TouchableOpacity
-                  onPress={() => setShowArchived(false)}
-                  className={`flex-1 rounded-lg py-2 items-center ${!showArchived ? 'bg-white dark:bg-gray-700' : ''}`}
-                >
-                  <Text className={`text-sm font-semibold ${!showArchived ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>
-                    Activos {hasActive ? `(${activeMatches.length})` : ''}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setShowArchived(true)}
-                  className={`flex-1 rounded-lg py-2 items-center ${showArchived ? 'bg-white dark:bg-gray-700' : ''}`}
-                >
-                  <Text className={`text-sm font-semibold ${showArchived ? 'text-slate-900 dark:text-white' : 'text-slate-500 dark:text-slate-400'}`}>
-                    Archivados {hasArchived ? `(${archivedMatches.length})` : ''}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            )}
+            {/* SegmentedTabs */}
+            <View className="flex-row bg-surface p-1 rounded-xl mb-6">
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setShowArchived(false)}
+                className={`flex-1 items-center justify-center py-3 rounded-lg ${!showArchived ? 'bg-brand border border-brand' : 'bg-white/5 border border-white/5'}`}
+              >
+                <Text className={`font-display uppercase text-xs tracking-wider ${!showArchived ? 'text-white' : 'text-ink-dim'}`}>Activos</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                onPress={() => setShowArchived(true)}
+                className={`flex-1 items-center justify-center py-3 rounded-lg ${showArchived ? 'bg-white/15 border border-white/20' : 'bg-white/5 border border-white/5'}`}
+              >
+                <Text className={`font-display uppercase text-xs tracking-wider ${showArchived ? 'text-white' : 'text-ink-dim'}`}>Archivados</Text>
+              </TouchableOpacity>
+            </View>
 
-            {/* Role filter pills — only shown when there are matches in the current view */}
-            {(showArchived ? hasArchived : hasActive) && (
-              <View className="flex-row gap-3 mb-2">
-                <TouchableOpacity
-                  onPress={() => setFilter(filter === 'organizer' ? 'all' : 'organizer')}
-                  className={`flex-1 border rounded-xl p-3 items-center ${filter === 'organizer' ? 'bg-purple-600 border-purple-600' : 'bg-purple-50 dark:bg-purple-900/20 border-purple-200 dark:border-purple-800'}`}
-                >
-                  <Text className={`text-2xl font-bold ${filter === 'organizer' ? 'text-white' : 'text-purple-700 dark:text-purple-300'}`}>
-                    {(showArchived ? archivedMatches : activeMatches).filter(m => m._role === 'organizer').length}
-                  </Text>
-                  <Text className={`text-xs mt-1 ${filter === 'organizer' ? 'text-white/80' : 'text-purple-600 dark:text-purple-400'}`}>Organizo</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  onPress={() => setFilter(filter === 'player' ? 'all' : 'player')}
-                  className={`flex-1 border rounded-xl p-3 items-center ${filter === 'player' ? 'bg-green-500 border-green-500' : 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800'}`}
-                >
-                  <Text className={`text-2xl font-bold ${filter === 'player' ? 'text-white' : 'text-green-700 dark:text-green-300'}`}>
-                    {(showArchived ? archivedMatches : activeMatches).filter(m => m._role === 'player').length}
-                  </Text>
-                  <Text className={`text-xs mt-1 ${filter === 'player' ? 'text-white/80' : 'text-green-600 dark:text-green-400'}`}>Apuntado</Text>
-                </TouchableOpacity>
-              </View>
-            )}
+            {/* Filter Cards */}
+            <View className="flex-row gap-4 mb-4">
+              {/* Organizo */}
+              <StatCard
+                label="Organizo"
+                value={organizedCount}
+                tone="warning"
+                selected={filter === 'organizer'}
+                accessibilityLabel="Filtrar partidos que organizo"
+                onPress={() => setFilter(filter === 'organizer' ? 'all' : 'organizer')}
+              />
+              <StatCard
+                label="Apuntado"
+                value={playerCount}
+                tone="brand"
+                selected={filter === 'player'}
+                accessibilityLabel="Filtrar partidos en los que estoy apuntado"
+                onPress={() => setFilter(filter === 'player' ? 'all' : 'player')}
+              />
+            </View>
           </View>
         }
         ListEmptyComponent={
-          <View className="items-center justify-center mt-16 px-6">
-            <View className="bg-slate-200 dark:bg-gray-800 rounded-full w-20 h-20 justify-center items-center mb-4">
-              <Ionicons name="calendar-outline" size={40} color="#9ca3af" />
-            </View>
-            <Text className="text-xl font-bold text-slate-900 dark:text-white mb-2">
-              {showArchived ? 'Sin partidos archivados' : 'Sin partidos activos'}
+          <View className="items-center justify-center pt-10 px-6">
+            <Text className="text-5xl mb-4">⚽</Text>
+            <Text className="font-display text-ink-dim text-xl uppercase tracking-wider mb-2 text-center">
+              ¿Listo para más?
             </Text>
-            <Text className="text-slate-500 dark:text-slate-400 text-center text-sm mb-6">
-              {showArchived
-                ? 'Los partidos finalizados o cancelados aparecerán aquí.'
-                : 'Crea un partido o únete a uno existente para empezar.'}
+            <Text className="font-body text-ink-muted text-sm text-center leading-5 mb-8">
+              Busca partidos cerca de ti o publica uno nuevo para organizar con tus amigos.
             </Text>
             {!showArchived && (
               <View className="flex-row gap-3">
                 <TouchableOpacity
+                  activeOpacity={0.7}
                   onPress={() => router.push('/(tabs)/create')}
-                  className="bg-green-500 px-5 py-3 rounded-xl flex-row items-center gap-2"
+                  className="bg-brand px-5 py-3 rounded-xl flex-row items-center gap-2"
                 >
                   <Ionicons name="add-circle-outline" size={18} color="#fff" />
-                  <Text className="text-white font-bold text-sm">Crear partido</Text>
+                  <Text className="text-white font-display uppercase text-xs tracking-wider">Crear partido</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
+                  activeOpacity={0.7}
                   onPress={() => router.push('/(tabs)/' as any)}
-                  className="bg-slate-200 dark:bg-gray-800 px-5 py-3 rounded-xl flex-row items-center gap-2"
+                  className="bg-surface border border-white/10 px-5 py-3 rounded-xl flex-row items-center gap-2"
                 >
-                  <Ionicons name="search-outline" size={18} color="#64748b" />
-                  <Text className="text-slate-700 dark:text-slate-300 font-bold text-sm">Buscar</Text>
+                  <Ionicons name="search-outline" size={18} color="#8A938F" />
+                  <Text className="text-ink-dim font-display uppercase text-xs tracking-wider">Buscar</Text>
                 </TouchableOpacity>
               </View>
             )}
           </View>
         }
       />
-    </SafeAreaView>
+    </View>
   );
 }

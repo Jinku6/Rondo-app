@@ -4,6 +4,10 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import { firstParam, isValidUUID } from '@/lib/utils';
+import { getErrorMessage, logSupabaseError } from '@/lib/supabaseErrors';
+
+type Attitude = 'positive' | 'neutral' | 'negative';
 
 interface PersonReview {
   user_id: string;
@@ -11,11 +15,12 @@ interface PersonReview {
   username: string;
   isOrganizer: boolean;
   levelRating: number;
-  attitude: string | null;
+  attitude: Attitude | null;
 }
 
 export default function ReviewPlayerScreen() {
-  const { id } = useLocalSearchParams();
+  const params = useLocalSearchParams();
+  const id = firstParam(params.id as string | string[]);
   const { user } = useAuth();
   const router = useRouter();
 
@@ -27,45 +32,84 @@ export default function ReviewPlayerScreen() {
   useEffect(() => {
     fetchData();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, user?.id]);
+
+  const clearPlayerReviewNotification = async () => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('notifications')
+      .update({ read: true })
+      .eq('user_id', user.id)
+      .eq('match_id', id)
+      .eq('type', 'pending_player_review');
+
+    if (error) logSupabaseError('review-player clear notification error', error);
+  };
 
   const fetchData = async () => {
-    // Fetch match + organizer
+    if (!user) return;
+
+    if (!isValidUUID(id)) {
+      Alert.alert('Error', 'Partido no valido');
+      router.back();
+      return;
+    }
+
     const { data: match, error: matchError } = await supabase
       .from('matches')
-      .select('title, organizer_id, organizer:users(full_name, username)')
+      .select('title, status, organizer_id, organizer:users(full_name, username)')
       .eq('id', id)
       .single();
 
     if (matchError || !match) {
+      logSupabaseError('review-player match fetch error', matchError);
       Alert.alert('Error', 'No se pudo cargar el partido');
+      router.back();
+      return;
+    }
+
+    if (match.status !== 'completed') {
+      Alert.alert('Aviso', 'Este partido todavia no esta listo para valorar.');
       router.back();
       return;
     }
 
     setMatchTitle(match.title);
 
-    // Fetch participants who attended (excluding current user)
-    const { data: participants, error: pError } = await supabase
+    const { data: participants, error: participantsError } = await supabase
       .from('match_participants')
-      .select('user_id, user:users(full_name, username)')
+      .select('user_id, attended, user:users(full_name, username)')
       .eq('match_id', id)
       .in('status', ['joined', 'approved'])
-      .eq('attended', true)
-      .neq('user_id', user?.id);
+      .neq('user_id', user.id);
 
-    if (pError) {
-      Alert.alert('Error', pError.message);
+    if (participantsError) {
+      logSupabaseError('review-player participants fetch error', participantsError);
+      Alert.alert('Error', getErrorMessage(participantsError, 'No se pudieron cargar los participantes.'));
       router.back();
       return;
     }
 
-    const organizer = match.organizer as any;
-    const list: PersonReview[] = [];
+    const { data: existingReviews, error: reviewsError } = await supabase
+      .from('match_reviews')
+      .select('reviewee_id')
+      .eq('match_id', id)
+      .eq('reviewer_id', user.id);
 
-    // Add organizer first (if not the current user)
-    if (match.organizer_id !== user?.id) {
-      list.push({
+    if (reviewsError) {
+      logSupabaseError('review-player existing reviews fetch error', reviewsError);
+      Alert.alert('Error', getErrorMessage(reviewsError, 'No se pudo comprobar que valoraciones ya enviaste.'));
+      router.back();
+      return;
+    }
+
+    const reviewedIds = new Set((existingReviews || []).map(r => r.reviewee_id as string));
+    const organizer = match.organizer as { full_name?: string | null; username?: string | null } | null;
+    const listByUserId = new Map<string, PersonReview>();
+
+    if (match.organizer_id !== user.id && !reviewedIds.has(match.organizer_id)) {
+      listByUserId.set(match.organizer_id, {
         user_id: match.organizer_id,
         name: organizer?.full_name || 'Organizador',
         username: organizer?.username || '',
@@ -75,19 +119,24 @@ export default function ReviewPlayerScreen() {
       });
     }
 
-    // Add other participants (skip organizer to avoid duplicates)
-    for (const p of participants || []) {
-      if (p.user_id === match.organizer_id) continue;
-      const u = p.user as any;
-      list.push({
-        user_id: p.user_id,
-        name: u?.full_name || 'Jugador',
-        username: u?.username || '',
+    for (const participant of participants || []) {
+      if (participant.user_id === match.organizer_id) continue;
+      if (participant.attended === false) continue;
+      if (reviewedIds.has(participant.user_id)) continue;
+
+      const participantUser = participant.user as { full_name?: string | null; username?: string | null } | null;
+      listByUserId.set(participant.user_id, {
+        user_id: participant.user_id,
+        name: participantUser?.full_name || 'Jugador',
+        username: participantUser?.username || '',
         isOrganizer: false,
         levelRating: 0,
         attitude: null,
       });
     }
+
+    const list = Array.from(listByUserId.values());
+    if (list.length === 0) await clearPlayerReviewNotification();
 
     setPeople(list);
     setLoading(false);
@@ -97,7 +146,7 @@ export default function ReviewPlayerScreen() {
     setPeople(prev => prev.map(p => p.user_id === userId ? { ...p, levelRating: val } : p));
   };
 
-  const setAttitude = (userId: string, val: string) => {
+  const setAttitude = (userId: string, val: Attitude) => {
     setPeople(prev => prev.map(p => p.user_id === userId ? { ...p, attitude: val } : p));
   };
 
@@ -112,30 +161,26 @@ export default function ReviewPlayerScreen() {
     setSaving(true);
 
     try {
-      for (const p of people) {
-        await supabase.from('match_reviews').insert({
-          match_id: id,
-          reviewer_id: user.id,
-          reviewee_id: p.user_id,
-          level_rating: p.levelRating,
-          attitude: p.attitude,
-          attended: true,
-        });
-      }
+      const reviewsToInsert = people.map(p => ({
+        match_id: id,
+        reviewer_id: user.id,
+        reviewee_id: p.user_id,
+        level_rating: p.levelRating,
+        attitude: p.attitude,
+        attended: true,
+      }));
 
-      // Mark notification as read
-      await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('user_id', user.id)
-        .eq('match_id', id)
-        .eq('type', 'pending_player_review');
+      const { error } = await supabase.from('match_reviews').insert(reviewsToInsert);
+      if (error) throw error;
 
-      Alert.alert('¡Gracias!', 'Has valorado a todos los participantes.', [
-        { text: 'Aceptar', onPress: () => router.back() },
+      await clearPlayerReviewNotification();
+
+      Alert.alert('Gracias', 'Has valorado a todos los participantes.', [
+        { text: 'Aceptar', onPress: () => router.replace('/(tabs)') },
       ]);
     } catch (error) {
-      Alert.alert('Error', error instanceof Error ? error.message : String(error));
+      logSupabaseError('review-player save error', error);
+      Alert.alert('Error', getErrorMessage(error, 'No se pudieron guardar las valoraciones.'));
     } finally {
       setSaving(false);
     }
@@ -182,7 +227,6 @@ export default function ReviewPlayerScreen() {
         ) : (
           people.map((p) => (
             <View key={p.user_id} className="bg-white dark:bg-gray-900 p-4 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm mb-4">
-              {/* Header */}
               <View className="flex-row items-center border-b border-gray-100 dark:border-gray-800 pb-3 mb-3">
                 <View className="w-10 h-10 bg-slate-200 dark:bg-slate-700 rounded-full justify-center items-center mr-3">
                   <Text className="font-bold text-slate-500 dark:text-slate-400">
@@ -197,20 +241,18 @@ export default function ReviewPlayerScreen() {
                 </View>
               </View>
 
-              {/* Stars */}
               <View className="mb-3">
                 <Text className="text-slate-500 text-xs uppercase tracking-wider mb-2 font-bold">Nivel</Text>
                 {renderStars(p.levelRating, (val) => setLevel(p.user_id, val))}
               </View>
 
-              {/* Attitude */}
               <View>
                 <Text className="text-slate-500 text-xs uppercase tracking-wider mb-2 font-bold">Actitud</Text>
                 <View className="flex-row flex-wrap gap-2">
                   {[
-                    { val: 'positive', label: '🤩 Positiva' },
-                    { val: 'neutral', label: '😐 Neutral' },
-                    { val: 'negative', label: '😠 Negativa' },
+                    { val: 'positive' as const, label: 'Positiva' },
+                    { val: 'neutral' as const, label: 'Neutral' },
+                    { val: 'negative' as const, label: 'Negativa' },
                   ].map((opt) => {
                     const isActive = p.attitude === opt.val;
                     return (

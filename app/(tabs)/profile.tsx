@@ -3,17 +3,60 @@ import {
   View, Text, TouchableOpacity, ScrollView, TextInput,
   ActivityIndicator, Alert, Platform, Image,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { PendingReviewsAlert } from '@/components/PendingReviewsAlert';
 import { decode } from 'base64-arraybuffer';
-import { ProfileStats } from '@/components/ProfileStats';
 import { calculateAge, isSafeUrl } from '@/lib/utils';
+import { Colors } from '@/constants/theme';
+import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
+import { getErrorMessage, logSupabaseError } from '@/lib/supabaseErrors';
+import { containsProfanity } from '@/lib/profanityFilter';
+
+const c = Colors;
 
 const POSITIONS = ['portero', 'defensa', 'mediocentro', 'delantero'];
+
+const POSITION_EMOJIS: Record<string, string> = {
+  portero: '🧤', defensa: '🛡️', mediocentro: '⚙️', delantero: '⚡',
+};
+
+const POSITION_LABELS: Record<string, string> = {
+  portero: 'Portero',
+  defensa: 'Defensa',
+  mediocentro: 'Medio',
+  delantero: 'Delantero',
+};
+
+function getReliabilityInfo(score: number): { label: string; icon: string; color: string } {
+  if (score >= 90) return { label: 'Nunca falta', icon: '✅', color: c.brand };
+  if (score >= 75) return { label: 'Casi nunca falta', icon: '🌟', color: c.warning };
+  if (score >= 50) return { label: 'Falta con frecuencia', icon: '⚠️', color: '#F97316' };
+  return { label: 'Falta casi siempre', icon: '🚫', color: c.danger };
+}
+
+/** Devuelve el emoji de actitud según el promedio numérico (5=Positiva, 3=Neutral, 1=Negativa) */
+function getAttitudeEmoji(rating: number): string {
+  if (rating === 0) return '—';
+  if (rating >= 4) return '🤩';
+  if (rating >= 2.5) return '😐';
+  return '😠';
+}
+
+function getAttitudeColor(rating: number): string {
+  if (rating === 0) return c.textMuted;
+  if (rating >= 4) return c.brand;
+  if (rating >= 2.5) return c.warning;
+  return c.danger;
+}
+
+function formatMemberSince(isoDate: string): string {
+  const date = new Date(isoDate);
+  return date.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+}
 
 const showAlert = (title: string, message: string, onOk?: () => void) => {
   if (Platform.OS === 'web') {
@@ -24,44 +67,63 @@ const showAlert = (title: string, message: string, onOk?: () => void) => {
   }
 };
 
+const inp = {
+  backgroundColor: 'rgba(255,255,255,0.04)' as const,
+  borderColor: 'rgba(255,255,255,0.08)' as const,
+  borderWidth: 1,
+  borderRadius: 14,
+  paddingHorizontal: 16,
+  paddingVertical: 13,
+  color: c.text,
+  fontSize: 15,
+};
+
+const sectionCard = {
+  backgroundColor: c.bgElev,
+  borderRadius: 20,
+  borderWidth: 1,
+  borderColor: c.border,
+  padding: 18,
+  marginBottom: 14,
+};
+
 export default function ProfileScreen() {
   const { user, profile, refreshProfile, signOut } = useAuth();
+  const insets = useSafeAreaInsets();
 
   const [isEditing, setIsEditing] = useState(false);
 
-  // Campos de perfil
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
   const [usernameChecking, setUsernameChecking] = useState(false);
   const [usernameError, setUsernameError] = useState('');
   const usernameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [preferredPosition, setPreferredPosition] = useState('');
+  const [bio, setBio] = useState('');
   const [phone, setPhone] = useState('');
+  const [initialPhone, setInitialPhone] = useState('');
   const [loadingPhone, setLoadingPhone] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Campos de cuenta
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [savingEmail, setSavingEmail] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
 
-  // Avatar
   const [uploading, setUploading] = useState(false);
 
   const fetchPhone = async () => {
     if (!user) return;
     setLoadingPhone(true);
     const { data, error } = await supabase
-      .from('user_private_data')
-      .select('phone')
-      .eq('user_id', user.id)
-      .maybeSingle();
+      .from('user_private_data').select('phone').eq('user_id', user.id).maybeSingle();
     if (error) {
       if (__DEV__) console.error('fetchPhone error:', error.message);
     } else {
-      setPhone(data?.phone || '');
+      const nextPhone = data?.phone || '';
+      setPhone(nextPhone);
+      setInitialPhone(nextPhone);
     }
     setLoadingPhone(false);
   };
@@ -79,8 +141,8 @@ export default function ProfileScreen() {
 
   if (!profile || !user) {
     return (
-      <View className="flex-1 bg-white dark:bg-neutral-950 justify-center items-center">
-        <ActivityIndicator size="large" color="#22C55E" />
+      <View style={{ flex: 1, backgroundColor: c.bg, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={c.brand} />
       </View>
     );
   }
@@ -88,29 +150,21 @@ export default function ProfileScreen() {
   const checkUsername = (val: string) => {
     setUsername(val);
     if (usernameDebounceRef.current) clearTimeout(usernameDebounceRef.current);
-
     if (val.length < 3) {
       setUsernameError(val.length > 0 ? 'Mínimo 3 caracteres' : '');
       setUsernameChecking(false);
       return;
     }
-
     if (val.toLowerCase() === profile.username?.toLowerCase()) {
       setUsernameError('');
       setUsernameChecking(false);
       return;
     }
-
     setUsernameError('');
     setUsernameChecking(true);
     const normalized = val.toLowerCase();
     usernameDebounceRef.current = setTimeout(async () => {
-      const { data } = await supabase
-        .from('users')
-        .select('id')
-        .eq('username', normalized)
-        .neq('id', user.id)
-        .maybeSingle();
+      const { data } = await supabase.from('users').select('id').eq('username', normalized).neq('id', user.id).maybeSingle();
       setUsernameError(data ? 'El usuario ya está en uso' : '');
       setUsernameChecking(false);
     }, 400);
@@ -122,6 +176,7 @@ export default function ProfileScreen() {
     setUsernameError('');
     setUsernameChecking(false);
     setPreferredPosition(profile.preferred_position || '');
+    setBio(profile.bio || '');
     setNewEmail('');
     setNewPassword('');
     setIsEditing(true);
@@ -134,14 +189,9 @@ export default function ProfileScreen() {
     setIsEditing(false);
   };
 
-  // ── Avatar ──────────────────────────────────────────────────────────────
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.5,
-      base64: true,
+      mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.5, base64: true,
     });
     if (!result.canceled && result.assets?.[0]?.base64) {
       await uploadAvatar(result.assets[0].base64, result.assets[0].uri);
@@ -154,8 +204,7 @@ export default function ProfileScreen() {
       const fileExt = uri.split('.').pop()?.split('?')[0] || 'jpg';
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
       const { error } = await supabase.storage.from('avatars').upload(
-        fileName, decode(base64String),
-        { cacheControl: '3600', upsert: true, contentType: 'image/jpeg' },
+        fileName, decode(base64String), { cacheControl: '3600', upsert: true, contentType: 'image/jpeg' },
       );
       if (error) throw error;
       const { data: publicData } = supabase.storage.from('avatars').getPublicUrl(fileName);
@@ -163,85 +212,70 @@ export default function ProfileScreen() {
       await refreshProfile();
       showAlert('Éxito', 'Foto de perfil actualizada');
     } catch (error) {
-      showAlert('Error', error instanceof Error ? error.message : String(error));
+      logSupabaseError('profile avatar upload error', error);
+      showAlert('Error', getErrorMessage(error, 'No se pudo actualizar la foto de perfil.'));
     } finally {
       setUploading(false);
     }
   };
 
-  // ── Guardar perfil ──────────────────────────────────────────────────────
   const handleSaveProfile = async () => {
-    if (!username.trim()) {
-      showAlert('Error', 'El nombre de usuario no puede estar vacío');
-      return;
-    }
-    if (usernameError) {
-      showAlert('Error', 'Corrige el nombre de usuario antes de guardar');
-      return;
-    }
-    if (usernameChecking) {
-      showAlert('Error', 'Espera a que se valide el nombre de usuario');
-      return;
-    }
+    if (!username.trim()) { showAlert('Error', 'El nombre de usuario no puede estar vacío'); return; }
+    if (usernameError) { showAlert('Error', 'Corrige el nombre de usuario antes de guardar'); return; }
+    if (usernameChecking) { showAlert('Error', 'Espera a que se valide el nombre de usuario'); return; }
+    if (containsProfanity(bio)) { showAlert('Error', 'La bio contiene vocabulario no permitido.'); return; }
     setSaving(true);
     try {
-      const [usersResult, phoneResult] = await Promise.all([
-        supabase
-          .from('users')
-          .update({
-            full_name: fullName,
-            username: username.toLowerCase().trim(),
-            preferred_position: preferredPosition || null,
-          })
-          .eq('id', user.id),
-        supabase
+      const { error: usersError } = await supabase.from('users').update({
+        full_name: fullName.trim(),
+        username: username.toLowerCase().trim(),
+        preferred_position: preferredPosition || null,
+        bio: bio.trim() || null,
+      }).eq('id', user.id);
+      if (usersError) throw usersError;
+
+      const normalizedPhone = phone.trim();
+      if (normalizedPhone !== initialPhone.trim()) {
+        const { error: phoneError } = await supabase
           .from('user_private_data')
-          .upsert({ user_id: user.id, phone, updated_at: new Date().toISOString() }),
-      ]);
-
-      if (usersResult.error) throw usersResult.error;
-      if (phoneResult.error) throw phoneResult.error;
-
+          .upsert(
+            { user_id: user.id, phone: normalizedPhone, updated_at: new Date().toISOString() },
+            { onConflict: 'user_id' },
+          );
+        if (phoneError) throw phoneError;
+        setInitialPhone(normalizedPhone);
+      }
       await refreshProfile();
       setIsEditing(false);
       showAlert('Guardado', 'Perfil actualizado correctamente');
     } catch (e) {
-      showAlert('Error', e instanceof Error ? e.message : String(e));
+      logSupabaseError('profile save error', e);
+      showAlert('Error', getErrorMessage(e, 'No se pudo guardar el perfil.'));
     } finally {
       setSaving(false);
     }
   };
 
-  // ── Cambiar email ───────────────────────────────────────────────────────
   const handleUpdateEmail = async () => {
     if (!newEmail.trim()) return;
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(newEmail)) {
-      showAlert('Error', 'Introduce un email válido');
-      return;
-    }
+    if (!emailRegex.test(newEmail)) { showAlert('Error', 'Introduce un email válido'); return; }
     setSavingEmail(true);
     try {
       const { error } = await supabase.auth.updateUser({ email: newEmail });
       if (error) throw error;
-      showAlert(
-        'Confirmación enviada',
-        `Te hemos enviado un enlace de confirmación a ${newEmail}. Revisa tu bandeja de entrada y confirma el cambio.`,
-      );
+      showAlert('Confirmación enviada', `Te hemos enviado un enlace de confirmación a ${newEmail}.`);
       setNewEmail('');
     } catch (e) {
-      showAlert('Error', e instanceof Error ? e.message : String(e));
+      logSupabaseError('profile email update error', e);
+      showAlert('Error', getErrorMessage(e, 'No se pudo actualizar el email.'));
     } finally {
       setSavingEmail(false);
     }
   };
 
-  // ── Cambiar contraseña ──────────────────────────────────────────────────
   const handleUpdatePassword = async () => {
-    if (newPassword.length < 6) {
-      showAlert('Error', 'La contraseña debe tener al menos 6 caracteres');
-      return;
-    }
+    if (newPassword.length < 6) { showAlert('Error', 'La contraseña debe tener al menos 6 caracteres'); return; }
     setSavingPassword(true);
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
@@ -249,28 +283,22 @@ export default function ProfileScreen() {
       showAlert('Contraseña actualizada', 'Tu contraseña ha sido cambiada correctamente.');
       setNewPassword('');
     } catch (e) {
-      showAlert('Error', e instanceof Error ? e.message : String(e));
+      logSupabaseError('profile password update error', e);
+      showAlert('Error', getErrorMessage(e, 'No se pudo actualizar la contrasena.'));
     } finally {
       setSavingPassword(false);
     }
   };
 
-  // ── Eliminar cuenta ─────────────────────────────────────────────────────
   const handleDeleteAccount = () => {
     if (Platform.OS === 'web') {
-      const confirmed = window.confirm(
-        '⚠️ Eliminar Cuenta\n\nEsta acción es permanente y no se puede deshacer. ¿Estás seguro?',
-      );
+      const confirmed = window.confirm('⚠️ Eliminar Cuenta\n\nEsta acción es permanente. ¿Estás seguro?');
       if (confirmed) doDeleteAccount();
     } else {
-      Alert.alert(
-        '⚠️ Eliminar Cuenta',
-        'Esta acción es permanente y no se puede deshacer. Se borrarán todos tus datos, partidos y valoraciones.',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Eliminar', style: 'destructive', onPress: doDeleteAccount },
-        ],
-      );
+      Alert.alert('⚠️ Eliminar Cuenta', 'Esta acción es permanente y no se puede deshacer.', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Eliminar', style: 'destructive', onPress: doDeleteAccount },
+      ]);
     }
   };
 
@@ -282,346 +310,538 @@ export default function ProfileScreen() {
       if (authError && __DEV__) console.warn('delete_own_account RPC no disponible:', authError.message);
       await signOut();
     } catch (e) {
-      showAlert('Error', e instanceof Error ? e.message : String(e));
+      logSupabaseError('profile delete account error', e);
+      showAlert('Error', getErrorMessage(e, 'No se pudo eliminar la cuenta.'));
     }
   };
 
   const age = calculateAge(profile.birthday);
 
-  // ════════════════════════════════════════════════════════════════════════
-  // VISTA: perfil
-  // ════════════════════════════════════════════════════════════════════════
+  // ── View mode ────────────────────────────────────────────────────────────
   if (!isEditing) {
+    const reliability = getReliabilityInfo(profile.reliability_score);
+
     return (
-      <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top', 'bottom']}>
+      <View style={{ flex: 1, backgroundColor: c.bg }}>
         <ScrollView
-          className="flex-1"
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 40 }}
+          style={{ flex: 1 }}
+          contentContainerStyle={{
+            paddingHorizontal: 20,
+            paddingTop: insets.top + 16,
+            paddingBottom: FLOATING_TAB_BAR_HEIGHT + 24,
+          }}
+          showsVerticalScrollIndicator={false}
         >
           <PendingReviewsAlert />
 
-          <View className="bg-white dark:bg-gray-900 rounded-2xl p-6 border border-gray-200 dark:border-gray-800 items-center mt-2">
-            {/* Avatar */}
-            <View className="relative mb-3">
+          {/* ── Identity ───────────────────────────────────────────── */}
+          <View style={{ alignItems: 'center', paddingVertical: 24 }}>
+            <View style={{ position: 'relative' }}>
               {isSafeUrl(profile.avatar_url) ? (
                 <Image
-                  source={{ uri: profile.avatar_url }}
-                  className="w-28 h-28 rounded-full border-4 border-green-100 dark:border-gray-800"
+                  source={{ uri: profile.avatar_url! }}
+                  style={{
+                    width: 132,
+                    height: 132,
+                    borderRadius: 66,
+                    borderWidth: 3,
+                    borderColor: c.brand,
+                    marginBottom: 16,
+                  }}
                 />
               ) : (
-                <View className="w-28 h-28 rounded-full bg-green-100 dark:bg-green-900 justify-center items-center border-4 border-white dark:border-gray-900">
-                  <Text className="text-4xl text-green-600 dark:text-green-300 font-bold uppercase">
-                    {profile.full_name?.charAt(0) || '?'}
+                <View style={{
+                  width: 132,
+                  height: 132,
+                  borderRadius: 66,
+                  backgroundColor: c.brandSoft,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  borderWidth: 3,
+                  borderColor: c.brand,
+                  marginBottom: 16,
+                }}>
+                  <Text style={{ fontSize: 52, color: c.brand, fontWeight: '800' }}>
+                    {profile.full_name?.charAt(0)?.toUpperCase() || '?'}
                   </Text>
                 </View>
               )}
               <TouchableOpacity
-                className="absolute bottom-0 right-0 bg-green-500 w-9 h-9 rounded-full items-center justify-center border-2 border-white dark:border-gray-900"
+                style={{
+                  position: 'absolute', bottom: 16, right: 0,
+                  backgroundColor: c.brand, width: 38, height: 38,
+                  borderRadius: 12, alignItems: 'center', justifyContent: 'center',
+                  borderWidth: 2, borderColor: c.bgElev
+                }}
                 onPress={pickImage}
                 disabled={uploading}
               >
-                {uploading
-                  ? <ActivityIndicator size="small" color="#fff" />
-                  : <Ionicons name="camera" size={18} color="#fff" />}
+                {uploading ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="camera" size={18} color="#fff" />}
               </TouchableOpacity>
             </View>
 
-            <Text className="text-2xl font-bold text-slate-900 dark:text-white mb-1">
+            <Text style={{
+              fontFamily: 'Archivo_900Black',
+              fontSize: 34,
+              fontWeight: '900',
+              color: c.text,
+              letterSpacing: -0.4,
+              marginBottom: 4,
+              textAlign: 'center',
+            }}>
               {profile.full_name}
             </Text>
-            <Text className="text-slate-500 dark:text-slate-400 mb-1">@{profile.username}</Text>
-            <Text className="text-slate-400 dark:text-slate-500 text-xs mb-4">{user.email}</Text>
 
-            <View className="flex-row gap-2 mb-6 flex-wrap justify-center">
-              {age !== null && (
-                <View className="bg-blue-50 dark:bg-blue-900/30 px-4 py-2 rounded-full border border-blue-200 dark:border-blue-800">
-                  <Text className="text-blue-700 dark:text-blue-300 font-medium">{age} años</Text>
-                </View>
-              )}
-              {profile.preferred_position && (
-                <View className="bg-green-50 dark:bg-green-900/30 px-4 py-2 rounded-full border border-green-200 dark:border-green-800">
-                  <Text className="text-green-700 dark:text-green-300 font-medium capitalize">
-                    {profile.preferred_position}
-                  </Text>
-                </View>
-              )}
+            <Text style={{ fontSize: 14, color: c.textDim, marginBottom: 4 }}>
+              @{profile.username}
+            </Text>
+
+            <Text style={{ fontSize: 12, color: c.textMuted }}>
+              Jugador desde {formatMemberSince(profile.created_at)}
+            </Text>
+          </View>
+
+          {/* ── Quick Stats Row ────────────────────────────────────── */}
+          <View style={{
+            flexDirection: 'row',
+            backgroundColor: c.bgElev,
+            borderRadius: 20,
+            borderWidth: 1,
+            borderColor: c.border,
+            marginBottom: 14,
+            overflow: 'hidden',
+          }}>
+            {/* Años */}
+            <View style={{ flex: 1, alignItems: 'center', paddingVertical: 18 }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: c.textDim, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 }}>
+                Años
+              </Text>
+              <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 22, fontWeight: '900', color: c.text }}>
+                {age !== null ? age : '—'}
+              </Text>
             </View>
 
-            <TouchableOpacity
-              className="px-8 py-2.5 bg-slate-100 dark:bg-slate-700 rounded-full"
-              onPress={startEditing}
-              disabled={loadingPhone}
-            >
-              {loadingPhone
-                ? <ActivityIndicator size="small" color="#64748b" />
-                : <Text className="text-slate-800 dark:text-slate-200 font-medium">Editar perfil</Text>}
-            </TouchableOpacity>
+            {/* Divider */}
+            <View style={{ width: 1, backgroundColor: c.border, marginVertical: 14 }} />
+
+            {/* Posición */}
+            <View style={{ flex: 1, alignItems: 'center', paddingVertical: 18 }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: c.textDim, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 }}>
+                Posición
+              </Text>
+              <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 15, fontWeight: '900', color: c.text, textAlign: 'center' }}>
+                {profile.preferred_position
+                  ? POSITION_LABELS[profile.preferred_position] ?? profile.preferred_position
+                  : '—'}
+              </Text>
+            </View>
+
+            {/* Divider */}
+            <View style={{ width: 1, backgroundColor: c.border, marginVertical: 14 }} />
+
+            {/* Fiabilidad */}
+            <View style={{ flex: 1, alignItems: 'center', paddingVertical: 18, paddingHorizontal: 4 }}>
+              <Text style={{ fontSize: 11, fontWeight: '700', color: c.textDim, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 }}>
+                Fiabilidad
+              </Text>
+              {profile.matches_played >= 3 ? (
+                <>
+                  <Text style={{ fontSize: 18, marginBottom: 2 }}>{reliability.icon}</Text>
+                  <Text style={{ fontSize: 11, fontWeight: '800', color: reliability.color, textAlign: 'center', lineHeight: 14 }}>
+                    {reliability.label}
+                  </Text>
+                </>
+              ) : (
+                <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 15, fontWeight: '900', color: c.textMuted }}>—</Text>
+              )}
+            </View>
           </View>
 
-          <View className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 mt-4">
-            <ProfileStats profile={profile} />
+          {/* ── Sobre mí ───────────────────────────────────────────── */}
+          <View style={{
+            backgroundColor: c.bgElev,
+            borderRadius: 20,
+            borderWidth: 1,
+            borderColor: c.border,
+            padding: 18,
+            marginBottom: 14,
+          }}>
+            <Text style={{
+              fontSize: 10,
+              fontWeight: '700',
+              color: c.textDim,
+              letterSpacing: 2,
+              textTransform: 'uppercase',
+              marginBottom: 10,
+            }}>
+              Sobre mí
+            </Text>
+            <Text style={{ fontSize: 14, color: profile.bio ? c.textDim : c.textMuted, lineHeight: 22, fontStyle: profile.bio ? 'normal' : 'italic' }}>
+              {profile.bio ?? 'Sin descripción todavía.'}
+            </Text>
           </View>
+
+          {/* ── Estadísticas ───────────────────────────────────────── */}
+          <Text style={{
+            fontSize: 10,
+            fontWeight: '700',
+            color: c.textDim,
+            letterSpacing: 2,
+            textTransform: 'uppercase',
+            marginBottom: 10,
+          }}>
+            Estadísticas
+          </Text>
+
+          {profile.matches_played < 3 ? (
+            <View style={{
+              backgroundColor: c.brandSoft,
+              borderRadius: 20,
+              borderWidth: 1,
+              borderColor: c.brand + '33',
+              padding: 20,
+              alignItems: 'center',
+              marginBottom: 14,
+            }}>
+              <Text style={{ fontSize: 36, marginBottom: 8 }}>🌱</Text>
+              <Text style={{ fontSize: 15, fontWeight: '800', color: c.brand, marginBottom: 4 }}>Perfil en crecimiento</Text>
+              <Text style={{ fontSize: 13, color: c.textDim, textAlign: 'center', lineHeight: 20 }}>
+                Las estadísticas se desbloquean al completar 3 partidos valorados ({profile.matches_played}/3).
+              </Text>
+            </View>
+          ) : (
+            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
+              {/* Partidos */}
+              <View style={{
+                flex: 1,
+                backgroundColor: c.bgElev,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: c.border,
+                padding: 16,
+                alignItems: 'center',
+              }}>
+                <Ionicons name="football-outline" size={22} color={c.textMuted} style={{ marginBottom: 8 }} />
+                <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 26, fontWeight: '900', color: c.text, marginBottom: 2 }}>
+                  {profile.matches_played}
+                </Text>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: c.textMuted, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center' }}>
+                  Partidos
+                </Text>
+              </View>
+
+              {/* Nivel */}
+              <View style={{
+                flex: 1,
+                backgroundColor: c.bgElev,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: c.border,
+                padding: 16,
+                alignItems: 'center',
+              }}>
+                <Ionicons name="speedometer-outline" size={22} color={c.warning} style={{ marginBottom: 8 }} />
+                <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 26, fontWeight: '900', color: c.warning, marginBottom: 2 }}>
+                  {profile.average_level > 0 ? profile.average_level.toFixed(1) : '—'}
+                </Text>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: c.textMuted, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center' }}>
+                  Nivel
+                </Text>
+              </View>
+
+              {/* Actitud */}
+              <View style={{
+                flex: 1,
+                backgroundColor: c.bgElev,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: c.border,
+                padding: 16,
+                alignItems: 'center',
+              }}>
+                <Text style={{ fontSize: 28, marginBottom: 6 }}>
+                  {getAttitudeEmoji(profile.average_attitude)}
+                </Text>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: c.textMuted, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center' }}>
+                  Actitud
+                </Text>
+              </View>
+            </View>
+          )}
 
           <TouchableOpacity
-            className="w-full border border-slate-200 dark:border-gray-800 rounded-2xl p-4 items-center mt-4 mb-2"
-            onPress={signOut}
+            onPress={startEditing}
+            style={{
+              backgroundColor: 'rgba(255,255,255,0.05)',
+              borderWidth: 1,
+              borderColor: c.border,
+              borderRadius: 16,
+              paddingVertical: 14,
+              alignItems: 'center',
+              marginTop: 4,
+              marginBottom: 10,
+            }}
           >
-            <Text className="text-slate-500 dark:text-slate-400 font-semibold">Cerrar sesión</Text>
+            <Text style={{ color: c.text, fontWeight: '700' }}>Editar perfil</Text>
+          </TouchableOpacity>
+
+          {/* Sign out */}
+          <TouchableOpacity
+            onPress={signOut}
+            style={{ 
+              backgroundColor: 'rgba(239,68,68,0.08)', 
+              borderWidth: 1, 
+              borderColor: 'rgba(239,68,68,0.25)', 
+              borderRadius: 16, 
+              paddingVertical: 14, 
+              alignItems: 'center', 
+              marginTop: 10,
+              marginBottom: 8 
+            }}
+          >
+            <Text style={{ color: c.danger, fontWeight: '700' }}>Cerrar sesión</Text>
           </TouchableOpacity>
         </ScrollView>
-      </SafeAreaView>
+      </View>
     );
   }
 
-  // ════════════════════════════════════════════════════════════════════════
-  // VISTA: editar perfil
-  // ════════════════════════════════════════════════════════════════════════
+  // ── Edit mode ────────────────────────────────────────────────────────────
+  const lbl = {
+    fontSize: 11, fontWeight: '600' as const, color: c.textDim,
+    marginBottom: 6, letterSpacing: 0.5, textTransform: 'uppercase' as const,
+  };
+
+  const canSave = !saving && !loadingPhone && !usernameChecking && !usernameError;
+
   return (
-    <SafeAreaView className="flex-1 bg-slate-50 dark:bg-neutral-950" edges={['top', 'bottom']}>
+    <View style={{ flex: 1, backgroundColor: c.bg }}>
       <ScrollView
-        className="flex-1"
-        contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 48 }}
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          paddingTop: insets.top + 8,
+          paddingBottom: FLOATING_TAB_BAR_HEIGHT + insets.bottom + 24,
+        }}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        {/* Cabecera */}
-        <View className="flex-row items-center justify-between py-4 mb-2">
-          <TouchableOpacity onPress={cancelEditing} className="flex-row items-center gap-1">
-            <Ionicons name="chevron-back" size={22} color="#64748b" />
-            <Text className="text-slate-500 dark:text-slate-400 font-medium">Cancelar</Text>
+        {/* Edit header */}
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, marginBottom: 16 }}>
+          <TouchableOpacity onPress={cancelEditing} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Ionicons name="chevron-back" size={22} color={c.textDim} />
+            <Text style={{ color: c.textDim, fontWeight: '600' }}>Cancelar</Text>
           </TouchableOpacity>
-          <Text className="text-lg font-bold text-slate-900 dark:text-white">Editar perfil</Text>
+          <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 18, fontWeight: '900', color: c.text }}>Editar perfil</Text>
           <View style={{ width: 80 }} />
         </View>
 
-        {/* ── Avatar ──────────────────────────────────────────────────── */}
-        <View className="items-center mb-6">
-          <View className="relative">
+        {/* Avatar */}
+        <View style={{ alignItems: 'center', marginBottom: 24 }}>
+          <View style={{ position: 'relative' }}>
             {isSafeUrl(profile.avatar_url) ? (
               <Image
                 source={{ uri: profile.avatar_url }}
-                className="w-24 h-24 rounded-full border-4 border-white dark:border-gray-800"
+                style={{ width: 84, height: 84, borderRadius: 42, borderWidth: 3, borderColor: c.brand }}
               />
             ) : (
-              <View className="w-24 h-24 rounded-full bg-green-100 dark:bg-green-900 justify-center items-center border-4 border-white dark:border-gray-800">
-                <Text className="text-4xl text-green-600 dark:text-green-300 font-bold uppercase">
-                  {profile.full_name?.charAt(0) || '?'}
+              <View style={{ width: 84, height: 84, borderRadius: 42, backgroundColor: c.brandSoft, justifyContent: 'center', alignItems: 'center', borderWidth: 3, borderColor: c.brand }}>
+                <Text style={{ fontSize: 32, color: c.brand, fontWeight: '800' }}>
+                  {profile.full_name?.charAt(0)?.toUpperCase() || '?'}
                 </Text>
               </View>
             )}
             <TouchableOpacity
-              className="absolute bottom-0 right-0 bg-green-500 w-9 h-9 rounded-full items-center justify-center border-2 border-white dark:border-gray-800"
+              style={{ position: 'absolute', bottom: 0, right: 0, backgroundColor: c.brand, width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: c.bgElev }}
               onPress={pickImage}
               disabled={uploading}
             >
-              {uploading
-                ? <ActivityIndicator size="small" color="#fff" />
-                : <Ionicons name="camera" size={18} color="#fff" />}
+              {uploading ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="camera" size={14} color="#fff" />}
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* ── Sección: Información ─────────────────────────────────────── */}
-        <View className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5 mb-4">
-          <Text className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4">
+        {/* Info section */}
+        <View style={sectionCard}>
+          <Text style={{ fontSize: 10, fontWeight: '700', color: c.textDim, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 16 }}>
             Información
           </Text>
-
-          {/* Nombre completo */}
-          <View className="mb-4">
-            <Text className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">
-              Nombre completo
-            </Text>
-            <TextInput
-              className="bg-slate-100 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white text-base"
-              value={fullName}
-              onChangeText={setFullName}
-              placeholder="Tu nombre"
-              placeholderTextColor="#9ca3af"
-            />
-          </View>
-
-          {/* Nombre de usuario */}
-          <View className="mb-4">
-            <Text className={`text-xs font-semibold mb-1.5 ${usernameError ? 'text-red-500' : 'text-slate-500 dark:text-slate-400'}`}>
-              Nombre de usuario
-            </Text>
-            <View className="relative justify-center">
-              <TextInput
-                className={`bg-slate-100 dark:bg-gray-800 border rounded-xl px-4 py-3 pr-10 text-slate-900 dark:text-white text-base ${usernameError ? 'border-red-500' : 'border-slate-200 dark:border-gray-700'}`}
-                value={username}
-                onChangeText={checkUsername}
-                placeholder="usuario"
-                placeholderTextColor="#9ca3af"
-                autoCapitalize="none"
-              />
-              <View className="absolute right-3">
-                {usernameChecking && <ActivityIndicator size="small" color="#64748b" />}
-                {!usernameChecking && username.length >= 3 && !usernameError && (
-                  <Ionicons name="checkmark-circle" size={20} color="#22C55E" />
-                )}
-                {!usernameChecking && usernameError !== '' && (
-                  <Ionicons name="close-circle" size={20} color="#ef4444" />
-                )}
-              </View>
+          <View style={{ gap: 14 }}>
+            {/* Full name */}
+            <View>
+              <Text style={lbl}>Nombre completo</Text>
+              <TextInput style={inp} value={fullName} onChangeText={setFullName} placeholder="Tu nombre" placeholderTextColor={c.textMuted} />
             </View>
-            {!!usernameError && (
-              <Text className="text-red-500 text-xs mt-1">{usernameError}</Text>
-            )}
-          </View>
 
-          {/* Teléfono */}
-          <View className="mb-4">
-            <Text className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">
-              Teléfono <Text className="text-slate-400 dark:text-slate-500 font-normal">(privado)</Text>
-            </Text>
-            {loadingPhone ? (
-              <View className="bg-slate-100 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3">
-                <ActivityIndicator size="small" color="#64748b" />
+            {/* Username */}
+            <View>
+              <Text style={[lbl, !!usernameError && { color: c.danger }]}>Nombre de usuario</Text>
+              <View style={{ position: 'relative', justifyContent: 'center' }}>
+                <TextInput
+                  style={{ ...inp, paddingRight: 44, borderColor: usernameError ? c.danger : 'rgba(255,255,255,0.08)' }}
+                  value={username}
+                  onChangeText={checkUsername}
+                  placeholder="usuario"
+                  placeholderTextColor={c.textMuted}
+                  autoCapitalize="none"
+                />
+                <View style={{ position: 'absolute', right: 14 }}>
+                  {usernameChecking && <ActivityIndicator size="small" color={c.textDim} />}
+                  {!usernameChecking && username.length >= 3 && !usernameError && <Ionicons name="checkmark-circle" size={20} color={c.brand} />}
+                  {!usernameChecking && usernameError !== '' && <Ionicons name="close-circle" size={20} color={c.danger} />}
+                </View>
               </View>
-            ) : (
-              <TextInput
-                className="bg-slate-100 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white text-base"
-                value={phone}
-                onChangeText={(v) => setPhone(v.replace(/[^0-9+\s]/g, ''))}
-                keyboardType="phone-pad"
-                placeholder="Ej: 600 123 456"
-                placeholderTextColor="#9ca3af"
-              />
-            )}
-          </View>
+              {!!usernameError && <Text style={{ color: c.danger, fontSize: 11, marginTop: 4 }}>{usernameError}</Text>}
+            </View>
 
-          {/* Posición */}
-          <View>
-            <Text className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">
-              Posición principal
-            </Text>
-            <View className="flex-row flex-wrap gap-2">
-              {POSITIONS.map((pos) => (
-                <TouchableOpacity
-                  key={pos}
-                  onPress={() => setPreferredPosition(pos === preferredPosition ? '' : pos)}
-                  className={`px-4 py-2 rounded-full border ${
-                    preferredPosition === pos
-                      ? 'bg-green-500 border-green-500'
-                      : 'bg-slate-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                  }`}
-                >
-                  <Text className={`capitalize text-sm font-medium ${
-                    preferredPosition === pos ? 'text-white' : 'text-slate-700 dark:text-slate-300'
-                  }`}>
-                    {pos}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            {/* Phone */}
+            <View>
+              <Text style={lbl}>Teléfono <Text style={{ textTransform: 'none', color: c.textMuted }}>(privado)</Text></Text>
+              {loadingPhone ? (
+                <View style={{ ...inp, justifyContent: 'center' }}>
+                  <ActivityIndicator size="small" color={c.textDim} />
+                </View>
+              ) : (
+                <TextInput
+                  style={inp}
+                  value={phone}
+                  onChangeText={(v) => setPhone(v.replace(/[^0-9+\s]/g, ''))}
+                  keyboardType="phone-pad"
+                  placeholder="Ej: 600 123 456"
+                  placeholderTextColor={c.textMuted}
+                />
+              )}
+            </View>
+
+            {/* Bio */}
+            <View>
+              <Text style={lbl}>Sobre mí</Text>
+              <TextInput
+                style={{ ...inp, minHeight: 100, textAlignVertical: 'top', paddingTop: 13 }}
+                value={bio}
+                onChangeText={setBio}
+                placeholder="Cuéntanos un poco sobre ti..."
+                placeholderTextColor={c.textMuted}
+                multiline
+              />
+            </View>
+
+            {/* Position */}
+            <View>
+              <Text style={lbl}>Posición principal</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {POSITIONS.map((pos) => {
+                  const active = preferredPosition === pos;
+                  return (
+                    <TouchableOpacity
+                      key={pos}
+                      onPress={() => setPreferredPosition(pos === preferredPosition ? '' : pos)}
+                      style={{
+                        flexDirection: 'row', alignItems: 'center', gap: 6,
+                        paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, borderWidth: 1,
+                        backgroundColor: active ? c.brandSoft : 'rgba(255,255,255,0.04)',
+                        borderColor: active ? c.brand : 'rgba(255,255,255,0.08)',
+                      }}
+                    >
+                      <Text style={{ fontSize: 16 }}>{POSITION_EMOJIS[pos]}</Text>
+                      <Text style={{ color: active ? c.brand : c.text, fontWeight: '600', fontSize: 13, textTransform: 'capitalize' }}>
+                        {pos}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
           </View>
         </View>
 
-        {/* Botón guardar perfil */}
+        {/* Save */}
         <TouchableOpacity
-          className={`rounded-2xl p-4 items-center mb-6 ${saving || loadingPhone || usernameChecking || !!usernameError ? 'bg-green-300 dark:bg-green-800' : 'bg-green-500'}`}
           onPress={handleSaveProfile}
-          disabled={saving || loadingPhone || usernameChecking || !!usernameError}
+          disabled={!canSave}
+          style={{ backgroundColor: canSave ? c.brand : c.brandDeep, borderRadius: 16, paddingVertical: 15, alignItems: 'center', marginBottom: 14, opacity: canSave ? 1 : 0.5 }}
         >
-          {saving
-            ? <ActivityIndicator color="#fff" />
-            : <Text className="text-white font-bold text-base">Guardar cambios</Text>}
+          {saving ? <ActivityIndicator color="#fff" /> : <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 14, fontWeight: '900', color: '#fff', letterSpacing: 1 }}>Guardar cambios</Text>}
         </TouchableOpacity>
 
-        {/* ── Sección: Cuenta ──────────────────────────────────────────── */}
-        <View className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5 mb-4">
-          <Text className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4">
+        {/* Account section */}
+        <View style={sectionCard}>
+          <Text style={{ fontSize: 10, fontWeight: '700', color: c.textDim, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 16 }}>
             Cuenta
           </Text>
 
           {/* Email */}
-          <View className="mb-5">
-            <Text className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">
-              Email
-            </Text>
-            <View className="bg-slate-100 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 mb-2">
-              <Text className="text-slate-500 dark:text-slate-400">{user.email}</Text>
+          <View style={{ marginBottom: 16 }}>
+            <Text style={lbl}>Email actual</Text>
+            <View style={{ ...inp, justifyContent: 'center', marginBottom: 10 }}>
+              <Text style={{ color: c.textDim }}>{user.email}</Text>
             </View>
-            <Text className="text-xs text-slate-400 dark:text-slate-500 mb-2">
-              Nuevo email — recibirás un enlace de confirmación
-            </Text>
-            <View className="flex-row gap-2">
+            <Text style={{ fontSize: 11, color: c.textMuted, marginBottom: 8 }}>Nuevo email — recibirás un enlace de confirmación</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
               <TextInput
-                className="flex-1 bg-slate-100 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl px-4 py-3 text-slate-900 dark:text-white text-base"
+                style={{ ...inp, flex: 1 }}
                 value={newEmail}
                 onChangeText={setNewEmail}
                 placeholder="nuevo@email.com"
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={c.textMuted}
                 autoCapitalize="none"
                 keyboardType="email-address"
               />
               <TouchableOpacity
-                className={`px-4 py-3 rounded-xl items-center justify-center ${newEmail.trim() ? 'bg-green-500' : 'bg-slate-200 dark:bg-gray-700'}`}
                 onPress={handleUpdateEmail}
                 disabled={savingEmail || !newEmail.trim()}
+                style={{ paddingHorizontal: 14, paddingVertical: 13, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: newEmail.trim() ? c.brand : c.bgSurface }}
               >
                 {savingEmail
                   ? <ActivityIndicator color="#fff" size="small" />
-                  : <Text className={`font-semibold ${newEmail.trim() ? 'text-white' : 'text-slate-400'}`}>
-                      Cambiar
-                    </Text>}
+                  : <Text style={{ fontWeight: '700', color: newEmail.trim() ? '#fff' : c.textMuted, fontSize: 13 }}>Cambiar</Text>}
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Contraseña */}
+          {/* Password */}
           <View>
-            <Text className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1.5">
-              Nueva contraseña
-            </Text>
-            <View className="flex-row gap-2">
-              <View className="flex-1 flex-row items-center bg-slate-100 dark:bg-gray-800 border border-slate-200 dark:border-gray-700 rounded-xl">
+            <Text style={lbl}>Nueva contraseña</Text>
+            <View style={{ flexDirection: 'row', gap: 8 }}>
+              <View style={{ flex: 1, flexDirection: 'row', alignItems: 'center', ...inp, paddingVertical: 0 }}>
                 <TextInput
-                  className="flex-1 px-4 py-3 text-slate-900 dark:text-white text-base"
+                  style={{ flex: 1, color: c.text, fontSize: 15, paddingVertical: 13 }}
                   value={newPassword}
                   onChangeText={setNewPassword}
                   placeholder="Mínimo 6 caracteres"
-                  placeholderTextColor="#9ca3af"
+                  placeholderTextColor={c.textMuted}
                   secureTextEntry={!showPassword}
                 />
-                <TouchableOpacity className="px-3" onPress={() => setShowPassword(!showPassword)}>
-                  <Ionicons
-                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                    size={20}
-                    color="#9ca3af"
-                  />
+                <TouchableOpacity onPress={() => setShowPassword(v => !v)} style={{ paddingHorizontal: 10 }}>
+                  <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color={c.textDim} />
                 </TouchableOpacity>
               </View>
               <TouchableOpacity
-                className={`px-4 py-3 rounded-xl items-center justify-center ${newPassword.length >= 6 ? 'bg-green-500' : 'bg-slate-200 dark:bg-gray-700'}`}
                 onPress={handleUpdatePassword}
                 disabled={savingPassword || newPassword.length < 6}
+                style={{ paddingHorizontal: 14, paddingVertical: 13, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: newPassword.length >= 6 ? c.brand : c.bgSurface }}
               >
                 {savingPassword
                   ? <ActivityIndicator color="#fff" size="small" />
-                  : <Text className={`font-semibold ${newPassword.length >= 6 ? 'text-white' : 'text-slate-400'}`}>
-                      Cambiar
-                    </Text>}
+                  : <Text style={{ fontWeight: '700', color: newPassword.length >= 6 ? '#fff' : c.textMuted, fontSize: 13 }}>Cambiar</Text>}
               </TouchableOpacity>
             </View>
           </View>
         </View>
 
-        {/* ── Zona de peligro ──────────────────────────────────────────── */}
-        <View className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-5 mb-2">
-          <Text className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mb-4">
+        {/* Danger zone */}
+        <View style={sectionCard}>
+          <Text style={{ fontSize: 10, fontWeight: '700', color: c.danger, letterSpacing: 2, textTransform: 'uppercase', marginBottom: 14 }}>
             Zona de peligro
           </Text>
           <TouchableOpacity
-            className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-3.5 items-center"
             onPress={handleDeleteAccount}
+            style={{ backgroundColor: 'rgba(239,68,68,0.08)', borderWidth: 1, borderColor: 'rgba(239,68,68,0.25)', borderRadius: 14, paddingVertical: 13, alignItems: 'center' }}
           >
-            <Text className="text-red-600 dark:text-red-400 font-semibold">
-              Eliminar mi cuenta permanentemente
-            </Text>
+            <Text style={{ color: c.danger, fontWeight: '700' }}>Eliminar mi cuenta permanentemente</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }

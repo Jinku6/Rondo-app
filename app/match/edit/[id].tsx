@@ -1,73 +1,145 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, Switch, ActivityIndicator, Platform, Modal } from 'react-native';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
-import { useRouter, useLocalSearchParams, Stack } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Alert, Modal, Platform, ScrollView, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+import { Ionicons } from '@expo/vector-icons';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuth } from '@/contexts/AuthContext';
 import { UbicacionInput } from '@/components/UbicacionInput';
+import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
+import { ColorSwatch } from '@/components/ui/ColorSwatch';
+import { ScreenTitle } from '@/components/ui/ScreenTitle';
+import { TEAM_COLOR_OPTIONS } from '@/constants/teamColors';
 import type { GeoResult } from '@/lib/geocoding';
+import { supabase } from '@/lib/supabase';
+import { getErrorMessage, logSupabaseError } from '@/lib/supabaseErrors';
+import { isValidHexColor } from '@/lib/utils';
+import type { MatchLevel, PositionKey } from '@/types/database';
 
 const LEVELS = [
-  { key: 'tranquilo', label: 'Tranquilo', emoji: '😌', color: 'bg-green-100 border-green-400', activeColor: 'bg-green-500 border-green-500', text: 'text-green-700', activeText: 'text-white' },
-  { key: 'medio', label: 'Medio', emoji: '⚽', color: 'bg-amber-100 border-amber-400', activeColor: 'bg-amber-500 border-amber-500', text: 'text-amber-700', activeText: 'text-white' },
-  { key: 'competitivo', label: 'Competitivo', emoji: '🔥', color: 'bg-red-100 border-red-400', activeColor: 'bg-red-500 border-red-500', text: 'text-red-700', activeText: 'text-white' },
+  { key: 'tranquilo', label: 'Tranquilo', emoji: '😌', activeBg: 'bg-brand/20', activeBorder: 'border-brand', color: '#22C55E' },
+  { key: 'medio', label: 'Medio', emoji: '⚽', activeBg: 'bg-warning/20', activeBorder: 'border-warning', color: '#F59E0B' },
+  { key: 'competitivo', label: 'Competitivo', emoji: '🔥', activeBg: 'bg-danger/20', activeBorder: 'border-danger', color: '#EF4444' },
+] as const;
+
+const POSITION_OPTIONS: readonly { key: PositionKey; label: string; emoji: string }[] = [
+  { key: 'portero', label: 'Portero', emoji: '🧤' },
+  { key: 'defensa', label: 'Defensa', emoji: '🛡️' },
+  { key: 'mediocentro', label: 'Mediocentro', emoji: '⚙️' },
+  { key: 'delantero', label: 'Delantero', emoji: '⚡' },
+  { key: 'cualquiera', label: 'Cualquiera', emoji: '⚽' },
 ];
+
+const DEFAULT_POSITIONS: Record<PositionKey, number> = {
+  portero: 0,
+  defensa: 0,
+  mediocentro: 0,
+  delantero: 0,
+  cualquiera: 0,
+};
+
+const SectionHeader = ({ num, title }: { num: number; title: string }) => (
+  <View className="flex-row items-center mb-5">
+    <View className="w-6 h-6 rounded-full bg-brand items-center justify-center mr-3">
+      <Text className="text-white font-mono font-bold text-xs">{num}</Text>
+    </View>
+    <Text className="text-ink font-mono tracking-widest text-[11px] uppercase font-bold">
+      {title}
+    </Text>
+  </View>
+);
+
+function PickerModal({
+  visible,
+  title,
+  onCancel,
+  onConfirm,
+  children,
+}: {
+  visible: boolean;
+  title: string;
+  onCancel: () => void;
+  onConfirm: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <Modal transparent animationType="slide" visible={visible}>
+      <View className="flex-1 justify-end bg-black/70">
+        <View className="bg-bg-elev pb-10 pt-4 px-6 rounded-t-3xl">
+          <View className="flex-row justify-between mb-3 border-b border-white/10 pb-3">
+            <TouchableOpacity onPress={onCancel}>
+              <Text className="text-danger font-semibold text-base">Cancelar</Text>
+            </TouchableOpacity>
+            <Text className="text-ink font-bold text-base">{title}</Text>
+            <TouchableOpacity onPress={onConfirm}>
+              <Text className="text-brand font-bold text-base">Confirmar</Text>
+            </TouchableOpacity>
+          </View>
+          {children}
+        </View>
+      </View>
+    </Modal>
+  );
+}
 
 export default function EditMatchScreen() {
   const { id } = useLocalSearchParams();
   const { user } = useAuth();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+
   const [loadingData, setLoadingData] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [initialStateStr, setInitialStateStr] = useState('');
 
-  // Form State
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
   const [locationLat, setLocationLat] = useState<number | null>(null);
   const [locationLng, setLocationLng] = useState<number | null>(null);
   const [locationCity, setLocationCity] = useState<string | null>(null);
   const [description, setDescription] = useState('');
-  const [level, setLevel] = useState<'tranquilo' | 'medio' | 'competitivo'>('medio');
+  const [level, setLevel] = useState<MatchLevel>('medio');
 
-  // Fecha y Hora
   const [dateObj, setDateObj] = useState(new Date());
+  const [draftDateObj, setDraftDateObj] = useState(new Date());
+  const [draftTimeObj, setDraftTimeObj] = useState(new Date());
   const [dateText, setDateText] = useState('');
   const [timeText, setTimeText] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
 
-  // Posiciones
-  const [positions, setPositions] = useState<Record<string, number>>({
-    portero: 0, defensa: 0, mediocentro: 0, delantero: 0, cualquiera: 0,
-  });
-
-  // Colores de equipo
+  const [positions, setPositions] = useState<Record<PositionKey, number>>(DEFAULT_POSITIONS);
   const [teamAColor, setTeamAColor] = useState('#EF4444');
   const [teamBColor, setTeamBColor] = useState('#3B82F6');
-  const presetColors = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#111827', '#FFFFFF'];
-
   const [price, setPrice] = useState('0');
   const [requiresApproval, setRequiresApproval] = useState(false);
-
-  // Track initial state to detect unsaved changes
-  const [initialStateStr, setInitialStateStr] = useState<string>('');
 
   useEffect(() => {
     async function loadMatch() {
       if (!id) return;
+
       const { data, error } = await supabase.from('matches').select('*').eq('id', id).single();
       if (error || !data) {
         Alert.alert('Error', 'No se pudo cargar el partido');
         router.back();
         return;
       }
-      
+
       if (data.organizer_id !== user?.id) {
         Alert.alert('No autorizado', 'No puedes editar un partido que no organizaste');
         router.back();
         return;
       }
+
+      const loadedPositions = (data.requested_positions as Record<PositionKey, number> | null) || DEFAULT_POSITIONS;
+      const loadedLevel = (data.level as MatchLevel) || 'medio';
+      const loadedTeamAColor = data.team_a_color || '#EF4444';
+      const loadedTeamBColor = data.team_b_color || '#3B82F6';
+      const loadedPrice = String(data.price_per_player || 0);
+      const loadedRequiresApproval = data.requires_approval || false;
+      const dt = new Date(data.date_time);
+      const loadedDateText = `${String(dt.getDate()).padStart(2, '0')}/${String(dt.getMonth() + 1).padStart(2, '0')}/${dt.getFullYear()}`;
+      const loadedTimeText = `${String(dt.getHours()).padStart(2, '0')}:${String(dt.getMinutes()).padStart(2, '0')}`;
 
       setTitle(data.title);
       setLocation(data.location);
@@ -75,106 +147,127 @@ export default function EditMatchScreen() {
       setLocationLng((data as any).location_lng ?? null);
       setLocationCity((data as any).location_city ?? null);
       setDescription(data.description || '');
-      setLevel(data.level as any || 'medio');
-      setTeamAColor(data.team_a_color || '#EF4444');
-      setTeamBColor(data.team_b_color || '#3B82F6');
-      setPrice(String(data.price_per_player || 0));
-      setRequiresApproval(data.requires_approval || false);
-      
-      if (data.requested_positions) {
-         setPositions(data.requested_positions as Record<string, number>);
-      }
-
-      // Restore Dates
-      const dt = new Date(data.date_time);
+      setLevel(loadedLevel);
+      setTeamAColor(loadedTeamAColor);
+      setTeamBColor(loadedTeamBColor);
+      setPrice(loadedPrice);
+      setRequiresApproval(loadedRequiresApproval);
+      setPositions(loadedPositions);
       setDateObj(dt);
-      const dd = String(dt.getDate()).padStart(2, '0');
-      const mm = String(dt.getMonth() + 1).padStart(2, '0');
-      const yyyy = dt.getFullYear();
-      const loadedDateText = `${dd}/${mm}/${yyyy}`;
+      setDraftDateObj(dt);
+      setDraftTimeObj(dt);
       setDateText(loadedDateText);
-      
-      const hh = String(dt.getHours()).padStart(2, '0');
-      const min = String(dt.getMinutes()).padStart(2, '0');
-      const loadedTimeText = `${hh}:${min}`;
       setTimeText(loadedTimeText);
 
-      // Save initial state fingerprint
       setInitialStateStr(JSON.stringify({
         title: data.title,
         location: data.location,
         description: data.description || '',
-        level: data.level || 'medio',
-        teamAColor: data.team_a_color || '#EF4444',
-        teamBColor: data.team_b_color || '#3B82F6',
-        price: String(data.price_per_player || 0),
-        requiresApproval: data.requires_approval || false,
-        positions: data.requested_positions || { portero: 0, defensa: 0, mediocentro: 0, delantero: 0, cualquiera: 0 },
+        level: loadedLevel,
+        teamAColor: loadedTeamAColor,
+        teamBColor: loadedTeamBColor,
+        price: loadedPrice,
+        requiresApproval: loadedRequiresApproval,
+        positions: loadedPositions,
         dateText: loadedDateText,
-        timeText: loadedTimeText
+        timeText: loadedTimeText,
       }));
 
       setLoadingData(false);
     }
+
     loadMatch();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, user]);
 
-  // Navigation guard removed from here because we moved it to headerLeft in Stack.Screen
-
-
   const handleDateChangeText = (text: string) => {
-    let cleaned = text.replace(/[^0-9]/g, '');
+    const cleaned = text.replace(/[^0-9]/g, '');
     let formatted = cleaned;
-    if (cleaned.length > 2) formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2);
-    if (cleaned.length > 4) formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2, 4) + '/' + cleaned.slice(4, 8);
+    if (cleaned.length > 2) formatted = `${cleaned.slice(0, 2)}/${cleaned.slice(2)}`;
+    if (cleaned.length > 4) formatted = `${cleaned.slice(0, 2)}/${cleaned.slice(2, 4)}/${cleaned.slice(4, 8)}`;
     setDateText(formatted);
   };
 
   const handleTimeChangeText = (text: string) => {
-    let cleaned = text.replace(/[^0-9]/g, '');
+    const cleaned = text.replace(/[^0-9]/g, '');
     let formatted = cleaned;
-    if (cleaned.length > 2) formatted = cleaned.slice(0, 2) + ':' + cleaned.slice(2, 4);
+    if (cleaned.length > 2) formatted = `${cleaned.slice(0, 2)}:${cleaned.slice(2, 4)}`;
     setTimeText(formatted);
   };
 
   const handleTimeBlur = () => {
-    let t = timeText.replace(/[^0-9]/g, '');
+    const t = timeText.replace(/[^0-9]/g, '');
     if (t.length === 0) return;
-    if (t.length <= 2) setTimeText(t.padStart(2, '0') + ':00');
-    else if (t.length === 3) setTimeText(t.slice(0, 1) + ':' + t.slice(1));
-    else setTimeText(t.slice(0, 2) + ':' + t.slice(2, 4));
+    if (t.length <= 2) setTimeText(`${t.padStart(2, '0')}:00`);
+    else if (t.length === 3) setTimeText(`${t.slice(0, 1)}:${t.slice(1)}`);
+    else setTimeText(`${t.slice(0, 2)}:${t.slice(2, 4)}`);
   };
 
   const onDatePickerChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
     if (Platform.OS === 'android') setShowDatePicker(false);
     if (selectedDate) {
-      setDateObj(selectedDate);
-      if (Platform.OS === 'android') {
-        setDateText(`${String(selectedDate.getDate()).padStart(2,'0')}/${String(selectedDate.getMonth()+1).padStart(2,'0')}/${selectedDate.getFullYear()}`);
+      if (Platform.OS === 'ios') {
+        setDraftDateObj(selectedDate);
+        return;
       }
+      setDateObj(selectedDate);
+      setDateText(`${String(selectedDate.getDate()).padStart(2, '0')}/${String(selectedDate.getMonth() + 1).padStart(2, '0')}/${selectedDate.getFullYear()}`);
     }
+  };
+
+  const openDatePicker = () => {
+    setDraftDateObj(dateObj);
+    setShowDatePicker(true);
+  };
+
+  const confirmDateIOS = () => {
+    setShowDatePicker(false);
+    const d = draftDateObj;
+    setDateObj(d);
+    setDateText(`${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`);
   };
 
   const onTimePickerChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
     if (Platform.OS === 'android') setShowTimePicker(false);
     if (selectedDate) {
-      setDateObj(selectedDate);
-      if (Platform.OS === 'android') {
-        setTimeText(`${String(selectedDate.getHours()).padStart(2,'0')}:${String(selectedDate.getMinutes()).padStart(2,'0')}`);
+      if (Platform.OS === 'ios') {
+        setDraftTimeObj(selectedDate);
+        return;
       }
+      setDateObj(selectedDate);
+      setTimeText(`${String(selectedDate.getHours()).padStart(2, '0')}:${String(selectedDate.getMinutes()).padStart(2, '0')}`);
     }
+  };
+
+  const openTimePicker = () => {
+    setDraftTimeObj(dateObj);
+    setShowTimePicker(true);
+  };
+
+  const confirmTimeIOS = () => {
+    setShowTimePicker(false);
+    setDateObj(draftTimeObj);
+    setTimeText(`${String(draftTimeObj.getHours()).padStart(2, '0')}:${String(draftTimeObj.getMinutes()).padStart(2, '0')}`);
   };
 
   const validateAndParseDateTime = () => {
     if (!dateText || !timeText) return null;
-    const timeForParsing = timeText.includes(':') ? timeText : timeText + ':00';
+    const timeForParsing = timeText.includes(':') ? timeText : `${timeText}:00`;
     const [day, month, year] = dateText.split('/');
     const [hours, minutes] = timeForParsing.split(':');
     if (!day || !month || !year || year.length !== 4) return null;
     if (!hours || !minutes) return null;
-    const dt = new Date(parseInt(year), parseInt(month) - 1, parseInt(day), parseInt(hours), parseInt(minutes));
+
+    const d = parseInt(day, 10);
+    const m = parseInt(month, 10);
+    const y = parseInt(year, 10);
+    const h = parseInt(hours, 10);
+    const min = parseInt(minutes, 10);
+    if (isNaN(d) || isNaN(m) || isNaN(y) || isNaN(h) || isNaN(min)) return null;
+
+    const dt = new Date(y, m - 1, d, h, min);
     if (isNaN(dt.getTime())) return null;
+    if (dt.getMonth() !== m - 1 || dt.getDate() !== d) return null;
     return dt;
   };
 
@@ -183,12 +276,18 @@ export default function EditMatchScreen() {
       Alert.alert('Error', 'Debes completar el título y la ubicación.');
       return;
     }
+
     const finalDateObj = validateAndParseDateTime();
     if (!finalDateObj) {
       Alert.alert('Error', 'La fecha u hora tienen un formato incorrecto. Usa DD/MM/YYYY y HH:MM.');
       return;
     }
-    
+
+    if (!isValidHexColor(teamAColor) || !isValidHexColor(teamBColor)) {
+      Alert.alert('Color inválido', 'Los colores de equipo deben ser valores hexadecimales válidos.');
+      return;
+    }
+
     setLoading(true);
     try {
       const { error } = await supabase
@@ -211,25 +310,41 @@ export default function EditMatchScreen() {
         .eq('id', id);
 
       if (error) throw error;
-      
-      // Update string to prevent unsaved changes dialog since we just saved successfully
+
       setInitialStateStr(JSON.stringify({
-        title, location, description, level, teamAColor, teamBColor, price, requiresApproval, positions, dateText, timeText
+        title, location, description, level, teamAColor, teamBColor, price, requiresApproval, positions, dateText, timeText,
       }));
 
-      Alert.alert('¡Actualizado!', 'Los cambios del partido se guardaron correctamente.', [
-        { text: 'Volver', onPress: () => router.back() }
+      Alert.alert('Actualizado', 'Los cambios del partido se guardaron correctamente.', [
+        { text: 'Volver', onPress: () => router.replace('/(tabs)/mymatches') },
       ]);
     } catch (e) {
-      Alert.alert('Error al actualizar', e instanceof Error ? e.message : String(e));
+      logSupabaseError('match edit update error', e);
+      Alert.alert('Error al actualizar', getErrorMessage(e, 'No se pudo actualizar el partido.'));
     } finally {
       setLoading(false);
     }
   }
 
-  const updatePosition = (pos: string, increment: number) => {
+  const handleCancel = () => {
+    const currentStateStr = JSON.stringify({
+      title, location, description, level, teamAColor, teamBColor, price, requiresApproval, positions, dateText, timeText,
+    });
+
+    if (currentStateStr !== initialStateStr && !loading && !loadingData) {
+      Alert.alert('Descartar cambios', 'Tienes cambios sin guardar. ¿Seguro que quieres salir?', [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Salir sin guardar', style: 'destructive', onPress: () => router.back() },
+      ]);
+      return;
+    }
+
+    router.back();
+  };
+
+  const updatePosition = (pos: PositionKey, increment: number) => {
     setPositions(prev => {
-      const newVal = (prev[pos] || 0) + increment;
+      const newVal = prev[pos] + increment;
       return { ...prev, [pos]: newVal < 0 ? 0 : newVal };
     });
   };
@@ -237,248 +352,305 @@ export default function EditMatchScreen() {
   const totalPlayers = Object.values(positions).reduce((a, b) => a + b, 0);
 
   if (loadingData) {
-    return <View className="flex-1 justify-center items-center bg-neutral-950"><ActivityIndicator size="large" color="#22C55E" /></View>;
+    return (
+      <View className="flex-1 justify-center items-center bg-bg">
+        <ActivityIndicator size="large" color="#22C55E" />
+      </View>
+    );
   }
 
   return (
-    <ScrollView className="flex-1 bg-neutral-950" keyboardShouldPersistTaps="handled">
-      <Stack.Screen 
-        options={{ 
-          title: 'Editar Partido',
-          gestureEnabled: false,
-          headerLeft: () => (
-            <TouchableOpacity 
-              onPress={() => {
-                const currentStateStr = JSON.stringify({
-                  title, location, description, level, teamAColor, teamBColor, price, requiresApproval, positions, dateText, timeText
-                });
-                if (currentStateStr !== initialStateStr && !loading && !loadingData) {
-                  Alert.alert('Descartar cambios', 'Tienes cambios sin guardar. ¿Estás seguro de que quieres salir?', [
-                    { text: 'Cancelar', style: 'cancel' },
-                    { text: 'Salir sin guardar', style: 'destructive', onPress: () => router.back() }
-                  ]);
-                } else {
-                  router.back();
-                }
-              }}
-              style={{ flexDirection: 'row', alignItems: 'center', marginLeft: -8, padding: 8 }}
-            >
-              <Ionicons name="chevron-back" size={28} color="#22C55E" />
-            </TouchableOpacity>
-          )
-        }} 
-      />
-      <View className="p-4 space-y-5 mb-10">
+    <View className="flex-1 bg-bg">
+      <Stack.Screen options={{ headerShown: false }} />
+      <ScrollView
+        className="flex-1"
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: insets.top + 16, paddingBottom: FLOATING_TAB_BAR_HEIGHT + 32 }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <ScreenTitle style={{ marginBottom: 24 }}>
+          Editar Partido
+        </ScreenTitle>
 
-        <View className="bg-gray-900 p-4 rounded-xl border border-gray-800">
-          <Text className="text-slate-300 font-bold mb-3 text-lg">Información General</Text>
-          <View className="mb-4">
-            <Text className="text-slate-400 font-medium mb-1">Título del Partido</Text>
-            <TextInput
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white"
-              value={title} onChangeText={setTitle}
-            />
-          </View>
-          <View className="mb-4">
-            <Text className="text-slate-400 font-medium mb-1">Ubicación</Text>
-            <UbicacionInput
-              value={location}
-              onChangeText={setLocation}
-              onSelect={(r: GeoResult) => {
-                const label = [r.nombre, r.direccion, r.ciudad].filter(Boolean).join(', ');
-                setLocation(label);
-                setLocationLat(r.lat);
-                setLocationLng(r.lng);
-                setLocationCity(r.ciudad);
-              }}
-            />
-          </View>
-          <View>
-            <Text className="text-slate-400 font-medium mb-1">Descripción</Text>
-            <TextInput
-              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white"
-              value={description} onChangeText={setDescription}
-              multiline numberOfLines={3} textAlignVertical="top"
-            />
+        <View className="bg-bg-elev border border-white/10 p-5 rounded-lg-r mb-4">
+          <SectionHeader num={1} title="Información" />
+          <View className="gap-3.5">
+            <View>
+              <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Título del Partido</Text>
+              <TextInput
+                className="bg-white/5 border border-white/10 rounded-md-r px-4 py-3 text-ink font-body text-[15px]"
+                placeholder="Fútbol-7 Jueves Tarde"
+                placeholderTextColor="#5A625D"
+                keyboardAppearance="dark"
+                value={title}
+                onChangeText={setTitle}
+              />
+            </View>
+            <View>
+              <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Ubicación</Text>
+              <View className="bg-white/5 border border-white/10 rounded-md-r px-4 py-1">
+                <UbicacionInput
+                  value={location}
+                  onChangeText={setLocation}
+                  onSelect={(r: GeoResult) => {
+                    const label = [r.nombre, r.direccion, r.ciudad].filter(Boolean).join(', ');
+                    setLocation(label);
+                    setLocationLat(r.lat);
+                    setLocationLng(r.lng);
+                    setLocationCity(r.ciudad);
+                  }}
+                />
+              </View>
+            </View>
+            <View>
+              <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Descripción</Text>
+              <TextInput
+                className="bg-white/5 border border-white/10 rounded-md-r px-4 py-3 text-ink font-body text-[15px] min-h-[80px]"
+                placeholder="Buen ambiente, nivel medio, cervezas después de jugar"
+                placeholderTextColor="#5A625D"
+                keyboardAppearance="dark"
+                value={description}
+                onChangeText={setDescription}
+                multiline
+                numberOfLines={3}
+                style={{ textAlignVertical: 'top' }}
+              />
+            </View>
           </View>
         </View>
 
-        <View className="bg-gray-900 p-4 rounded-xl border border-gray-800">
-          <Text className="text-slate-300 font-bold mb-3 text-lg">Nivel del Partido</Text>
+        <View className="bg-bg-elev border border-white/10 p-5 rounded-lg-r mb-4">
+          <SectionHeader num={2} title="Nivel" />
           <View className="flex-row gap-2">
             {LEVELS.map(l => {
               const isActive = level === l.key;
               return (
                 <TouchableOpacity
-                  key={l.key} onPress={() => setLevel(l.key as any)}
-                  className={`flex-1 py-3 rounded-xl border-2 items-center ${isActive ? l.activeColor : l.color}`}
+                  key={l.key}
+                  onPress={() => setLevel(l.key)}
+                  className={`flex-1 py-3.5 rounded-md-r items-center border-2 ${
+                    isActive ? `${l.activeBg} ${l.activeBorder}` : 'bg-white/5 border-transparent'
+                  }`}
                 >
-                  <Text className="text-xl mb-1">{l.emoji}</Text>
-                  <Text className={`font-bold text-sm ${isActive ? l.activeText : l.text}`}>{l.label}</Text>
+                  <Text className="text-[22px] mb-1">{l.emoji}</Text>
+                  <Text style={{ color: isActive ? l.color : '#8A938F' }} className="font-body font-bold text-xs">
+                    {l.label}
+                  </Text>
                 </TouchableOpacity>
               );
             })}
           </View>
         </View>
 
-        <View className="bg-slate-800 p-4 rounded-xl border border-slate-700">
-          <Text className="text-slate-300 font-bold mb-3 text-lg">Cuándo jugamos</Text>
-          <View className="flex-row space-x-3">
-            <View className="flex-1 mr-2">
-              <Text className="text-slate-400 font-medium mb-1">Día</Text>
+        <View className="bg-bg-elev border border-white/10 p-5 rounded-lg-r mb-4">
+          <SectionHeader num={3} title="Cuándo" />
+          <View className="flex-row gap-3">
+            <View className="flex-1">
+              <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Día</Text>
               <TouchableOpacity
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 flex-row items-center justify-between"
-                onPress={() => { if (Platform.OS !== 'web') setShowDatePicker(true); }}
+                className="bg-white/5 border border-white/10 rounded-md-r px-4 py-3.5 flex-row items-center justify-between"
+                onPress={() => { if (Platform.OS !== 'web') openDatePicker(); }}
+                activeOpacity={Platform.OS === 'web' ? 1 : 0.7}
               >
                 {Platform.OS !== 'web' ? (
-                  <><Text className="text-white">{dateText || 'DD/MM/YYYY'}</Text><Ionicons name="calendar-outline" size={20} color="#22C55E" /></>
+                  <>
+                    <Text className={`font-body text-[15px] ${dateText ? 'text-ink' : 'text-ink-muted'}`}>
+                      {dateText || 'DD/MM/YYYY'}
+                    </Text>
+                    <Ionicons name="calendar-outline" size={18} color="#22C55E" />
+                  </>
                 ) : (
-                  <TextInput className="flex-1 text-white" value={dateText} onChangeText={handleDateChangeText} keyboardType="numeric" maxLength={10} />
+                  <TextInput
+                    className="flex-1 text-ink font-body text-[15px]"
+                    placeholder="05/04/2026"
+                    placeholderTextColor="#5A625D"
+                    keyboardAppearance="dark"
+                    value={dateText}
+                    onChangeText={handleDateChangeText}
+                    keyboardType="numeric"
+                    maxLength={10}
+                  />
                 )}
               </TouchableOpacity>
             </View>
-            <View className="flex-1 ml-2">
-              <Text className="text-slate-400 font-medium mb-1">Hora</Text>
+            <View className="flex-1">
+              <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Hora</Text>
               <TouchableOpacity
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 flex-row items-center justify-between"
-                onPress={() => { if (Platform.OS !== 'web') setShowTimePicker(true); }}
+                className="bg-white/5 border border-white/10 rounded-md-r px-4 py-3.5 flex-row items-center justify-between"
+                onPress={() => { if (Platform.OS !== 'web') openTimePicker(); }}
+                activeOpacity={Platform.OS === 'web' ? 1 : 0.7}
               >
                 {Platform.OS !== 'web' ? (
-                  <><Text className="text-white">{timeText || 'HH:MM'}</Text><Ionicons name="time-outline" size={20} color="#22C55E" /></>
+                  <>
+                    <Text className={`font-body text-[15px] ${timeText ? 'text-ink' : 'text-ink-muted'}`}>
+                      {timeText || 'HH:MM'}
+                    </Text>
+                    <Ionicons name="time-outline" size={18} color="#22C55E" />
+                  </>
                 ) : (
-                  <TextInput className="flex-1 text-white" value={timeText} onChangeText={handleTimeChangeText} onBlur={handleTimeBlur} keyboardType="numeric" maxLength={5} />
+                  <TextInput
+                    className="flex-1 text-ink font-body text-[15px]"
+                    placeholder="20:00"
+                    placeholderTextColor="#5A625D"
+                    keyboardAppearance="dark"
+                    value={timeText}
+                    onChangeText={handleTimeChangeText}
+                    onBlur={handleTimeBlur}
+                    keyboardType="numeric"
+                    maxLength={5}
+                  />
                 )}
               </TouchableOpacity>
             </View>
           </View>
         </View>
 
-        {Platform.OS === 'android' && showDatePicker && <DateTimePicker value={dateObj} mode="date" display="default" onChange={onDatePickerChange} locale="es-ES" />}
-        {Platform.OS === 'android' && showTimePicker && <DateTimePicker value={dateObj} mode="time" display="default" onChange={onTimePickerChange} is24Hour={true} />}
-
-        {Platform.OS === 'ios' && showDatePicker && (
-          <Modal transparent animationType="slide" visible={showDatePicker}>
-            <View className="flex-1 justify-end bg-black/60">
-              <View className="bg-white dark:bg-gray-900 pb-10 pt-4 px-6 rounded-t-3xl shadow-xl">
-                <View className="flex-row justify-between mb-4 border-b border-gray-100 dark:border-gray-800 pb-2">
-                  <TouchableOpacity onPress={() => setShowDatePicker(false)}>
-                    <Text className="text-red-500 font-medium text-lg">Cancelar</Text>
-                  </TouchableOpacity>
-                  <Text className="text-slate-800 dark:text-slate-100 font-bold text-lg">Fecha</Text>
-                  <TouchableOpacity onPress={() => { setShowDatePicker(false); setDateText(`${String(dateObj.getDate()).padStart(2,'0')}/${String(dateObj.getMonth()+1).padStart(2,'0')}/${dateObj.getFullYear()}`); }}>
-                    <Text className="text-green-500 font-bold text-lg">Confirmar</Text>
-                  </TouchableOpacity>
-                </View>
-                <DateTimePicker value={dateObj} mode="date" display="spinner" onChange={onDatePickerChange} locale="es-ES" />
-              </View>
-            </View>
-          </Modal>
+        {Platform.OS === 'android' && showDatePicker && (
+          <DateTimePicker value={dateObj} mode="date" display="default" onChange={onDatePickerChange} locale="es-ES" />
+        )}
+        {Platform.OS === 'ios' && (
+          <PickerModal visible={showDatePicker} title="Fecha del partido" onCancel={() => setShowDatePicker(false)} onConfirm={confirmDateIOS}>
+            <DateTimePicker value={draftDateObj} mode="date" display="spinner" onChange={onDatePickerChange} locale="es-ES" />
+          </PickerModal>
+        )}
+        {Platform.OS === 'android' && showTimePicker && (
+          <DateTimePicker value={dateObj} mode="time" display="default" onChange={onTimePickerChange} is24Hour locale="es-ES" />
+        )}
+        {Platform.OS === 'ios' && (
+          <PickerModal visible={showTimePicker} title="Hora del partido" onCancel={() => setShowTimePicker(false)} onConfirm={confirmTimeIOS}>
+            <DateTimePicker value={draftTimeObj} mode="time" display="spinner" onChange={onTimePickerChange} is24Hour locale="es-ES" />
+          </PickerModal>
         )}
 
-        {Platform.OS === 'ios' && showTimePicker && (
-          <Modal transparent animationType="slide" visible={showTimePicker}>
-            <View className="flex-1 justify-end bg-black/60">
-              <View className="bg-white dark:bg-gray-900 pb-10 pt-4 px-6 rounded-t-3xl shadow-xl">
-                <View className="flex-row justify-between mb-4 border-b border-gray-100 dark:border-gray-800 pb-2">
-                  <TouchableOpacity onPress={() => setShowTimePicker(false)}>
-                    <Text className="text-red-500 font-medium text-lg">Cancelar</Text>
-                  </TouchableOpacity>
-                  <Text className="text-slate-800 dark:text-slate-100 font-bold text-lg">Hora</Text>
-                  <TouchableOpacity onPress={() => { setShowTimePicker(false); setTimeText(`${String(dateObj.getHours()).padStart(2,'0')}:${String(dateObj.getMinutes()).padStart(2,'0')}`); }}>
-                    <Text className="text-green-500 font-bold text-lg">Confirmar</Text>
-                  </TouchableOpacity>
-                </View>
-                <DateTimePicker value={dateObj} mode="time" display="spinner" onChange={onTimePickerChange} is24Hour={true} />
-              </View>
-            </View>
-          </Modal>
-        )}
-
-        <View className="bg-slate-800 p-4 rounded-xl border border-slate-700">
-          <Text className="text-slate-300 font-bold mb-3 text-lg">Jugadores necesarios</Text>
-          {[
-            { key: 'portero', label: 'Porteros', icon: 'hand-left-outline' },
-            { key: 'defensa', label: 'Defensas', icon: 'shield-outline' },
-            { key: 'mediocentro', label: 'Medios', icon: 'apps-outline' },
-            { key: 'delantero', label: 'Delanteros', icon: 'flash-outline' },
-            { key: 'cualquiera', label: 'Cualquier Posición', icon: 'people-outline' },
-          ].map(pos => (
-            <View key={pos.key} className="flex-row justify-between items-center mb-3 p-2 bg-slate-900 rounded-lg border border-slate-800">
-              <View className="flex-row items-center">
-                <Ionicons name={pos.icon as any} size={20} color="#64748b" />
-                <Text className="ml-3 text-slate-300 font-medium">{pos.label}</Text>
-              </View>
-              <View className="flex-row items-center">
-                <TouchableOpacity onPress={() => updatePosition(pos.key, -1)} className="w-9 h-9 rounded-full bg-slate-700 items-center justify-center">
-                  <Ionicons name="remove" size={18} color="#94a3b8" />
-                </TouchableOpacity>
-                <Text className="mx-4 font-bold text-xl text-white w-6 text-center">{positions[pos.key] || 0}</Text>
-                <TouchableOpacity onPress={() => updatePosition(pos.key, 1)} className="w-9 h-9 rounded-full bg-green-500/20 items-center justify-center">
-                  <Ionicons name="add" size={18} color="#22C55E" />
-                </TouchableOpacity>
-              </View>
-            </View>
-          ))}
-          <View className="mt-2 pt-3 border-t border-slate-700 flex-row justify-between items-center">
-            <Text className="text-slate-400 font-medium">Total jugadores:</Text>
-            <View className="bg-green-500 px-4 py-1 rounded-full"><Text className="font-bold text-white text-lg">{totalPlayers}</Text></View>
-          </View>
-        </View>
-
-        <View className="bg-slate-800 p-4 rounded-xl border border-slate-700">
-          <Text className="text-slate-300 font-bold mb-4 text-lg">Colores de Camiseta</Text>
-          <View className="flex-row justify-between">
-            <View className="flex-1 mr-3">
-              <View className="flex-row items-center mb-3">
-                <View className="w-8 h-8 rounded-full border-2 border-green-500 mr-2" style={{ backgroundColor: teamAColor }} />
-                <Text className="text-slate-400 font-semibold">Equipo A</Text>
-              </View>
-              <View className="flex-row flex-wrap gap-2">
-                {presetColors.map(c => <TouchableOpacity key={`a-${c}`} onPress={() => setTeamAColor(c)} className={`w-9 h-9 rounded-full border-2 ${teamAColor === c ? 'border-green-500' : 'border-slate-600'}`} style={{ backgroundColor: c }} />)}
-              </View>
-            </View>
-            <View className="w-px bg-slate-600 mx-2" />
-            <View className="flex-1 ml-3">
-              <View className="flex-row items-center mb-3">
-                <View className="w-8 h-8 rounded-full border-2 border-green-500 mr-2" style={{ backgroundColor: teamBColor }} />
-                <Text className="text-slate-400 font-semibold">Equipo B</Text>
-              </View>
-              <View className="flex-row flex-wrap gap-2">
-                {presetColors.map(c => <TouchableOpacity key={`b-${c}`} onPress={() => setTeamBColor(c)} className={`w-9 h-9 rounded-full border-2 ${teamBColor === c ? 'border-green-500' : 'border-slate-600'}`} style={{ backgroundColor: c }} />)}
-              </View>
-            </View>
-          </View>
-        </View>
-
-        <View className="bg-slate-800 p-4 rounded-xl border border-slate-700 space-y-4">
+        <View className="bg-bg-elev border border-white/10 p-5 rounded-lg-r mb-4">
+          <SectionHeader num={4} title="Posiciones" />
           <View>
-            <View className="flex-row items-center mb-1">
-              <Text className="text-slate-400 font-medium">Precio por persona (€)</Text>
-              <TouchableOpacity
-                onPress={() => Alert.alert(
-                  'Cobro manual',
-                  'El organizador debe encargarse del cobro. En el futuro se añadirá la función para gestionar pagos por la app.'
-                )}
-                className="ml-2"
-              >
-                <Ionicons name="information-circle-outline" size={18} color="#64748b" />
-              </TouchableOpacity>
-            </View>
-            <TextInput className="w-full bg-slate-900 border border-slate-700 rounded-lg p-3 text-white" value={price} onChangeText={setPrice} keyboardType="numeric" placeholder="0.00" placeholderTextColor="#64748b" />
-            <Text className="text-xs text-slate-500 mt-1">El organizador debe encargarse del cobro. En el futuro se añadirá la función para gestionar pagos por la app.</Text>
+            {POSITION_OPTIONS.map((pos) => (
+              <View key={pos.key} className="flex-row justify-between items-center py-3 border-b border-white/5 last:border-b-0">
+                <View className="flex-row items-center gap-3">
+                  <Text className="text-xl">{pos.emoji}</Text>
+                  <Text className="text-ink font-body font-semibold text-sm">{pos.label}</Text>
+                </View>
+                <View className="flex-row items-center gap-2">
+                  <TouchableOpacity
+                    onPress={() => updatePosition(pos.key, -1)}
+                    className="w-9 h-9 rounded-md-r bg-white/5 items-center justify-center border border-white/10"
+                  >
+                    <Ionicons name="remove" size={18} color="#8A938F" />
+                  </TouchableOpacity>
+                  <Text className="w-8 text-center font-body font-bold text-lg text-ink">
+                    {positions[pos.key]}
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => updatePosition(pos.key, 1)}
+                    className="w-9 h-9 rounded-md-r bg-brand-soft items-center justify-center border border-brand/30"
+                  >
+                    <Ionicons name="add" size={18} color="#22C55E" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
           </View>
-          <View className="flex-row justify-between items-center py-2">
-            <View className="flex-1 mr-4">
-              <Text className="text-slate-300 font-medium">Aprobar jugadores</Text>
+          <View className="flex-row justify-between items-center mt-4 pt-4 border-t border-white/10">
+            <Text className="text-ink-dim font-body font-semibold text-sm">Total jugadores</Text>
+            <View className="bg-brand px-4 py-1.5 rounded-full">
+              <Text className="font-body font-black text-white text-base">{totalPlayers}</Text>
             </View>
-            <Switch value={requiresApproval} onValueChange={setRequiresApproval} trackColor={{ true: '#22C55E' }} />
           </View>
         </View>
 
-        <TouchableOpacity className="w-full bg-green-500 rounded-xl p-4 items-center shadow-lg" style={{ minHeight: 48 }} onPress={handleUpdate} disabled={loading}>
-          {loading ? <ActivityIndicator color="#ffffff" /> : <Text className="text-white font-bold text-xl uppercase tracking-wider">Guardar Cambios</Text>}
-        </TouchableOpacity>
-      </View>
-    </ScrollView>
+        <View className="bg-bg-elev border border-white/10 p-5 rounded-lg-r mb-4">
+          <SectionHeader num={5} title="Colores de Camiseta" />
+          <View className="flex-row gap-3">
+            {[
+              { label: 'Equipo A', color: teamAColor, setColor: setTeamAColor, prefix: 'a' },
+              { label: 'Equipo B', color: teamBColor, setColor: setTeamBColor, prefix: 'b' },
+            ].map(team => (
+              <View key={team.prefix} className="flex-1 gap-3">
+                <View className="flex-row items-center gap-3">
+                  <View className="w-7 h-7 rounded-full border border-white/40" style={{ backgroundColor: team.color }} />
+                  <Text className="text-ink font-body font-semibold text-sm">{team.label}</Text>
+                </View>
+                <View className="flex-row flex-wrap gap-2">
+                  {TEAM_COLOR_OPTIONS.map((option) => (
+                    <ColorSwatch
+                      key={`${team.prefix}-${option.value}`}
+                      color={option.value}
+                      label={option.label}
+                      selected={team.color === option.value}
+                      onPress={() => team.setColor(option.value)}
+                      size={30}
+                    />
+                  ))}
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View className="bg-bg-elev border border-white/10 p-5 rounded-lg-r mb-6">
+          <SectionHeader num={6} title="Configuración" />
+          <View className="mb-5">
+            <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Precio por persona (€)</Text>
+            <TextInput
+              className="bg-white/5 border border-white/10 rounded-md-r px-4 py-3.5 text-ink font-body text-[15px]"
+              value={price}
+              onChangeText={setPrice}
+              keyboardType="numeric"
+              keyboardAppearance="dark"
+              placeholder="0.00"
+              placeholderTextColor="#5A625D"
+            />
+            <Text className="text-[10px] text-ink-muted mt-2 font-body">
+              El organizador gestiona el cobro manualmente.
+            </Text>
+          </View>
+
+          <View className="flex-row justify-between items-center py-1">
+            <View className="flex-1 mr-4">
+              <Text className="text-ink font-body font-semibold text-sm">Requiere aprobación</Text>
+              <Text className="text-ink-muted text-[11px] mt-1 font-body">Revisa quién se une a tu partido</Text>
+            </View>
+            <Switch
+              value={requiresApproval}
+              onValueChange={setRequiresApproval}
+              trackColor={{ false: '#3f3f46', true: '#22C55E' }}
+              thumbColor="#FFFFFF"
+              ios_backgroundColor="#3f3f46"
+            />
+          </View>
+        </View>
+
+        <View className="flex-row gap-3">
+          <TouchableOpacity
+            onPress={handleCancel}
+            disabled={loading}
+            className="flex-1 bg-white/5 border border-white/10 rounded-xl-r py-4 items-center justify-center"
+          >
+            <Text className="text-ink-dim font-display font-bold text-[15px]">Cancelar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleUpdate}
+            disabled={loading}
+            style={{
+              shadowColor: '#22C55E',
+              shadowOffset: { width: 0, height: 4 },
+              shadowOpacity: 0.32,
+              shadowRadius: 14,
+              elevation: 8,
+            }}
+            className={`flex-[2] bg-brand rounded-xl-r py-4 items-center justify-center ${loading ? 'opacity-70' : ''}`}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text className="font-display text-[15px] font-black text-white uppercase tracking-[1px]">
+                Guardar Cambios
+              </Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </View>
   );
 }

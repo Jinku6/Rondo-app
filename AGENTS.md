@@ -1,4 +1,4 @@
-# CLAUDE.md - Rondo (Behavioral & Technical)
+# AGENTS.md - Rondo (Behavioral & Technical)
 
 ## 1. Project & Stack
 - **Rondo**: Social football platform (iOS/Android/Web) via Expo + Supabase.

@@ -23,6 +23,7 @@ export interface UserProfile {
   average_level: number;
   average_attitude: number;
   birthday: string | null; // ISO date string YYYY-MM-DD
+  bio: string | null;
   created_at: string;
 }
 
