@@ -13,7 +13,14 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.jinku620.rondo"
+      "bundleIdentifier": "com.jinku620.rondo",
+      "infoPlist": {
+        "LSApplicationQueriesSchemes": [
+          "comgooglemaps",
+          "waze",
+          "maps"
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
