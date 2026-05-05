@@ -193,17 +193,13 @@ function ProfileAvatar({
   avatarUrl,
   size,
   textSize,
-  isOverflow = false,
-  overflowCount = 0,
 }: {
   name: string;
   avatarUrl?: string | null;
   size: number;
   textSize: number;
-  isOverflow?: boolean;
-  overflowCount?: number;
 }) {
-  const label = isOverflow ? `+${overflowCount}` : initials(name);
+  const label = initials(name);
 
   return (
     <View
@@ -215,10 +211,10 @@ function ProfileAvatar({
         justifyContent: 'center',
         flexShrink: 0,
         overflow: 'hidden',
-        backgroundColor: isOverflow ? '#8A938F' : avatarColor(name),
+        backgroundColor: avatarColor(name),
       }}
     >
-      {!!avatarUrl && !isOverflow ? (
+      {!!avatarUrl ? (
         <Image
           source={{ uri: avatarUrl }}
           style={StyleSheet.absoluteFillObject}
@@ -245,29 +241,25 @@ function PlayerRow({
   onPress,
   rightContent,
   isLast = false,
-  isOverflow = false,
-  overflowCount = 0,
 }: {
   participant?: MatchParticipant;
   onPress?: () => void;
   rightContent?: React.ReactNode;
   isLast?: boolean;
-  isOverflow?: boolean;
-  overflowCount?: number;
 }) {
-  const name = isOverflow ? 'Otros' : participant?.user?.full_name ?? 'Jugador';
+  const name = participant?.user?.full_name ?? 'Jugador';
   const pos = participant?.user?.preferred_position;
   const posCfg = pos ? POSITION_CONFIG[pos as PositionKey] : null;
-  const positionLabel = isOverflow ? 'Ver todos' : posCfg?.label;
+  const positionLabel = posCfg?.label;
   const avatarUrl = participant?.user?.avatar_url;
 
   return (
     <Pressable
-      className={`flex-row items-center justify-between py-3 ${isLast ? '' : 'border-b-[0.5px] border-white/10'} ${isOverflow ? 'opacity-50' : ''}`}
-      style={({ pressed }) => pressed && { opacity: isOverflow ? 0.35 : 0.65 }}
+      className={`flex-row items-center justify-between py-3 ${isLast ? '' : 'border-b-[0.5px] border-white/10'}`}
+      style={({ pressed }) => pressed && { opacity: 0.65 }}
       onPress={onPress}
       accessibilityRole={onPress ? 'button' : undefined}
-      accessibilityLabel={isOverflow ? 'Ver todos los jugadores apuntados' : `Ver perfil de ${name}`}
+      accessibilityLabel={`Ver perfil de ${name}`}
     >
       <View className="flex-row items-center gap-3 flex-1 min-w-0">
         <ProfileAvatar
@@ -275,8 +267,6 @@ function PlayerRow({
           avatarUrl={avatarUrl}
           size={36}
           textSize={13}
-          isOverflow={isOverflow}
-          overflowCount={overflowCount}
         />
         <View className="flex-1 min-w-0 flex-col">
           <Text className="text-[14px] font-semibold text-white" numberOfLines={1}>
@@ -603,10 +593,7 @@ export default function MatchDetailScreen() {
   const pendingParticipants = participants.filter(p => p.status === 'pending');
   
   // Exclude organizer from players list if needed (Stadium rule #14)
-  const nonOrganizerApproved = joinedParticipants.filter(p => p.user_id !== match.organizer_id);
-  const visiblePlayerLimit = 3;
-  const visiblePlayers = nonOrganizerApproved.slice(0, visiblePlayerLimit);
-  const hiddenPlayersCount = Math.max(nonOrganizerApproved.length - visiblePlayerLimit, 0);
+  const nonOrganizerApproved = participants.filter(p => p.status === 'approved' && p.user_id !== match.organizer_id);
 
   const slots = totalSlots(match.requested_positions);
   const filled = joinedParticipants.length;
@@ -926,12 +913,12 @@ export default function MatchDetailScreen() {
           <Text className="mb-2.5 font-mono text-[9px] font-bold uppercase tracking-[1.5px] text-[#8A938F]">
             JUGADORES APUNTADOS ({filled})
           </Text>
-          {visiblePlayers.map((p, index) => (
+          {nonOrganizerApproved.map((p, index) => (
             <PlayerRow 
               key={p.id} 
               participant={p} 
               onPress={() => router.push(`/user/${p.user?.id}` as any)} 
-              isLast={hiddenPlayersCount === 0 && index === visiblePlayers.length - 1}
+              isLast={index === nonOrganizerApproved.length - 1}
               rightContent={
                 isOrganizer ? (
                   <Pressable 
@@ -944,13 +931,6 @@ export default function MatchDetailScreen() {
               }
             />
           ))}
-          {hiddenPlayersCount > 0 && (
-            <PlayerRow
-              isOverflow
-              isLast
-              overflowCount={hiddenPlayersCount}
-            />
-          )}
           {nonOrganizerApproved.length === 0 && (
             <Text style={s.emptyText}>Aún no hay otros jugadores apuntados.</Text>
           )}
