@@ -290,6 +290,10 @@ export default function EditMatchScreen() {
     }
 
     const finalDateObj = validateAndParseDateTime();
+    if (finalDateObj && finalDateObj.getTime() < Date.now()) {
+      Alert.alert('Error', 'No puedes establecer una fecha y hora en el pasado.');
+      return;
+    }
     if (!finalDateObj) {
       Alert.alert('Error', 'La fecha u hora tienen un formato incorrecto. Usa DD/MM/YYYY y HH:MM.');
       return;
