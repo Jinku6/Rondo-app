@@ -57,6 +57,7 @@ memory/
 # Supabase
 supabase/*.html
 supabase/schema.sql
+supabase/migrations/
 
 # Claude Skills
 skills-lock.json
