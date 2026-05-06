@@ -25,6 +25,26 @@ import {
   JetBrainsMono_500Medium,
   JetBrainsMono_700Bold,
 } from '@expo-google-fonts/jetbrains-mono';
+import * as Sentry from '@sentry/react-native';
+
+Sentry.init({
+  dsn: 'https://f1d68a7332dc132619af76b18cc06b8c@o4511344482648064.ingest.de.sentry.io/4511344484089936',
+
+  // Adds more context data to events (IP address, cookies, user, etc.)
+  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
+  sendDefaultPii: true,
+
+  // Enable Logs
+  enableLogs: true,
+
+  // Configure Session Replay
+  replaysSessionSampleRate: 0.1,
+  replaysOnErrorSampleRate: 1,
+  integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
+
+  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
+  // spotlight: __DEV__,
+});
 
 
 export const unstable_settings = {
@@ -271,7 +291,7 @@ function RootLayoutNav() {
   );
 }
 
-export default function RootLayout() {
+export default Sentry.wrap(function RootLayout() {
   const [fontsLoaded, fontError] = Font.useFonts({
     Archivo_500Medium,
     Archivo_600SemiBold,
@@ -297,4 +317,4 @@ export default function RootLayout() {
       <RootLayoutNav />
     </AuthProvider>
   );
-}
+});

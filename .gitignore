@@ -80,3 +80,5 @@ supabase/functions/*/node_modules/
 # EAS / Build artifacts
 eas-local-build-artifacts/
 .expo-shared/
+
+.env.local
