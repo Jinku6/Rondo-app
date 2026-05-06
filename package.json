@@ -8,7 +8,8 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "sentry:release": "node scripts/sentry-release.js"
   },
   "dependencies": {
     "@expo-google-fonts/archivo": "^0.4.2",
