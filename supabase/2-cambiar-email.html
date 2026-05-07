@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirma tu nuevo email en Rondo</title>
+  <style>
+    @media (prefers-color-scheme: dark) {
+      body { background-color: #0A0A0A !important; }
+      .container { background-color: #0A0A0A !important; }
+      .card { background-color: #111827 !important; border-color: #1F2937 !important; }
+      .title { color: #FFFFFF !important; }
+      .subtitle { color: #9CA3AF !important; }
+      .footer-text { color: #4B5563 !important; }
+      .divider { border-color: #1F2937 !important; }
+    }
+  </style>
+</head>
+
+<body style="margin:0;padding:0;background-color:#FFFFFF;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;-webkit-font-smoothing:antialiased;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" class="container" style="background-color:#FFFFFF;width:100% !important;">
+    <tr>
+      <td align="center" valign="top" style="padding:40px 16px;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:480px;width:100% !important;">
+          <!-- Logo -->
+          <tr>
+            <td align="center" style="padding-bottom:24px;">
+              <img src="https://fbxixnlablcbavzpwivw.supabase.co/storage/v1/object/public/assets/icon.png" alt="Rondo" width="120" style="width:120px;height:auto;display:block;margin:0 auto;">
+            </td>
+          </tr>
+          <!-- Main Card -->
+          <tr>
+            <td class="card" style="background-color:#F9FAFB;border:1px solid #E5E7EB;border-radius:24px;padding:32px 24px;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" style="padding-bottom:16px;">
+                    <div style="font-size:48px;line-height:1;">📧</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding-bottom:12px;">
+                    <h1 class="title" style="margin:0;font-size:24px;font-weight:700;color:#111827;line-height:1.2;text-align:center;">
+                      Confirma tu nuevo email
+                    </h1>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding-bottom:24px;">
+                    <p class="subtitle" style="margin:0;font-size:16px;color:#6B7280;line-height:1.5;text-align:center;max-width:320px;">
+                      Has solicitado cambiar tu dirección de correo en Rondo. Haz clic abajo para confirmar el cambio.
+                    </p>
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding-bottom:32px;">
+                    <a href="{{ .ConfirmationURL }}" style="display:inline-block;background-color:#22C55E;color:#FFFFFF;text-decoration:none;font-size:16px;font-weight:700;padding:18px 36px;border-radius:14px;text-align:center;">
+                      Confirmar nuevo email
+                    </a>
+                  </td>
+                </tr>
+                <tr>
+                  <td class="divider" style="border-top:1px solid #E5E7EB;padding-top:24px;">
+                    <p style="margin:0;font-size:12px;color:#9CA3AF;text-align:center;line-height:1.4;">
+                      Si el botón no funciona, copia este link:<br>
+                      <a href="{{ .ConfirmationURL }}" style="color:#22C55E;word-break:break-all;font-size:11px;">{{ .ConfirmationURL }}</a>
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <!-- Footer -->
+          <tr>
+            <td align="center" style="padding-top:24px;">
+              <p class="footer-text" style="margin:0;font-size:12px;color:#9CA3AF;text-align:center;line-height:1.5;">
+                © 2026 Rondo · Manteniendo tu cuenta segura.<br>
+                Si no solicitaste este cambio, puedes ignorar este correo.
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+
+</html>

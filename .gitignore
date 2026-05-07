@@ -55,9 +55,7 @@ app-example
 memory/
 
 # Supabase
-supabase/*.html
 supabase/schema.sql
-supabase/migrations/
 
 # Claude Skills
 skills-lock.json
@@ -75,7 +73,6 @@ GoogleService-Info.plist
 
 # Supabase (Specifics)
 supabase/.temp/
-supabase/functions/
 supabase/functions/*/node_modules/
 
 # EAS / Build artifacts

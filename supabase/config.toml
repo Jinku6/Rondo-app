@@ -1,0 +1,12 @@
+[functions.cancel-match]
+verify_jwt = true
+
+[functions.cancel-participation]
+verify_jwt = true
+
+[functions.auto-confirm-attendance]
+verify_jwt = false
+
+[functions.waitlist]
+verify_jwt = false
+
