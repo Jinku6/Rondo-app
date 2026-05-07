@@ -15,6 +15,7 @@ import { MatchCard } from '@/components/rondo/MatchCard';
 import { ScreenTitle } from '@/components/ui/ScreenTitle';
 
 const c = Colors;
+const SEARCH_RADIUS_KM = 20;
 
 const VALID_POSITIONS = new Set(['cualquiera', 'portero', 'defensa', 'mediocentro', 'delantero']);
 
@@ -71,7 +72,7 @@ export default function SearchResultsScreen() {
       if (!isValidCoords(parsedLat, parsedLng)) {
         setMatches([]); setLoading(false); setRefreshing(false); return;
       }
-      const { data: rpcData } = await supabase.rpc('partidos_cerca', { lat: parsedLat, lng: parsedLng, radio_km: 30 });
+      const { data: rpcData } = await supabase.rpc('partidos_cerca', { lat: parsedLat, lng: parsedLng, radio_km: SEARCH_RADIUS_KM });
       nearbyIds = (rpcData || []).map((r: { id: string }) => r.id);
       if (!nearbyIds || nearbyIds.length === 0) {
         setMatches([]); setLoading(false); setRefreshing(false); return;

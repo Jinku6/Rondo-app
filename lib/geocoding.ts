@@ -1,7 +1,7 @@
 import { DEFAULT_COUNTRY_CODE, LOCATION_CONFIG } from '@/lib/location/config';
 import { mapboxClient } from '@/lib/location/mapboxClient';
 import {
-  mergeVenueAndExternalResults,
+  searchExternalPlaceSuggestions,
   searchExternalPlaces,
   searchVenues,
 } from '@/lib/location/locationService';
@@ -19,6 +19,12 @@ export interface GeoResult {
   source?: 'venue' | 'external' | 'manual' | 'city';
   qualityStatus?: Exclude<LocationQualityStatus, 'venue_reported'>;
   externalPlace?: ExternalPlaceResult;
+}
+
+export interface GeoSuggestion extends Omit<GeoResult, 'lat' | 'lng' | 'externalPlace'> {
+  lat?: number;
+  lng?: number;
+  mapboxId?: string;
 }
 
 function toGeoResultFromExternal(place: ExternalPlaceResult): GeoResult {
@@ -54,7 +60,7 @@ export async function reverseGeocodeCiudad(lat: number, lng: number): Promise<Ge
   };
 }
 
-export async function buscarDireccion(query: string): Promise<GeoResult[]> {
+export async function buscarDireccion(query: string, sessionToken?: string): Promise<GeoSuggestion[]> {
   const trimmed = query.trim().slice(0, MAX_QUERY_LENGTH);
   if (trimmed.length < 3) return [];
 
@@ -65,41 +71,68 @@ export async function buscarDireccion(query: string): Promise<GeoResult[]> {
   });
 
   const externalResults =
-    internalResults.length >= 3
-      ? []
-      : await searchExternalPlaces({
+    internalResults.length === 0
+      ? await searchExternalPlaceSuggestions({
           query: trimmed,
           countryCode: DEFAULT_COUNTRY_CODE,
           limit: LOCATION_CONFIG.externalLimit,
-        });
+          sessionToken,
+        })
+      : [];
 
-  return mergeVenueAndExternalResults(internalResults, externalResults).map((result) => {
-    if (result.kind === 'venue') {
-      return {
-        nombre: result.name,
-        direccion: result.address || '',
-        ciudad: result.city,
-        lat: result.latitude,
-        lng: result.longitude,
-        venueId: result.id,
-        source: 'venue',
-        qualityStatus: 'confirmed',
-      };
-    }
+  const venueSuggestions: GeoSuggestion[] = internalResults.map((result) => ({
+    nombre: result.name,
+    direccion: result.address || '',
+    ciudad: result.city,
+    lat: result.latitude,
+    lng: result.longitude,
+    venueId: result.id,
+    source: 'venue',
+    qualityStatus: 'confirmed',
+  }));
 
-    return toGeoResultFromExternal(result);
+  const mapboxSuggestions: GeoSuggestion[] = externalResults.map((result) => ({
+    nombre: result.name,
+    direccion: result.address || '',
+    ciudad: result.city,
+    source: 'external',
+    qualityStatus: 'external_unverified',
+    mapboxId: result.mapboxId,
+  }));
+
+  return [...venueSuggestions, ...mapboxSuggestions];
+}
+
+export async function resolverDireccion(resultado: GeoSuggestion, sessionToken?: string): Promise<GeoResult | null> {
+  if (resultado.source !== 'external' || !resultado.mapboxId) {
+    if (typeof resultado.lat !== 'number' || typeof resultado.lng !== 'number') return null;
+    return {
+      ...resultado,
+      lat: resultado.lat,
+      lng: resultado.lng,
+    };
+  }
+
+  const externalPlace = await searchExternalPlaces({
+    query: resultado.nombre,
+    countryCode: DEFAULT_COUNTRY_CODE,
+    limit: 1,
+    sessionToken,
+    mapboxId: resultado.mapboxId,
   });
+
+  const place = externalPlace[0];
+  return place ? toGeoResultFromExternal(place) : null;
 }
 
 export async function buscarCiudad(query: string): Promise<GeoResult[]> {
   const trimmed = query.trim().slice(0, MAX_QUERY_LENGTH);
   if (trimmed.length < 2) return [];
 
-  const results = await mapboxClient.searchPlaces({
+  const results = await mapboxClient.geocodeCities({
     query: trimmed,
     countryCode: DEFAULT_COUNTRY_CODE,
     limit: 8,
-    types: 'place,locality,district',
   });
 
   const seen = new Set<string>();

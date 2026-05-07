@@ -6,11 +6,12 @@ import type {
   ExistingVenueResolution,
   ExternalPlaceResult,
   LocationSearchResult,
+  VenueSearchResult,
   SelectedVenueLocation,
   Venue,
   VenueReportReason,
-  VenueSearchResult,
 } from '@/types/location';
+import type { MapboxPlaceSuggestion } from '@/lib/location/mapboxClient';
 
 type VenueRow = Omit<Venue, 'aliases'> & {
   venue_aliases?: { alias: string; normalized_alias: string }[];
@@ -92,6 +93,37 @@ function textSimilarity(left: string, right: string): number {
 function bestNameSimilarity(name: string, venue: Venue): number {
   const candidates = [venue.normalized_name, ...(venue.aliases || [])];
   return Math.max(...candidates.map((candidate) => textSimilarity(name, candidate)));
+}
+
+function getSearchTokens(normalized: string): string[] {
+  const stopwords = new Set([
+    'campo',
+    'futbol',
+    'football',
+    'de',
+    'del',
+    'la',
+    'las',
+    'el',
+    'los',
+    'municipal',
+    'polideportivo',
+    'club',
+    'cd',
+    'cf',
+    'id',
+    'i',
+    'd',
+    'c',
+  ]);
+
+  const meaningfulTokens = normalized
+    .split(' ')
+    .filter((token) => token.length >= 2 && !stopwords.has(token));
+
+  return meaningfulTokens.length > 0
+    ? meaningfulTokens
+    : normalized.split(' ').filter((token) => token.length >= 2);
 }
 
 export function mergeVenueAndExternalResults(
@@ -178,33 +210,63 @@ export async function searchVenues(params: {
 
   const countryCode = params.countryCode || LOCATION_CONFIG.defaultCountryCode;
   const limit = params.limit || LOCATION_CONFIG.defaultLimit;
+  const tokens = getSearchTokens(normalized).slice(0, 5);
 
   try {
     const supabase = await getSupabase();
-    const { data: nameRows } = await supabase
-      .from('venues')
-      .select('*, venue_aliases(alias, normalized_alias)')
-      .eq('country_code', countryCode)
-      .neq('verification_status', 'rejected')
-      .ilike('normalized_name', `%${normalized}%`)
-      .limit(limit);
+    const nameQueries = [
+      supabase
+        .from('venues')
+        .select('*, venue_aliases(alias, normalized_alias)')
+        .eq('country_code', countryCode)
+        .neq('verification_status', 'rejected')
+        .ilike('normalized_name', `%${normalized}%`)
+        .limit(limit),
+      ...tokens.map((token) =>
+        supabase
+          .from('venues')
+          .select('*, venue_aliases(alias, normalized_alias)')
+          .eq('country_code', countryCode)
+          .neq('verification_status', 'rejected')
+          .ilike('normalized_name', `%${token}%`)
+          .limit(limit)
+      ),
+    ];
 
-    const { data: aliasRows } = await supabase
-      .from('venue_aliases')
-      .select('venue:venues(*, venue_aliases(alias, normalized_alias))')
-      .ilike('normalized_alias', `%${normalized}%`)
-      .limit(limit);
+    const aliasQueries = [
+      supabase
+        .from('venue_aliases')
+        .select('venue:venues(*, venue_aliases(alias, normalized_alias))')
+        .ilike('normalized_alias', `%${normalized}%`)
+        .limit(limit),
+      ...tokens.map((token) =>
+        supabase
+          .from('venue_aliases')
+          .select('venue:venues(*, venue_aliases(alias, normalized_alias))')
+          .ilike('normalized_alias', `%${token}%`)
+          .limit(limit)
+      ),
+    ];
+
+    const [nameResults, aliasResults] = await Promise.all([
+      Promise.all(nameQueries),
+      Promise.all(aliasQueries),
+    ]);
 
     const byId = new Map<string, Venue>();
 
-    for (const row of (nameRows || []) as VenueRow[]) {
-      byId.set(row.id, toVenue(row));
+    for (const result of nameResults) {
+      for (const row of (result.data || []) as VenueRow[]) {
+        byId.set(row.id, toVenue(row));
+      }
     }
 
-    for (const row of (aliasRows || []) as any[]) {
-      const venueRow = row.venue as VenueRow | null;
-      if (venueRow && venueRow.country_code === countryCode && venueRow.verification_status !== 'rejected') {
-        byId.set(venueRow.id, toVenue(venueRow));
+    for (const result of aliasResults) {
+      for (const row of (result.data || []) as any[]) {
+        const venueRow = row.venue as VenueRow | null;
+        if (venueRow && venueRow.country_code === countryCode && venueRow.verification_status !== 'rejected') {
+          byId.set(venueRow.id, toVenue(venueRow));
+        }
       }
     }
 
@@ -227,9 +289,32 @@ export async function searchExternalPlaces(params: {
   countryCode?: string;
   proximity?: { latitude: number; longitude: number };
   limit?: number;
+  sessionToken?: string;
+  mapboxId?: string;
 }): Promise<ExternalPlaceResult[]> {
   try {
+    if (params.mapboxId) {
+      const place = await mapboxClient.retrievePlace({
+        mapboxId: params.mapboxId,
+        sessionToken: params.sessionToken,
+      });
+      return place ? [place] : [];
+    }
     return await mapboxClient.searchPlaces(params);
+  } catch {
+    return [];
+  }
+}
+
+export async function searchExternalPlaceSuggestions(params: {
+  query: string;
+  countryCode?: string;
+  proximity?: { latitude: number; longitude: number };
+  limit?: number;
+  sessionToken?: string;
+}): Promise<MapboxPlaceSuggestion[]> {
+  try {
+    return await mapboxClient.suggestPlaces(params);
   } catch {
     return [];
   }

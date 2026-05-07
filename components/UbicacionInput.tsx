@@ -8,7 +8,8 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { buscarDireccion, GeoResult } from '@/lib/geocoding';
+import * as Location from 'expo-location';
+import { buscarDireccion, resolverDireccion, GeoResult, GeoSuggestion } from '@/lib/geocoding';
 import { VenueConfirmModal } from '@/components/VenueConfirmModal';
 import {
   createManualVenue,
@@ -50,13 +51,18 @@ export function UbicacionInput({
   placeholder = 'Busca el campo o direccion...',
   createdBy,
 }: Props) {
-  const [resultados, setResultados] = useState<GeoResult[]>([]);
+  const [resultados, setResultados] = useState<GeoSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [seleccionado, setSeleccionado] = useState<GeoResult | null>(null);
   const [pendingResult, setPendingResult] = useState<GeoResult | null>(null);
   const [manualMode, setManualMode] = useState(false);
   const [resolving, setResolving] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const sessionTokenRef = useRef(`rondo-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+
+  const resetSessionToken = () => {
+    sessionTokenRef.current = `rondo-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  };
 
   const handleChange = useCallback(
     (text: string) => {
@@ -73,7 +79,7 @@ export function UbicacionInput({
       timeoutRef.current = setTimeout(async () => {
         setLoading(true);
         try {
-          const res = await buscarDireccion(text);
+          const res = await buscarDireccion(text, sessionTokenRef.current);
           setResultados(res);
         } catch {
           setResultados([]);
@@ -95,24 +101,51 @@ export function UbicacionInput({
     onSelect(resultado);
   };
 
-  const handleSelect = (resultado: GeoResult) => {
-    setPendingResult(resultado);
-    setManualMode(false);
+  const handleSelect = async (resultado: GeoSuggestion) => {
+    setLoading(true);
+    try {
+      const resolved = await resolverDireccion(resultado, sessionTokenRef.current);
+      if (!resolved) {
+        Alert.alert('No se pudo encontrar la ubicacion', 'Prueba con otra busqueda o crea la ubicacion manualmente.');
+        return;
+      }
+      setResultados([]);
+      setPendingResult(resolved);
+      setManualMode(false);
+    } catch (error) {
+      Alert.alert('No se pudo encontrar la ubicacion', error instanceof Error ? error.message : String(error));
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleManual = () => {
+  const handleManual = async () => {
     const name = value.trim();
     if (name.length < 3) return;
+    let initialPin = DEFAULT_MANUAL_PIN;
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        initialPin = {
+          latitude: loc.coords.latitude,
+          longitude: loc.coords.longitude,
+        };
+      }
+    } catch {
+      initialPin = DEFAULT_MANUAL_PIN;
+    }
     setPendingResult({
       nombre: name,
       direccion: '',
       ciudad: '',
-      lat: DEFAULT_MANUAL_PIN.latitude,
-      lng: DEFAULT_MANUAL_PIN.longitude,
+      lat: initialPin.latitude,
+      lng: initialPin.longitude,
       source: 'manual',
       qualityStatus: 'user_adjusted',
     });
     setManualMode(true);
+    resetSessionToken();
   };
 
   const handleConfirmLocation = async (confirmed: { latitude: number; longitude: number; city: string }) => {
@@ -182,6 +215,7 @@ export function UbicacionInput({
 
       setPendingResult(null);
       setManualMode(false);
+      resetSessionToken();
     } catch (error) {
       Alert.alert('No se pudo confirmar la ubicacion', error instanceof Error ? error.message : String(error));
     } finally {
@@ -193,6 +227,7 @@ export function UbicacionInput({
     onChangeText?.('');
     setResultados([]);
     setSeleccionado(null);
+    resetSessionToken();
   };
 
   return (
@@ -276,6 +311,7 @@ export function UbicacionInput({
           onCancel={() => {
             setPendingResult(null);
             setManualMode(false);
+            resetSessionToken();
           }}
           onConfirm={handleConfirmLocation}
         />
