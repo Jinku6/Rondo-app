@@ -24,6 +24,7 @@ interface ChatThread {
   is_read: boolean;
   other_user_name: string;
   other_user_avatar: string | null;
+  archived: boolean;
 }
 
 const avatarClasses = ['bg-purple-500', 'bg-amber-500', 'bg-emerald-500', 'bg-blue-500'] as const;
@@ -63,7 +64,7 @@ function toConversation(thread: ChatThread, currentUserId?: string): Conversatio
     timeLabel: formatTimeLabel(thread.last_message_at),
     avatarClassName: avatarClasses[colorIndex],
     avatarUrl: isSafeUrl(thread.other_user_avatar) ? thread.other_user_avatar : null,
-    archived: false,
+    archived: thread.archived,
     unread: !thread.is_read && thread.sender_id !== currentUserId,
   };
 }
