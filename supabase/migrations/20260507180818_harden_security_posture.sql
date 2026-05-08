@@ -407,6 +407,11 @@ BEGIN
     REVOKE EXECUTE ON FUNCTION public.get_email_from_username(text) FROM PUBLIC, anon, authenticated;
     DROP FUNCTION public.get_email_from_username(text);
   END IF;
+
+  IF to_regprocedure('public.delete_own_account()') IS NOT NULL THEN
+    REVOKE EXECUTE ON FUNCTION public.delete_own_account() FROM PUBLIC, anon;
+    GRANT EXECUTE ON FUNCTION public.delete_own_account() TO authenticated;
+  END IF;
 END;
 $$;
 
@@ -483,9 +488,15 @@ DO $$
 BEGIN
   IF to_regprocedure('public.get_unread_count()') IS NOT NULL THEN
     EXECUTE 'ALTER FUNCTION public.get_unread_count() SET search_path TO public';
+    EXECUTE 'ALTER FUNCTION public.get_unread_count() SECURITY INVOKER';
+    REVOKE EXECUTE ON FUNCTION public.get_unread_count() FROM PUBLIC, anon;
+    GRANT EXECUTE ON FUNCTION public.get_unread_count() TO authenticated;
   END IF;
   IF to_regprocedure('public.get_user_chat_threads()') IS NOT NULL THEN
     EXECUTE 'ALTER FUNCTION public.get_user_chat_threads() SET search_path TO public';
+    EXECUTE 'ALTER FUNCTION public.get_user_chat_threads() SECURITY INVOKER';
+    REVOKE EXECUTE ON FUNCTION public.get_user_chat_threads() FROM PUBLIC, anon;
+    GRANT EXECUTE ON FUNCTION public.get_user_chat_threads() TO authenticated;
   END IF;
 END;
 $$;

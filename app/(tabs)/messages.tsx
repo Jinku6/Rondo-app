@@ -9,6 +9,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenTitle } from '@/components/ui/ScreenTitle';
+import { PendingReviewsAlert } from '@/components/PendingReviewsAlert';
 
 type MessagesTab = 'active' | 'archived';
 
@@ -210,6 +211,8 @@ export default function MessagesScreen() {
                   Mis Mensajes
                 </ScreenTitle>
               </View>
+
+              <PendingReviewsAlert />
 
               <View className="flex-row bg-surface p-1 rounded-xl mb-2">
                 <TouchableOpacity

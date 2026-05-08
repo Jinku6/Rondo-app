@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Alert, Platform } from 'react-native';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+import { PUBLIC_USER_SELECT } from '@/lib/supabase/selects';
 import { UserProfile } from '@/types/database';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
@@ -45,14 +46,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   const fetchProfile = async (userId: string, authUser?: User) => {
+    try {
     const { data, error } = await supabase
       .from('users')
-      .select('*')
+      .select(PUBLIC_USER_SELECT)
       .eq('id', userId)
       .single();
 
     if (!error && data) {
-      let profileData = data;
+      const { data: privateData, error: privateError } = await supabase
+        .from('user_account_private')
+        .select('birthday')
+        .eq('user_id', userId)
+        .maybeSingle();
+
+      if (privateError && __DEV__) {
+        console.warn('fetch private profile error:', privateError.message);
+      }
+
+      let profileData = { ...data, birthday: privateData?.birthday ?? null };
 
       // Sincronizar foto de Google si el perfil no tiene avatar pero el proveedor sí
       if (!data.avatar_url && authUser) {
@@ -68,12 +80,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             .eq('id', userId);
 
           if (!updateError) {
-            profileData = { ...data, avatar_url: googleAvatar };
+            profileData = { ...profileData, avatar_url: googleAvatar };
           }
         }
       }
 
       setProfile(profileData as UserProfile);
+    }
+    } catch (error) {
+      if (__DEV__) console.warn('fetch profile error:', getAuthErrorMessage(error, 'No se pudo cargar el perfil.'));
     }
   };
 
@@ -150,13 +165,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error: error?.message ?? null };
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      return { error: error?.message ?? null };
+    } catch (error) {
+      return { error: getAuthErrorMessage(error, 'No se pudo iniciar sesion.') };
+    }
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    setProfile(null);
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      if (__DEV__) console.warn('sign out error:', getAuthErrorMessage(error, 'No se pudo cerrar sesion.'));
+    } finally {
+      setProfile(null);
+    }
   };
 
   const refreshProfile = async () => {
@@ -194,10 +218,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
 
     if (result.type === 'success' && result.url) {
-      // Supabase will pick up the session automatically via the URL hash/code.
-      // We trigger getSessionFromUrl so the SDK processes the tokens.
-      const { error: sessionError } = await (supabase.auth as any).getSessionFromUrl?.({ url: result.url })
-        ?? supabase.auth.exchangeCodeForSession(new URL(result.url).searchParams.get('code') ?? '');
+      const code = new URL(result.url).searchParams.get('code');
+      if (!code) {
+        Alert.alert('Error de autenticación', 'El enlace de Google no es válido.');
+        return;
+      }
+      const { error: sessionError } = await supabase.auth.exchangeCodeForSession(code);
       if (sessionError) {
         Alert.alert('Error de autenticación', sessionError.message);
       }

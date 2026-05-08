@@ -26,6 +26,7 @@ describe('security hardening artifacts', () => {
     const sql = listSql();
 
     expect(sql).toMatch(/user_account_private/i);
+    expect(sql).toMatch(/grant\s+select,\s*insert,\s*update\s+on\s+table\s+public\.user_account_private\s+to\s+authenticated/i);
     expect(sql).toMatch(/revoke\s+execute\s+on\s+function\s+public\.increment_cancellations\s*\(\s*uuid\s*\)/i);
     expect(sql).toMatch(/revoke\s+execute\s+on\s+function\s+public\.increment_organizer_cancellations\s*\(\s*uuid\s*\)/i);
     expect(sql).toMatch(/drop\s+policy\s+if\s+exists\s+"Users:\s+read\s+all"/i);
@@ -68,4 +69,3 @@ describe('security hardening artifacts', () => {
     expect(reset).toMatch(/MIN_PASSWORD_LENGTH\s*=\s*12/);
   });
 });
-

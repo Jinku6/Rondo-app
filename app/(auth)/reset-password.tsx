@@ -7,6 +7,8 @@ import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 
+const MIN_PASSWORD_LENGTH = 12;
+
 export default function ResetPasswordScreen() {
   const router = useRouter();
   const [password, setPassword] = useState('');
@@ -19,8 +21,8 @@ export default function ResetPasswordScreen() {
       Alert.alert('Campo requerido', 'Introduce tu nueva contraseña.');
       return;
     }
-    if (password.length < 6) {
-      Alert.alert('Contraseña muy corta', 'La contraseña debe tener al menos 6 caracteres.');
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      Alert.alert('Contraseña muy corta', `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`);
       return;
     }
     if (password !== confirm) {
@@ -29,17 +31,19 @@ export default function ResetPasswordScreen() {
     }
 
     setLoading(true);
-    const { error } = await supabase.auth.updateUser({ password });
-    setLoading(false);
-
-    if (error) {
-      if (Platform.OS === 'web') {
-        window.alert(`Error: ${error.message}`);
-      } else {
-        Alert.alert('Error', error.message);
-      }
-    } else {
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
+      if (error) throw error;
       setDone(true);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'No se pudo actualizar la contraseña.';
+      if (Platform.OS === 'web') {
+        window.alert(`Error: ${message}`);
+      } else {
+        Alert.alert('Error', message);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -84,7 +88,7 @@ export default function ResetPasswordScreen() {
         <Text className="text-slate-700 dark:text-slate-300 font-medium mb-1">Nueva contraseña</Text>
         <TextInput
           className="w-full bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-xl p-3 text-gray-900 dark:text-white mb-4"
-          placeholder="Mínimo 6 caracteres"
+          placeholder={`Mínimo ${MIN_PASSWORD_LENGTH} caracteres`}
           placeholderTextColor="#9ca3af"
           value={password}
           onChangeText={setPassword}

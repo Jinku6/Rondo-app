@@ -16,6 +16,7 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { ArrowRight, ChevronRight, Share2 } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
+import { PUBLIC_USER_SELECT } from '@/lib/supabase/selects';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Match,
@@ -306,7 +307,7 @@ export default function MatchDetailScreen() {
     try {
       const { data: matchData, error: matchError } = await supabase
         .from('matches')
-        .select('*, organizer:users(*, phone_data:user_private_data(phone))')
+        .select(`*, organizer:users(${PUBLIC_USER_SELECT})`)
         .eq('id', id)
         .single();
 
@@ -320,7 +321,7 @@ export default function MatchDetailScreen() {
 
       const { data: partData, error: partError } = await supabase
         .from('match_participants')
-        .select('*, user:users(*, phone_data:user_private_data(phone))')
+        .select(`*, user:users(${PUBLIC_USER_SELECT})`)
         .eq('match_id', id);
 
       if (!partError && partData) {
@@ -382,22 +383,12 @@ export default function MatchDetailScreen() {
     if (!user || !match) return;
     setActionLoading(true);
     try {
-      if (win === '48h_plus') {
-        const { error } = await supabase
-          .from('match_participants')
-          .delete()
-          .eq('match_id', match.id)
-          .eq('user_id', user.id);
-        if (error) throw error;
-      } else {
-        const attended = win === '24_48h';
-        const { error } = await supabase
-          .from('match_participants')
-          .update({ status: 'dropped', attended })
-          .eq('match_id', match.id)
-          .eq('user_id', user.id);
-        if (error) throw error;
-      }
+      const participant = participants.find(p => p.match_id === match.id && p.user_id === user.id);
+      if (!participant) throw new Error('No se encontrÃ³ tu participaciÃ³n en este partido.');
+      const { error } = await supabase.functions.invoke('cancel-participation', {
+        body: { match_participant_id: participant.id, cancellation_window: win },
+      });
+      if (error) throw error;
       fetchMatchDetails();
     } catch (e) {
       Alert.alert('Error', e instanceof Error ? e.message : 'No se pudo procesar la baja');
@@ -498,17 +489,10 @@ export default function MatchDetailScreen() {
           onPress: async () => {
             setActionLoading(true);
             try {
-              const { error } = await supabase
-                .from('matches')
-                .update({ status: 'cancelled' })
-                .eq('id', match.id);
+              const { error } = await supabase.functions.invoke('cancel-match', {
+                body: { match_id: match.id },
+              });
               if (error) throw error;
-
-              await supabase
-                .from('match_participants')
-                .update({ status: 'rejected' })
-                .eq('match_id', match.id)
-                .eq('status', 'pending');
 
               Alert.alert('Partido cancelado', 'El partido ha sido cancelado.', [
                 { text: 'Aceptar', onPress: () => router.replace('/(tabs)/mymatches') },
@@ -911,7 +895,7 @@ export default function MatchDetailScreen() {
         {/* ── Jugadores ───────────────────────────────────────────────── */}
         <View style={[s.section, { borderBottomWidth: 0 }]}>
           <Text className="mb-2.5 font-mono text-[9px] font-bold uppercase tracking-[1.5px] text-[#8A938F]">
-            JUGADORES APUNTADOS ({filled})
+            JUGADORES APUNTADOS ({nonOrganizerApproved.length})
           </Text>
           {nonOrganizerApproved.map((p, index) => (
             <PlayerRow 

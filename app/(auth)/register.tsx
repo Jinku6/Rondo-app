@@ -12,6 +12,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { z } from 'zod';
 import { Colors } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ConfirmHcaptcha from '@hcaptcha/react-native-hcaptcha';
+
+const MIN_PASSWORD_LENGTH = 12;
 
 const RegisterSchema = z.object({
   fullName: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),
@@ -19,7 +22,7 @@ const RegisterSchema = z.object({
   preferredPosition: z.string().min(1, 'Debes seleccionar una posición'),
   email: z.string().email('El correo electrónico no es válido'),
   password: z.string()
-    .min(6, 'La contraseña debe tener mínimo 6 caracteres')
+    .min(MIN_PASSWORD_LENGTH, `La contraseña debe tener mínimo ${MIN_PASSWORD_LENGTH} caracteres`)
     .regex(/[A-Z]/, 'La contraseña debe incluir al menos una letra mayúscula')
     .regex(/\d/, 'La contraseña debe incluir al menos un número'),
   phone: z.string()
@@ -35,6 +38,12 @@ const showAlert = (title: string, message: string, onOk?: () => void) => {
   } else {
     Alert.alert(title, message, [{ text: 'Aceptar', onPress: onOk }]);
   }
+};
+
+type HcaptchaMessageEvent = {
+  nativeEvent?: { data?: string };
+  success?: boolean;
+  markUsed?: () => void;
 };
 
 const POSITIONS = [
@@ -86,6 +95,8 @@ export default function RegisterScreen() {
   const [usernameChecking, setUsernameChecking] = useState(false);
   const [usernameError, setUsernameError] = useState('');
   const usernameDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const captchaRef = useRef<ConfirmHcaptcha | null>(null);
+  const captchaSiteKey = process.env.EXPO_PUBLIC_HCAPTCHA_SITE_KEY;
 
   const { signUp, resendSignUpConfirmation, signInWithGoogle } = useAuth();
   const router = useRouter();
@@ -107,7 +118,7 @@ export default function RegisterScreen() {
   };
 
   const validatePassword = (pwd: string) => ({
-    minLength: pwd.length >= 6,
+    minLength: pwd.length >= MIN_PASSWORD_LENGTH,
     hasUpperCase: /[A-Z]/.test(pwd),
     hasNumber: /\d/.test(pwd),
   });
@@ -132,14 +143,14 @@ export default function RegisterScreen() {
     return true;
   }, [birthday, fullName, username, preferredPosition, email, password, phone, usernameError]);
 
-  const doRegister = useCallback(async () => {
+  const doRegister = useCallback(async (captchaToken: string) => {
     setLoading(true);
     try {
     const birthdayIso = birthday ? birthday.toISOString().split('T')[0] : '';
     const normalizedEmail = email.trim().toLowerCase();
     const emailExists = false;
     if (emailExists) {
-      const { error } = await resendSignUpConfirmation(normalizedEmail);
+      const { error } = await resendSignUpConfirmation(normalizedEmail, captchaToken);
       setLoading(false);
       if (error) {
         if (__DEV__) console.error('Error reenviando confirmación:', error);
@@ -153,7 +164,7 @@ export default function RegisterScreen() {
       );
       return;
     }
-    const { error } = await signUp(normalizedEmail, password, username.toLowerCase(), fullName, preferredPosition, phone, birthdayIso);
+    const { error } = await signUp(normalizedEmail, password, username.toLowerCase(), fullName, preferredPosition, phone, birthdayIso, captchaToken);
     setLoading(false);
     if (error) {
       if (__DEV__) console.error('Error de registro:', error);
@@ -173,9 +184,33 @@ export default function RegisterScreen() {
     }
   }, [birthday, email, password, username, fullName, preferredPosition, phone, signUp, resendSignUpConfirmation, router]);
 
-  async function handleRegister() {
+  const handleCaptchaMessage = useCallback(async (event: HcaptchaMessageEvent) => {
+    const token = event.nativeEvent?.data;
+
+    if (event.success && token) {
+      event.markUsed?.();
+      captchaRef.current?.hide('verified');
+      await doRegister(token);
+      return;
+    }
+
+    if (token === 'open') return;
+
+    captchaRef.current?.hide('handled');
+    setLoading(false);
+    if (token && token !== 'cancel' && token !== 'challenge-closed') {
+      showAlert('Captcha', 'No se pudo verificar la solicitud. Inténtalo de nuevo.');
+    }
+  }, [doRegister]);
+
+  function handleRegister() {
     if (!validateForm()) return;
-    doRegister();
+    if (!captchaSiteKey || !captchaRef.current) {
+      showAlert('Captcha', 'No se pudo iniciar la verificación. Inténtalo de nuevo.');
+      return;
+    }
+    setLoading(true);
+    captchaRef.current.show();
   }
 
   const pwdValidation = validatePassword(password);
@@ -397,7 +432,7 @@ export default function RegisterScreen() {
               </View>
               <View style={{ marginTop: 8, gap: 4 }}>
                 {[
-                  { ok: pwdValidation.minLength, label: 'Mínimo 6 caracteres' },
+                  { ok: pwdValidation.minLength, label: `Mínimo ${MIN_PASSWORD_LENGTH} caracteres` },
                   { ok: pwdValidation.hasUpperCase, label: 'Una letra mayúscula' },
                   { ok: pwdValidation.hasNumber, label: 'Un número' },
                 ].map(({ ok, label }) => (
@@ -473,6 +508,15 @@ export default function RegisterScreen() {
           </View>
         </ScrollView>
       </TouchWrapper>
+      {captchaSiteKey ? (
+        <ConfirmHcaptcha
+          ref={captchaRef}
+          siteKey={captchaSiteKey}
+          baseUrl="https://hcaptcha.com"
+          size="invisible"
+          onMessage={handleCaptchaMessage}
+        />
+      ) : null}
     </KeyboardAvoidingView>
   );
 }

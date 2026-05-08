@@ -4,6 +4,7 @@ import {
   ActivityIndicator, RefreshControl,
 } from 'react-native';
 import { supabase } from '@/lib/supabase';
+import { PUBLIC_USER_SELECT } from '@/lib/supabase/selects';
 import { Match } from '@/types/database';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -81,7 +82,7 @@ export default function SearchResultsScreen() {
 
     let query = supabase
       .from('matches')
-      .select('*, organizer:users(*), participants:match_participants(status)')
+      .select(`*, organizer:users(${PUBLIC_USER_SELECT}), participants:match_participants(status)`)
       .eq('status', 'open')
       .order('date_time', { ascending: true });
 

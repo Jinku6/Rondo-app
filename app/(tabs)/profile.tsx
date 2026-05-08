@@ -19,6 +19,13 @@ import { containsProfanity } from '@/lib/profanityFilter';
 const c = Colors;
 
 const POSITIONS = ['portero', 'defensa', 'mediocentro', 'delantero'];
+const MIN_PASSWORD_LENGTH = 12;
+const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
+const AVATAR_MIME_EXTENSIONS: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
 
 const POSITION_EMOJIS: Record<string, string> = {
   portero: '🧤', defensa: '🛡️', mediocentro: '⚙️', delantero: '⚡',
@@ -193,18 +200,26 @@ export default function ProfileScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.5, base64: true,
     });
-    if (!result.canceled && result.assets?.[0]?.base64) {
-      await uploadAvatar(result.assets[0].base64, result.assets[0].uri);
+    if (!result.canceled && result.assets?.[0]) {
+      await uploadAvatar(result.assets[0]);
     }
   };
 
-  const uploadAvatar = async (base64String: string, uri: string) => {
+  const uploadAvatar = async (asset: ImagePicker.ImagePickerAsset) => {
     setUploading(true);
     try {
-      const fileExt = uri.split('.').pop()?.split('?')[0] || 'jpg';
+      const mimeType = asset.mimeType ?? '';
+      const fileExt = AVATAR_MIME_EXTENSIONS[mimeType];
+
+      if (!asset.base64) throw new Error('No se pudo leer la imagen seleccionada.');
+      if (!fileExt) throw new Error('Formato no permitido. Usa JPG, PNG o WebP.');
+      if (typeof asset.fileSize === 'number' && asset.fileSize > MAX_AVATAR_BYTES) {
+        throw new Error('La imagen debe pesar menos de 2 MB.');
+      }
+
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
       const { error } = await supabase.storage.from('avatars').upload(
-        fileName, decode(base64String), { cacheControl: '3600', upsert: true, contentType: 'image/jpeg' },
+        fileName, decode(asset.base64), { cacheControl: '3600', upsert: true, contentType: mimeType },
       );
       if (error) throw error;
       const { data: publicData } = supabase.storage.from('avatars').getPublicUrl(fileName);
@@ -275,7 +290,7 @@ export default function ProfileScreen() {
   };
 
   const handleUpdatePassword = async () => {
-    if (newPassword.length < 6) { showAlert('Error', 'La contraseña debe tener al menos 6 caracteres'); return; }
+    if (newPassword.length < MIN_PASSWORD_LENGTH) { showAlert('Error', `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres`); return; }
     setSavingPassword(true);
     try {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
@@ -808,7 +823,7 @@ export default function ProfileScreen() {
                   style={{ flex: 1, color: c.text, fontSize: 15, paddingVertical: 13 }}
                   value={newPassword}
                   onChangeText={setNewPassword}
-                  placeholder="Mínimo 6 caracteres"
+                  placeholder={`Mínimo ${MIN_PASSWORD_LENGTH} caracteres`}
                   placeholderTextColor={c.textMuted}
                   secureTextEntry={!showPassword}
                 />
@@ -818,12 +833,12 @@ export default function ProfileScreen() {
               </View>
               <TouchableOpacity
                 onPress={handleUpdatePassword}
-                disabled={savingPassword || newPassword.length < 6}
-                style={{ paddingHorizontal: 14, paddingVertical: 13, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: newPassword.length >= 6 ? c.brand : c.bgSurface }}
+                disabled={savingPassword || newPassword.length < MIN_PASSWORD_LENGTH}
+                style={{ paddingHorizontal: 14, paddingVertical: 13, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: newPassword.length >= MIN_PASSWORD_LENGTH ? c.brand : c.bgSurface }}
               >
                 {savingPassword
                   ? <ActivityIndicator color="#fff" size="small" />
-                  : <Text style={{ fontWeight: '700', color: newPassword.length >= 6 ? '#fff' : c.textMuted, fontSize: 13 }}>Cambiar</Text>}
+                  : <Text style={{ fontWeight: '700', color: newPassword.length >= MIN_PASSWORD_LENGTH ? '#fff' : c.textMuted, fontSize: 13 }}>Cambiar</Text>}
               </TouchableOpacity>
             </View>
           </View>

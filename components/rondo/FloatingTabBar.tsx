@@ -45,7 +45,7 @@ export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarP
         position: 'absolute',
         left: 12,
         right: 12,
-        bottom: Math.max(insets.bottom, 12),
+        bottom: insets.bottom + 8,
         height: TAB_H,
         flexDirection: 'row',
         alignItems: 'center',
@@ -208,4 +208,4 @@ function TabBtn({ label, iconName, isMaterial, active, badge, brandColor, danger
   );
 }
 
-export const FLOATING_TAB_BAR_HEIGHT = TAB_H + 56;
+export const FLOATING_TAB_BAR_HEIGHT = TAB_H + 64;

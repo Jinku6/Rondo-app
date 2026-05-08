@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Alert, Switch } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { supabase } from '@/lib/supabase';
+import { PUBLIC_USER_SELECT } from '@/lib/supabase/selects';
 import { useAuth } from '@/contexts/AuthContext';
 import { MatchParticipant, UserProfile } from '@/types/database';
 import { Ionicons } from '@expo/vector-icons';
@@ -45,7 +46,7 @@ export default function ReviewOrganizerScreen() {
 
     const { data, error } = await supabase
       .from('match_participants')
-      .select('*, user:users(*)')
+      .select(`*, user:users(${PUBLIC_USER_SELECT})`)
       .eq('match_id', id)
       .in('status', ['joined', 'approved'])
       .neq('user_id', user?.id);

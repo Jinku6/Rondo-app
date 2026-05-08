@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
+import { PUBLIC_USER_SELECT } from '@/lib/supabase/selects';
 import { Match } from '@/types/database';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
@@ -45,7 +46,7 @@ export default function MyMatchesScreen() {
 
     const { data: organized } = await supabase
       .from('matches')
-      .select('*, organizer:users(*)')
+      .select(`*, organizer:users(${PUBLIC_USER_SELECT})`)
       .eq('organizer_id', user.id)
       .order('date_time', { ascending: true });
 
@@ -74,7 +75,7 @@ export default function MyMatchesScreen() {
     if (onlyParticipatedIds.length > 0) {
       const { data } = await supabase
         .from('matches')
-        .select('*, organizer:users(*)')
+        .select(`*, organizer:users(${PUBLIC_USER_SELECT})`)
         .in('id', onlyParticipatedIds)
         .order('date_time', { ascending: true });
       played = (data as Match[]) || [];

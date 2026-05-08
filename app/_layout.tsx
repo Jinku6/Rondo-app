@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
+import { parseTrustedAuthCallback } from '@/lib/auth/deepLinks';
 import {
   Archivo_500Medium,
   Archivo_600SemiBold,
@@ -27,31 +28,46 @@ import {
 } from '@expo-google-fonts/jetbrains-mono';
 import * as Sentry from '@sentry/react-native';
 
+const SENTRY_REDACTED = '[Filtered]';
+const SENTRY_SENSITIVE_KEY = /authorization|token|secret|password|email|phone|birthday|location|latitude|longitude|lat|lng|ip_address/i;
+const SENTRY_SENSITIVE_TEXT = /([\w.%+-]+@[\w.-]+\.[A-Za-z]{2,})|(\+?\d[\d\s().-]{7,}\d)|(eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/g;
+
+const scrubSentryValue = (value: unknown): unknown => {
+  if (typeof value === 'string') return value.replace(SENTRY_SENSITIVE_TEXT, SENTRY_REDACTED);
+  if (Array.isArray(value)) return value.map(scrubSentryValue);
+  if (!value || typeof value !== 'object') return value;
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([key, entry]) => [
+      key,
+      SENTRY_SENSITIVE_KEY.test(key) ? SENTRY_REDACTED : scrubSentryValue(entry),
+    ]),
+  );
+};
+
+const scrubSentryEvent = (event: any) => {
+  if (event.user) {
+    event.user = event.user.id ? { id: event.user.id } : undefined;
+  }
+  event.extra = scrubSentryValue(event.extra) as any;
+  event.contexts = scrubSentryValue(event.contexts) as any;
+  event.request = scrubSentryValue(event.request) as any;
+  event.breadcrumbs = Array.isArray(event.breadcrumbs)
+    ? event.breadcrumbs.map(scrubSentryValue)
+    : event.breadcrumbs;
+  return event;
+};
+
 Sentry.init({
   dsn: 'https://f1d68a7332dc132619af76b18cc06b8c@o4511344482648064.ingest.de.sentry.io/4511344484089936',
-
-  // Adds more context data to events (IP address, cookies, user, etc.)
-  // For more information, visit: https://docs.sentry.io/platforms/react-native/data-management/data-collected/
-  sendDefaultPii: true,
-
-  // Set tracesSampleRate to 1.0 to capture 100% of transactions for tracing.
-  // Adjust this value in production.
-  tracesSampleRate: 1.0,
-
-  // profilesSampleRate is relative to tracesSampleRate.
-  // Here, profiles are captured for 100% of transactions.
-  profilesSampleRate: 1.0,
-
-  // Enable Logs
-  enableLogs: true,
-
-  // Configure Session Replay
-  replaysSessionSampleRate: 0.1,
-  replaysOnErrorSampleRate: 1,
-  integrations: [Sentry.mobileReplayIntegration(), Sentry.feedbackIntegration()],
-
-  // uncomment the line below to enable Spotlight (https://spotlightjs.com)
-  // spotlight: __DEV__,
+  sendDefaultPii: false,
+  tracesSampleRate: __DEV__ ? 1.0 : 0.1,
+  profilesSampleRate: __DEV__ ? 1.0 : 0,
+  enableLogs: __DEV__,
+  replaysSessionSampleRate: 0,
+  replaysOnErrorSampleRate: 0,
+  integrations: [Sentry.feedbackIntegration()],
+  beforeSend: scrubSentryEvent,
 });
 
 export const unstable_settings = {
@@ -75,18 +91,21 @@ function BirthdayGateModal() {
   const handleSave = async () => {
     setSaving(true);
     const iso = birthday.toISOString().split('T')[0];
-    const { error } = await supabase
-      .from('users')
-      .update({ birthday: iso })
-      .eq('id', profile!.id);
+    try {
+      const { error } = await supabase
+        .from('user_account_private')
+        .upsert(
+          { user_id: profile!.id, birthday: iso, updated_at: new Date().toISOString() },
+          { onConflict: 'user_id' },
+        );
 
-    if (error) {
+      if (error) throw error;
+      await refreshProfile();
+    } catch {
       Alert.alert('Error', 'No se pudo guardar la fecha. Inténtalo de nuevo.');
+    } finally {
       setSaving(false);
-      return;
     }
-    await refreshProfile();
-    setSaving(false);
   };
 
   const birthdayLabel = birthday.toLocaleDateString('es-ES', {
@@ -201,34 +220,18 @@ function RootLayoutNav() {
 
     // Manejar enlaces de recuperación de contraseña entrantes (Deep Linking)
     const handleDeepLink = async (url: string) => {
-      const [, hash = ''] = url.split('#');
-      const query = url.includes('?') ? url.split('?')[1]?.split('#')[0] ?? '' : '';
-      const params = new URLSearchParams(query);
-      const hashParams = new URLSearchParams(hash);
-      const type = params.get('type') ?? hashParams.get('type');
-      const code = params.get('code') ?? hashParams.get('code');
-      const accessToken = params.get('access_token') ?? hashParams.get('access_token');
-      const refreshToken = params.get('refresh_token') ?? hashParams.get('refresh_token');
-      const isRecoveryLink = type === 'recovery' || url.includes('reset-password');
-      const isAuthLink = isRecoveryLink || type === 'signup' || type === 'email_change' || !!code || (!!accessToken && !!refreshToken);
-
-      if (!isAuthLink) return;
-
-      passwordRecoveryRef.current = isRecoveryLink;
+      const allowedWebOrigin = Platform.OS === 'web' && typeof window !== 'undefined'
+        ? window.location.origin
+        : undefined;
+      const callback = parseTrustedAuthCallback(url, allowedWebOrigin);
+      if (!callback) return;
+      passwordRecoveryRef.current = callback.isRecoveryLink;
 
       try {
-        if (code) {
-          const { error } = await supabase.auth.exchangeCodeForSession(code);
-          if (error) throw error;
-        } else if (accessToken && refreshToken) {
-          const { error } = await supabase.auth.setSession({
-            access_token: accessToken,
-            refresh_token: refreshToken,
-          });
-          if (error) throw error;
-        }
+        const { error } = await supabase.auth.exchangeCodeForSession(callback.code);
+        if (error) throw error;
 
-        if (isRecoveryLink) {
+        if (callback.isRecoveryLink) {
           router.replace('/(auth)/reset-password');
         } else {
           router.replace('/(auth)/login');

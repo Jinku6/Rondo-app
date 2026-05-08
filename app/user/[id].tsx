@@ -6,9 +6,10 @@ import { useLocalSearchParams, Stack, useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
+import { PUBLIC_USER_SELECT } from '@/lib/supabase/selects';
 import { useAuth } from '@/contexts/AuthContext';
 import { UserProfile } from '@/types/database';
-import { isValidUUID, firstParam, isSafeUrl, calculateAge } from '@/lib/utils';
+import { isValidUUID, firstParam, isSafeUrl } from '@/lib/utils';
 import { Colors } from '@/constants/theme';
 import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
 import { ScreenTitle } from '@/components/ui/ScreenTitle';
@@ -59,14 +60,27 @@ export default function UserProfileScreen() {
   const [loading, setLoading] = useState(true);
 
   const isOwnProfile = user?.id === id;
-  const age = profile ? calculateAge(profile.birthday) : null;
 
   useEffect(() => {
-    if (!isValidUUID(id)) { setLoading(false); return; }
-    supabase.from('users').select('*').eq('id', id).single().then(({ data, error }) => {
-      if (!error && data) setProfile(data as UserProfile);
-      setLoading(false);
-    });
+    let active = true;
+
+    const fetchProfile = async () => {
+      if (!isValidUUID(id)) { setLoading(false); return; }
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select(PUBLIC_USER_SELECT)
+          .eq('id', id)
+          .single();
+
+        if (active && !error && data) setProfile({ ...data, birthday: null } as UserProfile);
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    fetchProfile();
+    return () => { active = false; };
   }, [id]);
 
   if (loading) {
@@ -202,13 +216,13 @@ export default function UserProfileScreen() {
           marginBottom: 14,
           overflow: 'hidden',
         }}>
-          {/* Años */}
+          {/* Partidos */}
           <View style={{ flex: 1, alignItems: 'center', paddingVertical: 18 }}>
             <Text style={{ fontSize: 11, fontWeight: '700', color: c.textDim, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 }}>
-              Años
+              Partidos
             </Text>
             <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 22, fontWeight: '900', color: c.text }}>
-              {age !== null ? age : '—'}
+              {profile.matches_played}
             </Text>
           </View>
 
