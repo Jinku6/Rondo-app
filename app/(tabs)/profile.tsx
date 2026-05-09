@@ -15,10 +15,17 @@ import { Colors } from '@/constants/theme';
 import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
 import { getErrorMessage, logSupabaseError } from '@/lib/supabaseErrors';
 import { containsProfanity } from '@/lib/profanityFilter';
+import {
+  formatMemberSince,
+  getAttitudeEmoji,
+  getReliabilityInfo,
+  POSITION_EMOJIS,
+  POSITION_LABELS,
+  POSITIONS,
+} from '@/components/profile/profileDisplay';
 
 const c = Colors;
 
-const POSITIONS = ['portero', 'defensa', 'mediocentro', 'delantero'];
 const MIN_PASSWORD_LENGTH = 12;
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 const AVATAR_MIME_EXTENSIONS: Record<string, string> = {
@@ -26,37 +33,6 @@ const AVATAR_MIME_EXTENSIONS: Record<string, string> = {
   'image/png': 'png',
   'image/webp': 'webp',
 };
-
-const POSITION_EMOJIS: Record<string, string> = {
-  portero: '🧤', defensa: '🛡️', mediocentro: '⚙️', delantero: '⚡',
-};
-
-const POSITION_LABELS: Record<string, string> = {
-  portero: 'Portero',
-  defensa: 'Defensa',
-  mediocentro: 'Medio',
-  delantero: 'Delantero',
-};
-
-function getReliabilityInfo(score: number): { label: string; icon: string; color: string } {
-  if (score >= 90) return { label: 'Nunca falta', icon: '✅', color: c.brand };
-  if (score >= 75) return { label: 'Casi nunca falta', icon: '🌟', color: c.warning };
-  if (score >= 50) return { label: 'Falta con frecuencia', icon: '⚠️', color: '#F97316' };
-  return { label: 'Falta casi siempre', icon: '🚫', color: c.danger };
-}
-
-/** Devuelve el emoji de actitud según el promedio numérico (5=Positiva, 3=Neutral, 1=Negativa) */
-function getAttitudeEmoji(rating: number): string {
-  if (rating === 0) return '—';
-  if (rating >= 4) return '🤩';
-  if (rating >= 2.5) return '😐';
-  return '😠';
-}
-
-function formatMemberSince(isoDate: string): string {
-  const date = new Date(isoDate);
-  return date.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
-}
 
 const showAlert = (title: string, message: string, onOk?: () => void) => {
   if (Platform.OS === 'web') {
