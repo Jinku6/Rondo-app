@@ -213,21 +213,6 @@ export default function ReviewOrganizerScreen() {
               {p.attended && (
                 <View className="mt-2 border-t border-gray-100 dark:border-gray-800 pt-3 space-y-4">
                   <View>
-                    <Text className="text-slate-500 text-xs uppercase tracking-wider mb-2 font-bold">Valoración General</Text>
-                    <View className="flex-row space-x-2">
-                      {[1, 2, 3, 4, 5].map((star) => (
-                        <TouchableOpacity key={star} onPress={() => setParticipantLevel(p.id, star)} className="px-1">
-                          <Ionicons
-                            name={p.level_rating >= star ? 'star' : 'star-outline'}
-                            size={32}
-                            color={p.level_rating >= star ? '#eab308' : '#cbd5e1'}
-                          />
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
-                  
-                  <View>
                     <Text className="text-slate-500 text-xs uppercase tracking-wider mb-2 font-bold">Actitud</Text>
                     <View className="flex-row flex-wrap gap-2">
                       {[
@@ -248,6 +233,21 @@ export default function ReviewOrganizerScreen() {
                           </TouchableOpacity>
                         );
                       })}
+                    </View>
+                  </View>
+
+                  <View>
+                    <Text className="text-slate-500 text-xs uppercase tracking-wider mb-2 font-bold">Nivel</Text>
+                    <View className="flex-row space-x-2">
+                      {[1, 2, 3, 4, 5].map((star) => (
+                        <TouchableOpacity key={star} onPress={() => setParticipantLevel(p.id, star)} className="px-1">
+                          <Ionicons
+                            name={p.level_rating >= star ? 'star' : 'star-outline'}
+                            size={32}
+                            color={p.level_rating >= star ? '#eab308' : '#cbd5e1'}
+                          />
+                        </TouchableOpacity>
+                      ))}
                     </View>
                   </View>
                 </View>
