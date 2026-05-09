@@ -15,8 +15,12 @@
         "LSApplicationQueriesSchemes": [
           "comgooglemaps",
           "waze",
+          "maps",
+          "comgooglemaps",
+          "waze",
           "maps"
-        ]
+        ],
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -28,7 +32,11 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.jinku620.rondo"
+      "package": "com.jinku620.rondo",
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ]
     },
     "web": {
       "output": "single",
