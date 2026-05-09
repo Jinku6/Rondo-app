@@ -9,7 +9,6 @@ import {
   Share,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as ExpoLinking from 'expo-linking';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase';
@@ -287,7 +286,7 @@ export default function MatchDetailScreen() {
     if (!match) return;
 
     try {
-      const matchUrl = ExpoLinking.createURL(`/match/${match.id}`);
+      const matchUrl = `https://rondofc.app/match/${match.id}`;
       const message = [
         `Partido en Rondo: ${match.title}`,
         `${formatDate(match.date_time)} a las ${formatTime(match.date_time)}`,
@@ -298,7 +297,6 @@ export default function MatchDetailScreen() {
       await Share.share({
         title: match.title,
         message,
-        url: matchUrl,
       });
     } catch (error) {
       Alert.alert(

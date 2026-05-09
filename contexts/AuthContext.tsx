@@ -3,6 +3,7 @@ import { Alert, Platform } from 'react-native';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { PUBLIC_USER_SELECT } from '@/lib/supabase/selects';
+import { parseOAuthCallbackUrl } from '@/lib/auth/oauthCallback';
 import { UserProfile } from '@/types/database';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
@@ -110,15 +111,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Escuchar cambios de autenticación
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      (_event, session) => {
+        const authUser = session?.user ?? null;
         setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          await fetchProfile(session.user.id, session.user);
+        setUser(authUser);
+        setLoading(false);
+
+        if (authUser) {
+          setTimeout(() => {
+            fetchProfile(authUser.id, authUser);
+          }, 0);
         } else {
           setProfile(null);
         }
-        setLoading(false);
       }
     );
 
@@ -218,15 +223,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
 
     if (result.type === 'success' && result.url) {
-      const code = new URL(result.url).searchParams.get('code');
-      if (!code) {
-        Alert.alert('Error de autenticación', 'El enlace de Google no es válido.');
+      const callback = parseOAuthCallbackUrl(result.url);
+      if (callback.type === 'error') {
+        Alert.alert('Error de autenticación', callback.message);
         return;
       }
-      const { error: sessionError } = await supabase.auth.exchangeCodeForSession(code);
-      if (sessionError) {
-        Alert.alert('Error de autenticación', sessionError.message);
+      if (callback.type === 'code') {
+        const { error: sessionError } = await supabase.auth.exchangeCodeForSession(callback.code);
+        if (sessionError) Alert.alert('Error de autenticación', sessionError.message);
+        return;
       }
+      if (callback.type === 'tokens') {
+        const { error: sessionError } = await supabase.auth.setSession({
+          access_token: callback.accessToken,
+          refresh_token: callback.refreshToken,
+        });
+        if (sessionError) Alert.alert('Error de autenticación', sessionError.message);
+        return;
+      }
+      Alert.alert('Error de autenticación', 'El enlace de Google no es válido.');
     } else if (result.type === 'cancel') {
       // User closed the browser — no action needed
     }

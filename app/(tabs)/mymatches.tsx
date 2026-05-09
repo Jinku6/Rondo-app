@@ -42,60 +42,71 @@ export default function MyMatchesScreen() {
   const router = useRouter();
 
   async function fetchMyMatches() {
-    if (!user) return;
-
-    const { data: organized } = await supabase
-      .from('matches')
-      .select(`*, organizer:users(${PUBLIC_USER_SELECT})`)
-      .eq('organizer_id', user.id)
-      .order('date_time', { ascending: true });
-
-    const organizedList = (organized as Match[] || []);
-
-    const [participations, pendingData] = await Promise.all([
-      supabase
-        .from('match_participants')
-        .select('match_id')
-        .eq('user_id', user.id)
-        .in('status', ['joined', 'approved', 'pending']),
-      organizedList.length > 0
-        ? supabase
-            .from('match_participants')
-            .select('match_id')
-            .in('match_id', organizedList.map(m => m.id))
-            .eq('status', 'pending')
-        : Promise.resolve({ data: [] }),
-    ]);
-
-    const participatedIds = (participations.data || []).map(p => p.match_id);
-    const organizedIds = organizedList.map(m => m.id);
-    const onlyParticipatedIds = participatedIds.filter(pid => !organizedIds.includes(pid));
-
-    let played: Match[] = [];
-    if (onlyParticipatedIds.length > 0) {
-      const { data } = await supabase
-        .from('matches')
-        .select(`*, organizer:users(${PUBLIC_USER_SELECT})`)
-        .in('id', onlyParticipatedIds)
-        .order('date_time', { ascending: true });
-      played = (data as Match[]) || [];
+    if (!user) {
+      setMatches([]);
+      setLoading(false);
+      setRefreshing(false);
+      return;
     }
 
-    const pendingCountMap: Record<string, number> = {};
-    (pendingData.data || []).forEach(p => {
-      pendingCountMap[p.match_id] = (pendingCountMap[p.match_id] || 0) + 1;
-    });
+    try {
+      const { data: organized } = await supabase
+        .from('matches')
+        .select(`*, organizer:users(${PUBLIC_USER_SELECT})`)
+        .eq('organizer_id', user.id)
+        .order('date_time', { ascending: true });
 
-    const organizedTagged: MyMatch[] = organizedList.map(m => ({ ...m, _role: 'organizer', _pendingCount: pendingCountMap[m.id] || 0 }));
-    const playedTagged: MyMatch[] = played.map(m => ({ ...m, _role: 'player' }));
+      const organizedList = (organized as Match[] || []);
 
-    const combined = [...organizedTagged, ...playedTagged].sort(
-      (a, b) => new Date(a.date_time).getTime() - new Date(b.date_time).getTime(),
-    );
+      const [participations, pendingData] = await Promise.all([
+        supabase
+          .from('match_participants')
+          .select('match_id')
+          .eq('user_id', user.id)
+          .in('status', ['joined', 'approved', 'pending']),
+        organizedList.length > 0
+          ? supabase
+              .from('match_participants')
+              .select('match_id')
+              .in('match_id', organizedList.map(m => m.id))
+              .eq('status', 'pending')
+          : Promise.resolve({ data: [] }),
+      ]);
 
-    setMatches(combined);
-    setLoading(false);
-    setRefreshing(false);
+      const participatedIds = (participations.data || []).map(p => p.match_id);
+      const organizedIds = organizedList.map(m => m.id);
+      const onlyParticipatedIds = participatedIds.filter(pid => !organizedIds.includes(pid));
+
+      let played: Match[] = [];
+      if (onlyParticipatedIds.length > 0) {
+        const { data } = await supabase
+          .from('matches')
+          .select(`*, organizer:users(${PUBLIC_USER_SELECT})`)
+          .in('id', onlyParticipatedIds)
+          .order('date_time', { ascending: true });
+        played = (data as Match[]) || [];
+      }
+
+      const pendingCountMap: Record<string, number> = {};
+      (pendingData.data || []).forEach(p => {
+        pendingCountMap[p.match_id] = (pendingCountMap[p.match_id] || 0) + 1;
+      });
+
+      const organizedTagged: MyMatch[] = organizedList.map(m => ({ ...m, _role: 'organizer', _pendingCount: pendingCountMap[m.id] || 0 }));
+      const playedTagged: MyMatch[] = played.map(m => ({ ...m, _role: 'player' }));
+
+      const combined = [...organizedTagged, ...playedTagged].sort(
+        (a, b) => new Date(a.date_time).getTime() - new Date(b.date_time).getTime(),
+      );
+
+      setMatches(combined);
+    } catch (error) {
+      if (__DEV__) console.warn('fetch my matches error:', error);
+      setMatches([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   }
 
   useFocusEffect(

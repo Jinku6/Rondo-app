@@ -11,6 +11,10 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.jinku620.rondo",
+      "associatedDomains": [
+        "applinks:rondofc.app",
+        "applinks:www.rondofc.app"
+      ],
       "infoPlist": {
         "LSApplicationQueriesSchemes": [
           "comgooglemaps",
@@ -33,6 +37,28 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.jinku620.rondo",
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "rondofc.app",
+              "pathPrefix": "/match"
+            },
+            {
+              "scheme": "https",
+              "host": "www.rondofc.app",
+              "pathPrefix": "/match"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ],
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
