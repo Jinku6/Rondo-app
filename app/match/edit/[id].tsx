@@ -375,9 +375,12 @@ export default function EditMatchScreen() {
 
   if (loadingData) {
     return (
-      <View className="flex-1 justify-center items-center bg-bg">
-        <ActivityIndicator size="large" color="#22C55E" />
-      </View>
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View className="flex-1 justify-center items-center bg-bg">
+          <ActivityIndicator size="large" color="#22C55E" />
+        </View>
+      </>
     );
   }
 

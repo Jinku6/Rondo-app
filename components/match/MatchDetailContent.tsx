@@ -77,13 +77,11 @@ export function MatchDetailContent({
     p => p.status === 'joined' || p.status === 'approved',
   );
   const pendingParticipants = participants.filter(p => p.status === 'pending');
-  const nonOrganizerApproved = participants.filter(
-    p => p.status === 'approved' && p.user_id !== match.organizer_id,
+  const nonOrganizerJoined = joinedParticipants.filter(
+    p => p.user_id !== match.organizer_id,
   );
   const slots = totalSlots(match.requested_positions);
   const filled = joinedParticipants.length;
-  const slotsLeft = slots - filled;
-  const lowSlots = slotsLeft <= 2 && slotsLeft > 0;
   const chips = positionChips(match.requested_positions);
 
   return (
@@ -150,7 +148,7 @@ export function MatchDetailContent({
         </View>
 
         <InfoCell label="Cupos">
-          <Text style={[s.cuposValue, lowSlots && { color: c.danger }]}>
+          <Text style={s.cuposValue}>
             {filled}
             <Text style={s.cuposTotal}>/{slots}</Text>
           </Text>
@@ -195,7 +193,7 @@ export function MatchDetailContent({
                 <Text style={s.orgLabel}>Organiza</Text>
                 <Text style={s.orgName}>{organizer.full_name}</Text>
                 <Text style={[s.orgReliability, { color: c.brand }]}>
-                  {reliabilityLabel(organizer.reliability_score)}
+                  {reliabilityLabel(organizer.reliability_score, organizer.matches_played)}
                 </Text>
               </View>
             </Pressable>
@@ -353,14 +351,14 @@ export function MatchDetailContent({
 
       <View style={[s.section, { borderBottomWidth: 0 }]}>
         <Text className="mb-2.5 font-mono text-[9px] font-bold uppercase tracking-[1.5px] text-[#8A938F]">
-          JUGADORES APUNTADOS ({nonOrganizerApproved.length})
+          JUGADORES APUNTADOS ({nonOrganizerJoined.length})
         </Text>
-        {nonOrganizerApproved.map((p, index) => (
+        {nonOrganizerJoined.map((p, index) => (
           <PlayerRow
             key={p.id}
             participant={p}
             onPress={() => onPlayerPress(p.user?.id)}
-            isLast={index === nonOrganizerApproved.length - 1}
+            isLast={index === nonOrganizerJoined.length - 1}
             rightContent={
               isOrganizer ? (
                 <Pressable
@@ -373,7 +371,7 @@ export function MatchDetailContent({
             }
           />
         ))}
-        {nonOrganizerApproved.length === 0 && (
+        {nonOrganizerJoined.length === 0 && (
           <Text style={s.emptyText}>Aún no hay otros jugadores apuntados.</Text>
         )}
       </View>
@@ -476,7 +474,7 @@ const s = StyleSheet.create({
     fontFamily: 'JetBrainsMono_700Bold',
     fontSize: 18,
     fontWeight: '700',
-    color: c.text,
+    color: c.brand,
   },
   cuposTotal: {
     fontFamily: 'JetBrainsMono_500Medium',

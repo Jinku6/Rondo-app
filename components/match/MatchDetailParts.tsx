@@ -105,7 +105,8 @@ function initials(name: string): string {
   return name.trim().split(' ').map(w => w[0]).join('').toUpperCase().slice(0, 2);
 }
 
-export function reliabilityLabel(score: number): string {
+export function reliabilityLabel(score: number, matchesPlayed: number): string {
+  if (matchesPlayed < 3) return 'Jugador en crecimiento';
   if (score >= 90) return '✅ Nunca falta';
   if (score >= 75) return '🌟 Casi nunca falta';
   if (score >= 50) return '⚠️ Falta con frecuencia';

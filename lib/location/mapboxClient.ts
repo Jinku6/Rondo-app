@@ -1,28 +1,9 @@
 import { LOCATION_CONFIG } from '@/lib/location/config';
 import type { ExternalPlaceResult } from '@/types/location';
 
-const MAPBOX_SEARCHBOX_URL = 'https://api.mapbox.com/search/searchbox/v1';
 const FETCH_TIMEOUT_MS = 8000;
 
-interface MapboxSuggestion {
-  mapbox_id?: string;
-  name?: string;
-  full_address?: string;
-  place_formatted?: string;
-  context?: Record<string, any>;
-}
-
-export interface MapboxPlaceSuggestion {
-  mapboxId: string;
-  name: string;
-  address: string | null;
-  city: string;
-  province: string | null;
-  countryCode: string;
-  provider: 'mapbox';
-}
-
-interface MapboxRetrieveFeature {
+interface MapboxGeocodeFeature {
   geometry?: {
     coordinates?: [number, number];
   };
@@ -32,12 +13,6 @@ interface MapboxRetrieveFeature {
     full_address?: string;
     place_formatted?: string;
     context?: Record<string, any>;
-  };
-}
-
-interface MapboxGeocodeFeature extends MapboxRetrieveFeature {
-  properties?: MapboxRetrieveFeature['properties'] & {
-    mapbox_id?: string;
   };
 }
 
@@ -76,52 +51,23 @@ function readContextValue(context: Record<string, any> | undefined, key: string)
   return null;
 }
 
-function toPlaceSuggestion(suggestion: MapboxSuggestion): MapboxPlaceSuggestion | null {
-  if (!suggestion.mapbox_id) return null;
-  const name = suggestion.name || suggestion.full_address || suggestion.place_formatted || '';
-  if (!name) return null;
-
-  const context = suggestion.context || {};
-  return {
-    mapboxId: suggestion.mapbox_id,
-    name,
-    address: suggestion.full_address || suggestion.place_formatted || null,
-    city:
-      readContextValue(context, 'place') ||
-      readContextValue(context, 'locality') ||
-      readContextValue(context, 'district') ||
-      '',
-    province:
-      readContextValue(context, 'region') ||
-      readContextValue(context, 'postcode') ||
-      null,
-    countryCode: 'ES',
-    provider: 'mapbox',
-  };
-}
-
-function toExternalPlace(feature: MapboxRetrieveFeature, fallback: MapboxSuggestion): ExternalPlaceResult | null {
+function toExternalPlace(feature: MapboxGeocodeFeature): ExternalPlaceResult | null {
   const coordinates = feature.geometry?.coordinates;
   if (!coordinates) return null;
   const [longitude, latitude] = coordinates;
   if (!isValidCoords(latitude, longitude)) return null;
 
   const properties = feature.properties || {};
-  const context = properties.context || fallback.context || {};
-  const name = properties.name || fallback.name || properties.full_address || fallback.full_address || '';
+  const context = properties.context || {};
+  const name = properties.name || properties.full_address || properties.place_formatted || '';
   if (!name) return null;
 
   return {
     kind: 'external',
-    id: properties.mapbox_id || fallback.mapbox_id || name,
-    mapboxId: properties.mapbox_id || fallback.mapbox_id,
+    id: properties.mapbox_id || name,
+    mapboxId: properties.mapbox_id,
     name,
-    address:
-      properties.full_address ||
-      fallback.full_address ||
-      properties.place_formatted ||
-      fallback.place_formatted ||
-      null,
+    address: properties.full_address || properties.place_formatted || null,
     city:
       readContextValue(context, 'place') ||
       readContextValue(context, 'locality') ||
@@ -140,7 +86,7 @@ function toExternalPlace(feature: MapboxRetrieveFeature, fallback: MapboxSuggest
 }
 
 const cityCache = new Map<string, ExternalPlaceResult[]>();
-const placeSuggestionCache = new Map<string, MapboxPlaceSuggestion[]>();
+const addressCache = new Map<string, ExternalPlaceResult[]>();
 
 export const mapboxClient = {
   async geocodeCities(params: {
@@ -176,7 +122,7 @@ export const mapboxClient = {
       const data = await response.json();
       const features: MapboxGeocodeFeature[] = Array.isArray(data.features) ? data.features : [];
       const results = features
-        .map((feature) => toExternalPlace(feature, {}))
+        .map(toExternalPlace)
         .filter((place): place is ExternalPlaceResult => !!place);
       cityCache.set(cacheKey, results);
       return results;
@@ -185,38 +131,32 @@ export const mapboxClient = {
     }
   },
 
-  async suggestPlaces(params: {
+  async geocodeAddresses(params: {
     query: string;
     countryCode?: string;
     proximity?: { latitude: number; longitude: number };
     limit?: number;
-    sessionToken?: string;
-    types?: string;
-  }): Promise<MapboxPlaceSuggestion[]> {
+  }): Promise<ExternalPlaceResult[]> {
     const token = getToken();
     const query = params.query.trim();
     if (!token || query.length < 3) return [];
 
-    const sessionToken = params.sessionToken || `rondo-${Date.now()}`;
     const cacheKey = JSON.stringify({
       query: query.toLowerCase(),
       countryCode: params.countryCode || LOCATION_CONFIG.defaultCountryCode,
-      limit: params.limit || LOCATION_CONFIG.externalLimit,
-      types: params.types || 'poi,address,place,locality',
+      limit: params.limit || 5,
       proximity: params.proximity || null,
-      sessionToken,
     });
-    const cached = placeSuggestionCache.get(cacheKey);
+    const cached = addressCache.get(cacheKey);
     if (cached) return cached;
 
     const searchParams = new URLSearchParams({
       q: query,
       access_token: token,
-      session_token: sessionToken,
       country: params.countryCode || LOCATION_CONFIG.defaultCountryCode,
       language: LOCATION_CONFIG.language,
-      limit: String(params.limit || LOCATION_CONFIG.externalLimit),
-      types: params.types || 'poi,address,place,locality',
+      types: 'address,street,place,locality',
+      limit: String(params.limit || 5),
     });
 
     if (params.proximity) {
@@ -224,101 +164,18 @@ export const mapboxClient = {
     }
 
     try {
-      const suggestUrl = `${MAPBOX_SEARCHBOX_URL}/suggest?${searchParams.toString()}`;
-      const suggestResponse = await fetchWithTimeout(suggestUrl);
-      if (!suggestResponse.ok) return [];
-      const suggestData = await suggestResponse.json();
-      const suggestions: MapboxSuggestion[] = Array.isArray(suggestData.suggestions)
-        ? suggestData.suggestions
-        : [];
-      const results = suggestions
-        .slice(0, params.limit || LOCATION_CONFIG.externalLimit)
-        .map(toPlaceSuggestion)
-        .filter((suggestion): suggestion is MapboxPlaceSuggestion => !!suggestion);
-      placeSuggestionCache.set(cacheKey, results);
+      const url = `https://api.mapbox.com/search/geocode/v6/forward?${searchParams.toString()}`;
+      const response = await fetchWithTimeout(url);
+      if (!response.ok) return [];
+      const data = await response.json();
+      const features: MapboxGeocodeFeature[] = Array.isArray(data.features) ? data.features : [];
+      const results = features
+        .map(toExternalPlace)
+        .filter((place): place is ExternalPlaceResult => !!place);
+      addressCache.set(cacheKey, results);
       return results;
     } catch {
       return [];
-    }
-  },
-
-  async searchPlaces(params: {
-    query: string;
-    countryCode?: string;
-    proximity?: { latitude: number; longitude: number };
-    limit?: number;
-    sessionToken?: string;
-    types?: string;
-  }): Promise<ExternalPlaceResult[]> {
-    const token = getToken();
-    const query = params.query.trim();
-    if (!token || query.length < 2) return [];
-
-    const searchParams = new URLSearchParams({
-      q: query,
-      access_token: token,
-      session_token: params.sessionToken || `rondo-${Date.now()}`,
-      country: params.countryCode || LOCATION_CONFIG.defaultCountryCode,
-      language: LOCATION_CONFIG.language,
-      limit: String(params.limit || LOCATION_CONFIG.externalLimit),
-      types: params.types || 'poi,address,place,locality',
-    });
-
-    if (params.proximity) {
-      searchParams.set('proximity', `${params.proximity.longitude},${params.proximity.latitude}`);
-    }
-
-    try {
-      const suggestUrl = `${MAPBOX_SEARCHBOX_URL}/suggest?${searchParams.toString()}`;
-      const suggestResponse = await fetchWithTimeout(suggestUrl);
-      if (!suggestResponse.ok) return [];
-      const suggestData = await suggestResponse.json();
-      const suggestions: MapboxSuggestion[] = Array.isArray(suggestData.suggestions)
-        ? suggestData.suggestions
-        : [];
-
-      const places = await Promise.all(
-        suggestions.slice(0, params.limit || LOCATION_CONFIG.externalLimit).map(async (suggestion) => {
-          if (!suggestion.mapbox_id) return null;
-          return this.retrievePlace({
-            mapboxId: suggestion.mapbox_id,
-            sessionToken: searchParams.get('session_token') || undefined,
-            fallback: suggestion,
-          });
-        })
-      );
-
-      return places.filter((place): place is ExternalPlaceResult => !!place);
-    } catch {
-      return [];
-    }
-  },
-
-  async retrievePlace(params: {
-    mapboxId: string;
-    sessionToken?: string;
-    fallback?: MapboxSuggestion;
-  }): Promise<ExternalPlaceResult | null> {
-    const token = getToken();
-    if (!token) return null;
-
-    const searchParams = new URLSearchParams({
-      access_token: token,
-      session_token: params.sessionToken || `rondo-${Date.now()}`,
-    });
-
-    try {
-      const url = `${MAPBOX_SEARCHBOX_URL}/retrieve/${encodeURIComponent(params.mapboxId)}?${searchParams.toString()}`;
-      const response = await fetchWithTimeout(url);
-      if (!response.ok) return null;
-      const data = await response.json();
-      const feature: MapboxRetrieveFeature | undefined = Array.isArray(data.features)
-        ? data.features[0]
-        : undefined;
-      if (!feature) return null;
-      return toExternalPlace(feature, params.fallback || {});
-    } catch {
-      return null;
     }
   },
 
@@ -345,11 +202,42 @@ export const mapboxClient = {
       const response = await fetchWithTimeout(url);
       if (!response.ok) return null;
       const data = await response.json();
-      const feature: MapboxRetrieveFeature | undefined = Array.isArray(data.features)
+      const feature: MapboxGeocodeFeature | undefined = Array.isArray(data.features)
         ? data.features[0]
         : undefined;
-      if (!feature) return null;
-      return toExternalPlace(feature, {});
+      return feature ? toExternalPlace(feature) : null;
+    } catch {
+      return null;
+    }
+  },
+
+  async reverseAddress(params: {
+    latitude: number;
+    longitude: number;
+    countryCode?: string;
+  }): Promise<ExternalPlaceResult | null> {
+    const token = getToken();
+    if (!token || !isValidCoords(params.latitude, params.longitude)) return null;
+
+    const searchParams = new URLSearchParams({
+      access_token: token,
+      longitude: String(params.longitude),
+      latitude: String(params.latitude),
+      country: params.countryCode || LOCATION_CONFIG.defaultCountryCode,
+      language: LOCATION_CONFIG.language,
+      types: 'address,street,place,locality',
+      limit: '1',
+    });
+
+    try {
+      const url = `https://api.mapbox.com/search/geocode/v6/reverse?${searchParams.toString()}`;
+      const response = await fetchWithTimeout(url);
+      if (!response.ok) return null;
+      const data = await response.json();
+      const feature: MapboxGeocodeFeature | undefined = Array.isArray(data.features)
+        ? data.features[0]
+        : undefined;
+      return feature ? toExternalPlace(feature) : null;
     } catch {
       return null;
     }

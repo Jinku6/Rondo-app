@@ -282,7 +282,7 @@ export default function UserProfileScreen() {
             marginBottom: 14,
           }}>
             <Text style={{ fontSize: 36, marginBottom: 8 }}>🌱</Text>
-            <Text style={{ fontSize: 15, fontWeight: '800', color: c.brand, marginBottom: 4 }}>Perfil en crecimiento</Text>
+            <Text style={{ fontSize: 15, fontWeight: '800', color: c.brand, marginBottom: 4 }}>Jugador en crecimiento</Text>
             <Text style={{ fontSize: 13, color: c.textDim, textAlign: 'center', lineHeight: 20 }}>
               Las estadísticas se desbloquean al completar 3 partidos valorados ({profile.matches_played}/3).
             </Text>

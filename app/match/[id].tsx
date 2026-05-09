@@ -310,9 +310,12 @@ export default function MatchDetailScreen() {
 
   if (loading || !match) {
     return (
-      <View style={s.loadingRoot}>
-        <ActivityIndicator size="large" color={c.brand} />
-      </View>
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={s.loadingRoot}>
+          <ActivityIndicator size="large" color={c.brand} />
+        </View>
+      </>
     );
   }
 
@@ -321,6 +324,7 @@ export default function MatchDetailScreen() {
   const myParticipation = participants.find(p => p.user_id === user?.id);
   const isJoined = myParticipation?.status === 'joined' || myParticipation?.status === 'approved';
   const isPending = myParticipation?.status === 'pending';
+  const isRejected = myParticipation?.status === 'rejected';
 
   const matchWithSnapshots = match as Match & {
     location_name_snapshot?: string | null;
@@ -328,12 +332,13 @@ export default function MatchDetailScreen() {
   const locationLabel = matchWithSnapshots.location_name_snapshot || match.location;
 
   const ctaDisabled =
-    isJoined || isOrganizer || isPending || match.status === 'full' || match.status !== 'open' || isArchived;
+    isJoined || isOrganizer || isPending || isRejected || match.status === 'full' || match.status !== 'open' || isArchived;
   
   const getCtaLabel = () => {
     if (isArchived) return match.status === 'completed' ? 'Partido Finalizado' : 'Partido Cancelado';
     if (isJoined) return '✓ Apuntado';
     if (isPending) return '⏳ Pendiente';
+    if (isRejected) return 'Solicitud rechazada';
     if (isOrganizer) return 'Tu partido';
     if (match.status === 'full') return 'Partido Completo';
     return 'Me apunto →';

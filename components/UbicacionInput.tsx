@@ -148,7 +148,13 @@ export function UbicacionInput({
     resetSessionToken();
   };
 
-  const handleConfirmLocation = async (confirmed: { latitude: number; longitude: number; city: string }) => {
+  const handleConfirmLocation = async (confirmed: {
+    name: string;
+    address: string;
+    latitude: number;
+    longitude: number;
+    city: string;
+  }) => {
     if (!pendingResult || resolving) return;
     setResolving(true);
     try {
@@ -176,8 +182,9 @@ export function UbicacionInput({
         });
       } else if (manualMode && createdBy) {
         const resolved = await createManualVenue({
-          name: pendingResult.nombre,
+          name: confirmed.name,
           city: confirmed.city,
+          address: confirmed.address || undefined,
           latitude: confirmed.latitude,
           longitude: confirmed.longitude,
           createdBy,
@@ -185,7 +192,7 @@ export function UbicacionInput({
         const venue = isExistingVenueResolution(resolved) ? resolved.venue : resolved;
         applySelection({
           nombre: venue.canonical_name,
-          direccion: venue.address || '',
+          direccion: venue.address || confirmed.address || '',
           ciudad: confirmed.city || venue.city,
           lat: confirmed.latitude,
           lng: confirmed.longitude,
@@ -206,6 +213,7 @@ export function UbicacionInput({
 
         applySelection({
           ...pendingResult,
+          direccion: confirmed.address || pendingResult.direccion,
           ciudad: confirmed.city || pendingResult.ciudad,
           lat: confirmed.latitude,
           lng: confirmed.longitude,
@@ -302,11 +310,13 @@ export function UbicacionInput({
       {pendingResult && (
         <VenueConfirmModal
           visible={!!pendingResult}
-          title={manualMode ? 'Coloca el campo' : 'Confirma la ubicacion'}
+          title={manualMode ? 'Busca el campo' : 'Confirma la ubicacion'}
           name={pendingResult.nombre}
+          address={pendingResult.direccion}
           city={pendingResult.ciudad}
           latitude={pendingResult.lat}
           longitude={pendingResult.lng}
+          editableName={manualMode}
           requireCity={manualMode}
           onCancel={() => {
             setPendingResult(null);

@@ -31,9 +31,9 @@ export const MatchCard: React.FC<MatchCardProps> = ({ match, onPress }) => {
   const maxPlayers = match.requested_positions
     ? Object.values(match.requested_positions as Record<string, number>).reduce((a, b) => a + b, 0)
     : 0;
-  const approvedCount = match.participants?.filter(p => p.status === 'approved').length ?? 0;
-  const slotsLeft = maxPlayers - approvedCount;
-  const isLow = slotsLeft <= 2;
+  const joinedCount = match.participants?.filter(
+    p => p.status === 'joined' || p.status === 'approved',
+  ).length ?? 0;
 
   const level = LEVEL_CONFIG[match.level] ?? LEVEL_CONFIG.medio;
 
@@ -120,21 +120,21 @@ export const MatchCard: React.FC<MatchCardProps> = ({ match, onPress }) => {
                   {organizerInitial}
                 </Text>
               </View>
-              {approvedCount > 1 && (
+              {joinedCount > 1 && (
                 <View style={{
                   width: 26, height: 26, borderRadius: 13,
                   backgroundColor: c.brand, borderWidth: 2, borderColor: c.bgSurface,
                   alignItems: 'center', justifyContent: 'center', marginLeft: -8,
                 }}>
                   <Text style={{ fontFamily: Fonts.display, fontSize: 9, fontWeight: '900', color: '#0a140d' }}>
-                    +{approvedCount}
+                    +{joinedCount}
                   </Text>
                 </View>
               )}
             </View>
             {/* Slot count */}
             <Text style={{ fontFamily: Fonts.mono, fontSize: 11, fontWeight: '700' }}>
-              <Text style={{ color: isLow ? c.danger : c.text }}>{approvedCount}</Text>
+              <Text style={{ color: c.brand }}>{joinedCount}</Text>
               <Text style={{ color: c.textMuted }}>/{maxPlayers}</Text>
             </Text>
           </View>

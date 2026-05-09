@@ -1,5 +1,4 @@
 import { LOCATION_CONFIG } from '@/lib/location/config';
-import { mapboxClient } from '@/lib/location/mapboxClient';
 import { normalizeVenueQuery } from '@/lib/location/normalizeVenueQuery';
 import type {
   DuplicateResolution,
@@ -11,7 +10,6 @@ import type {
   Venue,
   VenueReportReason,
 } from '@/types/location';
-import type { MapboxPlaceSuggestion } from '@/lib/location/mapboxClient';
 
 type VenueRow = Omit<Venue, 'aliases'> & {
   venue_aliases?: { alias: string; normalized_alias: string }[];
@@ -279,42 +277,6 @@ export async function searchVenues(params: {
       })
       .slice(0, limit)
       .map(toVenueSearchResult);
-  } catch {
-    return [];
-  }
-}
-
-export async function searchExternalPlaces(params: {
-  query: string;
-  countryCode?: string;
-  proximity?: { latitude: number; longitude: number };
-  limit?: number;
-  sessionToken?: string;
-  mapboxId?: string;
-}): Promise<ExternalPlaceResult[]> {
-  try {
-    if (params.mapboxId) {
-      const place = await mapboxClient.retrievePlace({
-        mapboxId: params.mapboxId,
-        sessionToken: params.sessionToken,
-      });
-      return place ? [place] : [];
-    }
-    return await mapboxClient.searchPlaces(params);
-  } catch {
-    return [];
-  }
-}
-
-export async function searchExternalPlaceSuggestions(params: {
-  query: string;
-  countryCode?: string;
-  proximity?: { latitude: number; longitude: number };
-  limit?: number;
-  sessionToken?: string;
-}): Promise<MapboxPlaceSuggestion[]> {
-  try {
-    return await mapboxClient.suggestPlaces(params);
   } catch {
     return [];
   }
