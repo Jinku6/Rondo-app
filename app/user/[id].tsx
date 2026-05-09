@@ -37,13 +37,6 @@ function getAttitudeEmoji(rating: number): string {
   return '😠';
 }
 
-function getAttitudeColor(rating: number): string {
-  if (rating === 0) return c.textMuted;
-  if (rating >= 4) return c.brand;
-  if (rating >= 2.5) return c.warning;
-  return c.danger;
-}
-
 function formatMemberSince(isoDate: string): string {
   const date = new Date(isoDate);
   return date.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });

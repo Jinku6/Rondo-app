@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useCallback, useState, useRef } from 'react';
 import {
   View, Text, TouchableOpacity, ScrollView, TextInput,
   ActivityIndicator, Alert, Platform, Image,
@@ -51,13 +51,6 @@ function getAttitudeEmoji(rating: number): string {
   if (rating >= 4) return '🤩';
   if (rating >= 2.5) return '😐';
   return '😠';
-}
-
-function getAttitudeColor(rating: number): string {
-  if (rating === 0) return c.textMuted;
-  if (rating >= 4) return c.brand;
-  if (rating >= 2.5) return c.warning;
-  return c.danger;
 }
 
 function formatMemberSince(isoDate: string): string {
@@ -120,25 +113,26 @@ export default function ProfileScreen() {
 
   const [uploading, setUploading] = useState(false);
 
-  const fetchPhone = async () => {
+  const fetchPhone = useCallback(async () => {
     if (!user) return;
     setLoadingPhone(true);
-    const { data, error } = await supabase
-      .from('user_private_data').select('phone').eq('user_id', user.id).maybeSingle();
-    if (error) {
-      if (__DEV__) console.error('fetchPhone error:', error.message);
-    } else {
+    try {
+      const { data, error } = await supabase
+        .from('user_private_data').select('phone').eq('user_id', user.id).maybeSingle();
+      if (error) throw error;
       const nextPhone = data?.phone || '';
       setPhone(nextPhone);
       setInitialPhone(nextPhone);
+    } catch (error) {
+      logSupabaseError('profile fetch phone error', error);
+    } finally {
+      setLoadingPhone(false);
     }
-    setLoadingPhone(false);
-  };
+  }, [user]);
 
   React.useEffect(() => {
     fetchPhone();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user?.id]);
+  }, [fetchPhone]);
 
   React.useEffect(() => {
     return () => {
@@ -171,9 +165,21 @@ export default function ProfileScreen() {
     setUsernameChecking(true);
     const normalized = val.toLowerCase();
     usernameDebounceRef.current = setTimeout(async () => {
-      const { data } = await supabase.from('users').select('id').eq('username', normalized).neq('id', user.id).maybeSingle();
-      setUsernameError(data ? 'El usuario ya está en uso' : '');
-      setUsernameChecking(false);
+      try {
+        const { data, error } = await supabase
+          .from('users')
+          .select('id')
+          .eq('username', normalized)
+          .neq('id', user.id)
+          .maybeSingle();
+        if (error) throw error;
+        setUsernameError(data ? 'El usuario ya está en uso' : '');
+      } catch (error) {
+        logSupabaseError('profile username check error', error);
+        setUsernameError('No se pudo validar el usuario');
+      } finally {
+        setUsernameChecking(false);
+      }
     }, 400);
   };
 
@@ -197,11 +203,16 @@ export default function ProfileScreen() {
   };
 
   const pickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.5, base64: true,
-    });
-    if (!result.canceled && result.assets?.[0]) {
-      await uploadAvatar(result.assets[0]);
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.5, base64: true,
+      });
+      if (!result.canceled && result.assets?.[0]) {
+        await uploadAvatar(result.assets[0]);
+      }
+    } catch (error) {
+      logSupabaseError('profile pick image error', error);
+      showAlert('Error', getErrorMessage(error, 'No se pudo seleccionar la imagen.'));
     }
   };
 
