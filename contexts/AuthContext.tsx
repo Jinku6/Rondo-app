@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { Alert, Platform } from 'react-native';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = async (userId: string, authUser?: User) => {
+  const fetchProfile = useCallback(async (userId: string, authUser?: User) => {
     try {
     const { data, error } = await supabase
       .from('users')
@@ -91,27 +91,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       if (__DEV__) console.warn('fetch profile error:', getAuthErrorMessage(error, 'No se pudo cargar el perfil.'));
     }
-  };
+  }, []);
 
   useEffect(() => {
+    let active = true;
     // Obtener sesión actual con timeout de 10s para evitar spinner infinito
     const sessionTimeout = new Promise<{ data: { session: null } }>((resolve) =>
       setTimeout(() => resolve({ data: { session: null } }), 10000)
     );
     Promise.race([supabase.auth.getSession(), sessionTimeout])
       .then(({ data: { session } }) => {
+        if (!active) return;
         setSession(session);
         setUser(session?.user ?? null);
-        if (session?.user) {
-          fetchProfile(session.user.id, session.user);
-        }
         setLoading(false);
+        if (session?.user) {
+          setTimeout(() => {
+            if (active) fetchProfile(session.user.id, session.user);
+          }, 0);
+        }
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        if (active) setLoading(false);
+      });
 
     // Escuchar cambios de autenticación
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (_event, session) => {
+        if (!active) return;
         const authUser = session?.user ?? null;
         setSession(session);
         setUser(authUser);
@@ -119,7 +126,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (authUser) {
           setTimeout(() => {
-            fetchProfile(authUser.id, authUser);
+            if (active) fetchProfile(authUser.id, authUser);
           }, 0);
         } else {
           setProfile(null);
@@ -127,8 +134,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    return () => subscription.unsubscribe();
-  }, []);
+    return () => {
+      active = false;
+      subscription.unsubscribe();
+    };
+  }, [fetchProfile]);
 
   const signUp = async (email: string, password: string, username: string, fullName: string, preferredPosition: string, phone: string, birthday: string, captchaToken?: string) => {
     try {

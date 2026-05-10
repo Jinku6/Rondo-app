@@ -303,14 +303,19 @@ function RootLayoutNav() {
 
 export default Sentry.wrap(function RootLayout() {
   const [fontsLoaded, fontError] = Font.useFonts({
-    Archivo_500Medium,
-    Archivo_600SemiBold,
     Archivo_700Bold,
-    Archivo_800ExtraBold,
     Archivo_900Black,
-    JetBrainsMono_500Medium,
     JetBrainsMono_700Bold,
   });
+
+  useEffect(() => {
+    void Font.loadAsync({
+      Archivo_500Medium,
+      Archivo_600SemiBold,
+      Archivo_800ExtraBold,
+      JetBrainsMono_500Medium,
+    }).catch(() => undefined);
+  }, []);
 
   useEffect(() => {
     if (fontsLoaded || fontError) {

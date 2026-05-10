@@ -1,54 +1,16 @@
-import React, { useCallback, useState } from 'react';
+import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
-import { useRouter, useFocusEffect } from 'expo-router';
-import { supabase } from '@/lib/supabase';
-import { useAuth } from '@/contexts/AuthContext';
+import { useRouter } from 'expo-router';
+import { PendingReviewNotification, useActivity } from '@/contexts/ActivityContext';
 import { Ionicons } from '@expo/vector-icons';
 
-interface MatchNotification {
-  id: string;
-  user_id: string;
-  match_id: string;
-  type: 'pending_organizer_review' | 'pending_player_review';
-  read: boolean;
-  created_at: string;
-  match?: { title: string } | null;
-}
-
 export function PendingReviewsAlert() {
-  const { user } = useAuth();
   const router = useRouter();
-  const [notifications, setNotifications] = useState<MatchNotification[]>([]);
+  const { pendingReviews } = useActivity();
 
-  useFocusEffect(
-    useCallback(() => {
-      if (!user) return;
-      fetchNotifications();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user])
-  );
+  if (pendingReviews.length === 0) return null;
 
-  const fetchNotifications = async () => {
-    const { data, error } = await supabase
-      .from('notifications')
-      .select('*, match:matches(title)')
-      .eq('user_id', user!.id)
-      .eq('read', false)
-      .in('type', ['pending_organizer_review', 'pending_player_review']);
-
-    if (error) {
-      if (__DEV__) console.error('Error fetching notifications:', error.message);
-      return;
-    }
-
-    if (data) {
-      setNotifications(data as MatchNotification[]);
-    }
-  };
-
-  if (notifications.length === 0) return null;
-
-  const handlePress = (notification: any) => {
+  const handlePress = (notification: PendingReviewNotification) => {
     if (notification.type === 'pending_organizer_review') {
       router.push(`/match/review-organizer/${notification.match_id}`);
     } else {
@@ -58,7 +20,7 @@ export function PendingReviewsAlert() {
 
   return (
     <View className="mb-4">
-      {notifications.map(notif => (
+      {pendingReviews.map(notif => (
         <TouchableOpacity
           key={notif.id}
           onPress={() => handlePress(notif)}

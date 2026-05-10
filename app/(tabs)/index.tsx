@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { View, Text, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -21,24 +21,22 @@ export default function SearchScreen() {
   const [position, setPosition] = useState('cualquiera');
   const [searchDate, setSearchDate] = useState(new Date());
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') return;
-        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-        const result = await reverseGeocodeCiudad(loc.coords.latitude, loc.coords.longitude);
-        if (result) {
-          setCiudadLabel(result.ciudad);
-          setCiudadLat(result.lat);
-          setCiudadLng(result.lng);
-          setCiudadPreset(result);
-        }
-      } catch {
-        // GPS denied or failed — user can enter manually
-      }
-    })();
-  }, []);
+  const fillCurrentLocation = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') return null;
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const result = await reverseGeocodeCiudad(loc.coords.latitude, loc.coords.longitude);
+      if (!result) return null;
+      setCiudadLabel(result.ciudad);
+      setCiudadLat(result.lat);
+      setCiudadLng(result.lng);
+      setCiudadPreset(result);
+      return result;
+    } catch {
+      return null;
+    }
+  };
 
   const buildDateString = (date: Date) => {
     const dd = String(date.getDate()).padStart(2, '0');
@@ -46,32 +44,53 @@ export default function SearchScreen() {
     return `${dd}/${mm}/${date.getFullYear()}`;
   };
 
-  const handleSearch = (presetDate?: Date) => {
-    if (!ciudadLat || !ciudadLng) {
-      Alert.alert('Ubicación requerida', 'Selecciona una ciudad para buscar partidos.');
-      return;
+  const getSearchLocation = async () => {
+    if (ciudadLat && ciudadLng) {
+      return { label: ciudadLabel, lat: ciudadLat, lng: ciudadLng };
     }
+
+    const result = await fillCurrentLocation();
+    if (!result) return null;
+    return { label: result.ciudad, lat: result.lat, lng: result.lng };
+  };
+
+  const pushSearch = (
+    location: { label: string; lat: number; lng: number },
+    date: Date,
+  ) => {
     const params: Record<string, string> = {
-      lat: String(ciudadLat),
-      lng: String(ciudadLng),
-      ciudad: ciudadLabel,
-      date: buildDateString(presetDate ?? searchDate),
+      lat: String(location.lat),
+      lng: String(location.lng),
+      ciudad: location.label,
+      date: buildDateString(date),
     };
     if (position !== 'cualquiera') params.position = position;
     router.push({ pathname: '/search/results', params });
   };
 
-  const handleQuickAction = (mode: 'tomorrow' | 'this_week' | 'next_week') => {
-    if (!ciudadLat || !ciudadLng) {
+  const handleSearch = async (presetDate?: Date) => {
+    const location = await getSearchLocation();
+    if (!location) {
       Alert.alert('Ubicación requerida', 'Selecciona una ciudad para buscar partidos.');
       return;
     }
+
+    pushSearch(location, presetDate ?? searchDate);
+  };
+
+  const handleQuickAction = async (mode: 'tomorrow' | 'this_week' | 'next_week') => {
+    const location = await getSearchLocation();
+    if (!location) {
+      Alert.alert('Ubicación requerida', 'Selecciona una ciudad para buscar partidos.');
+      return;
+    }
+
     if (mode === 'tomorrow') {
       const target = new Date();
       target.setDate(target.getDate() + 1);
-      handleSearch(target);
+      pushSearch(location, target);
     } else {
-      const params: Record<string, string> = { dateRange: mode, lat: String(ciudadLat), lng: String(ciudadLng), ciudad: ciudadLabel };
+      const params: Record<string, string> = { dateRange: mode, lat: String(location.lat), lng: String(location.lng), ciudad: location.label };
       if (position !== 'cualquiera') params.position = position;
       router.push({ pathname: '/search/results', params });
     }
@@ -104,8 +123,8 @@ export default function SearchScreen() {
             onCiudadClear={() => { setCiudadLabel(''); setCiudadLat(null); setCiudadLng(null); setCiudadPreset(null); }}
             onPositionChange={setPosition}
             onDateChange={setSearchDate}
-            onSearch={() => handleSearch()}
-            onQuickAction={handleQuickAction}
+            onSearch={() => { void handleSearch(); }}
+            onQuickAction={(mode) => { void handleQuickAction(mode); }}
           />
         </View>
 
