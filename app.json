@@ -12,8 +12,7 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.jinku620.rondo",
       "associatedDomains": [
-        "applinks:rondofc.app",
-        "applinks:www.rondofc.app"
+        "applinks:rondofc.app"
       ],
       "infoPlist": {
         "LSApplicationQueriesSchemes": [
@@ -45,11 +44,6 @@
             {
               "scheme": "https",
               "host": "rondofc.app",
-              "pathPrefix": "/match"
-            },
-            {
-              "scheme": "https",
-              "host": "www.rondofc.app",
               "pathPrefix": "/match"
             }
           ],

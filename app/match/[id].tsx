@@ -7,7 +7,6 @@ import {
   ActivityIndicator,
   Alert,
   Share,
-  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
@@ -298,7 +297,6 @@ export default function MatchDetailScreen() {
       await Share.share({
         title: match.title,
         message,
-        url: Platform.OS === 'ios' ? matchUrl : undefined,
       });
     } catch (error) {
       Alert.alert(
