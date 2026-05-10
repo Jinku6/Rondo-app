@@ -87,13 +87,37 @@ export default function MyMatchesScreen() {
         played = (data as Match[]) || [];
       }
 
+      const allMatchIds = [...organizedList, ...played].map(m => m.id);
+      const participantCounts =
+        allMatchIds.length > 0
+          ? await supabase
+              .from('match_participants')
+              .select('match_id')
+              .in('match_id', allMatchIds)
+              .in('status', ['joined', 'approved'])
+          : { data: [] };
+
+      const participantCountMap: Record<string, number> = {};
+      (participantCounts.data || []).forEach(p => {
+        participantCountMap[p.match_id] = (participantCountMap[p.match_id] || 0) + 1;
+      });
+
       const pendingCountMap: Record<string, number> = {};
       (pendingData.data || []).forEach(p => {
         pendingCountMap[p.match_id] = (pendingCountMap[p.match_id] || 0) + 1;
       });
 
-      const organizedTagged: MyMatch[] = organizedList.map(m => ({ ...m, _role: 'organizer', _pendingCount: pendingCountMap[m.id] || 0 }));
-      const playedTagged: MyMatch[] = played.map(m => ({ ...m, _role: 'player' }));
+      const organizedTagged: MyMatch[] = organizedList.map(m => ({
+        ...m,
+        _role: 'organizer',
+        _pendingCount: pendingCountMap[m.id] || 0,
+        participant_count: participantCountMap[m.id] || 0,
+      }));
+      const playedTagged: MyMatch[] = played.map(m => ({
+        ...m,
+        _role: 'player',
+        participant_count: participantCountMap[m.id] || 0,
+      }));
 
       const combined = [...organizedTagged, ...playedTagged].sort(
         (a, b) => new Date(a.date_time).getTime() - new Date(b.date_time).getTime(),

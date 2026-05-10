@@ -318,6 +318,7 @@ export function UbicacionInput({
           longitude={pendingResult.lng}
           editableName={manualMode}
           requireCity={manualMode}
+          confirmLoading={resolving}
           onCancel={() => {
             setPendingResult(null);
             setManualMode(false);

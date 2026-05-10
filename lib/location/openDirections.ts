@@ -1,4 +1,4 @@
-import { ActionSheetIOS, Alert, Linking, Platform } from 'react-native';
+import { ActionSheetIOS, Alert, Linking, Platform, type AlertButton } from 'react-native';
 
 type DirectionPlatform = 'ios' | 'android' | 'web' | 'windows' | 'macos';
 type DirectionAppId = 'google_maps' | 'waze' | 'apple_maps' | 'system_maps';
@@ -125,7 +125,9 @@ export async function openDirections({
   const options = buildDirectionsOptions({ latitude, longitude, label, platform: Platform.OS });
 
   try {
-    const availableOptions = await buildAvailableDirectionsOptions(options);
+    const availableOptions = Platform.OS === 'ios'
+      ? options
+      : await buildAvailableDirectionsOptions(options);
     const visibleOptions = availableOptions.length > 0 ? availableOptions : [options[options.length - 1]];
 
     if (visibleOptions.length === 1) {
@@ -154,13 +156,20 @@ export async function openDirections({
     }
 
     if (Platform.OS === 'android') {
+      const buttons: AlertButton[] = visibleOptions.map((option) => ({
+        text: option.label,
+        onPress: () => openDirectionOption(option).catch(() => {
+          Alert.alert('No hemos podido abrir la app de mapas.');
+        }),
+      }));
+      if (buttons.length < 3) {
+        buttons.push({ text: 'Cancelar', style: 'cancel' });
+      }
+
       Alert.alert(
         'Abrir con',
         label,
-        visibleOptions.map((option) => ({
-          text: option.label,
-          onPress: () => openDirectionOption(option),
-        })),
+        buttons,
         { cancelable: true }
       );
       return;
