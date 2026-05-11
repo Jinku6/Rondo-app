@@ -13,6 +13,7 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
+import Constants from 'expo-constants';
 import MapView, { Marker } from 'react-native-maps';
 import { Colors } from '@/constants/theme';
 import { buscarDireccionTemporal, reverseGeocodeDireccion, type GeoResult } from '@/lib/geocoding';
@@ -52,15 +53,20 @@ export function VenueConfirmModal({
   const [addressLoading, setAddressLoading] = useState(false);
   const [reverseLoading, setReverseLoading] = useState(false);
   const [pin, setPin] = useState({ latitude, longitude });
+  const [latText, setLatText] = useState(String(latitude));
+  const [lngText, setLngText] = useState(String(longitude));
   const [cityText, setCityText] = useState(city || '');
   const addressTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const c = Colors;
+  const canRenderMap = Platform.OS !== 'android' || Constants.expoConfig?.extra?.androidGoogleMapsConfigured === true;
 
   useEffect(() => {
     setNameText(name);
     setAddressText(address || '');
     setAddressResults([]);
     setPin({ latitude, longitude });
+    setLatText(String(latitude));
+    setLngText(String(longitude));
     setCityText(city || '');
   }, [latitude, longitude, name, address, city, visible]);
 
@@ -96,11 +102,15 @@ export function VenueConfirmModal({
     setAddressText(result.direccion || result.nombre);
     setCityText(result.ciudad);
     setPin({ latitude: result.lat, longitude: result.lng });
+    setLatText(String(result.lat));
+    setLngText(String(result.lng));
     setAddressResults([]);
   };
 
   const handlePinChange = async (coordinate: { latitude: number; longitude: number }) => {
     setPin(coordinate);
+    setLatText(String(coordinate.latitude));
+    setLngText(String(coordinate.longitude));
     setAddressResults([]);
     setReverseLoading(true);
     try {
@@ -139,7 +149,10 @@ export function VenueConfirmModal({
   };
 
   const canConfirm = nameText.trim().length >= 3 && (!requireCity || cityText.trim().length > 1);
-  const confirmDisabled = !canConfirm || !!confirmLoading;
+  const parsedLat = Number(latText);
+  const parsedLng = Number(lngText);
+  const coordinatesAreValid = Number.isFinite(parsedLat) && Number.isFinite(parsedLng);
+  const confirmDisabled = !canConfirm || !coordinatesAreValid || !!confirmLoading;
 
   return (
     <Modal transparent animationType="slide" visible={visible} onRequestClose={onCancel}>
@@ -199,36 +212,57 @@ export function VenueConfirmModal({
                   )}
                 </View>
 
-                <View style={{ height: 220, overflow: 'hidden', borderRadius: 16, borderWidth: 1, borderColor: c.border }}>
-                  <MapView
-                    style={{ flex: 1 }}
-                    initialRegion={{
-                      latitude,
-                      longitude,
-                      latitudeDelta: 0.01,
-                      longitudeDelta: 0.01,
-                    }}
-                    region={{
-                      latitude: pin.latitude,
-                      longitude: pin.longitude,
-                      latitudeDelta: 0.01,
-                      longitudeDelta: 0.01,
-                    }}
-                    onPress={(event: any) => {
-                      Keyboard.dismiss();
-                      handlePinChange(event.nativeEvent.coordinate);
-                    }}
-                    onPoiClick={Platform.OS === 'android' ? handlePoiClick : undefined}
-                    poiClickEnabled={Platform.OS === 'android'}
-                  >
-                    <Marker
-                      draggable
-                      coordinate={pin}
-                      title={nameText}
-                      onDragEnd={(event: any) => handlePinChange(event.nativeEvent.coordinate)}
+                {canRenderMap ? (
+                  <View style={{ height: 220, overflow: 'hidden', borderRadius: 16, borderWidth: 1, borderColor: c.border }}>
+                    <MapView
+                      style={{ flex: 1 }}
+                      initialRegion={{
+                        latitude,
+                        longitude,
+                        latitudeDelta: 0.01,
+                        longitudeDelta: 0.01,
+                      }}
+                      region={{
+                        latitude: pin.latitude,
+                        longitude: pin.longitude,
+                        latitudeDelta: 0.01,
+                        longitudeDelta: 0.01,
+                      }}
+                      onPress={(event: any) => {
+                        Keyboard.dismiss();
+                        handlePinChange(event.nativeEvent.coordinate);
+                      }}
+                      onPoiClick={Platform.OS === 'android' ? handlePoiClick : undefined}
+                      poiClickEnabled={Platform.OS === 'android'}
+                    >
+                      <Marker
+                        draggable
+                        coordinate={pin}
+                        title={nameText}
+                        onDragEnd={(event: any) => handlePinChange(event.nativeEvent.coordinate)}
+                      />
+                    </MapView>
+                  </View>
+                ) : (
+                  <View style={{ flexDirection: 'row', gap: 10 }}>
+                    <TextInput
+                      value={latText}
+                      onChangeText={setLatText}
+                      keyboardType="numeric"
+                      placeholder="Latitud"
+                      placeholderTextColor={c.textMuted}
+                      style={{ flex: 1, minHeight: 44, color: c.text, borderWidth: 1, borderColor: c.border, borderRadius: 12, paddingHorizontal: 12 }}
                     />
-                  </MapView>
-                </View>
+                    <TextInput
+                      value={lngText}
+                      onChangeText={setLngText}
+                      keyboardType="numeric"
+                      placeholder="Longitud"
+                      placeholderTextColor={c.textMuted}
+                      style={{ flex: 1, minHeight: 44, color: c.text, borderWidth: 1, borderColor: c.border, borderRadius: 12, paddingHorizontal: 12 }}
+                    />
+                  </View>
+                )}
 
                 <TextInput
                   value={cityText}
@@ -259,8 +293,8 @@ export function VenueConfirmModal({
                       onConfirm({
                         name: nameText.trim(),
                         address: addressText.trim(),
-                        latitude: pin.latitude,
-                        longitude: pin.longitude,
+                        latitude: parsedLat,
+                        longitude: parsedLng,
                         city: cityText.trim(),
                       });
                     }}

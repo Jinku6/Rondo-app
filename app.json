@@ -3,7 +3,6 @@
     "name": "Rondo",
     "slug": "rondo",
     "version": "1.0.0",
-    "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "rondo",
     "userInterfaceStyle": "automatic",
@@ -71,6 +70,14 @@
         }
       ],
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Rondo necesita acceder a tus fotos para que puedas elegir una foto de perfil.",
+          "cameraPermission": false,
+          "microphonePermission": false
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",
@@ -91,7 +98,8 @@
           "project": "react-native",
           "organization": "rondo-sl"
         }
-      ]
+      ],
+      "./plugins/with-android-play-console-compat"
     ],
     "experiments": {
       "typedRoutes": true,
@@ -104,9 +112,7 @@
       }
     },
     "owner": "jinku620",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.0",
     "updates": {
       "url": "https://u.expo.dev/06d2e120-ca35-4e90-9725-eb1a8ada0cb1"
     }
