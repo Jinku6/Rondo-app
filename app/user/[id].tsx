@@ -107,7 +107,7 @@ export default function UserProfileScreen() {
         </Text>
         <View style={{ marginBottom: 20 }}>
           <ScreenTitle>
-            {isOwnProfile ? 'Mi Perfil' : 'Perfil'}
+            Perfil
           </ScreenTitle>
         </View>
 
