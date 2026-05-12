@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { isSafeUrl } from '@/lib/utils';
 import { Stack, useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenTitle } from '@/components/ui/ScreenTitle';
@@ -119,6 +119,21 @@ export default function MessagesScreen() {
       fetchThreads();
     }, [fetchThreads]),
   );
+
+  useEffect(() => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`messages-match-status-${user.id}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'matches' }, () => {
+        void fetchThreads(true);
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchThreads, user]);
 
   const handleConversationPress = (conversation: ConversationListItemData) => {
     router.push({

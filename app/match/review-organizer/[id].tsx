@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { PUBLIC_USER_SELECT } from '@/lib/supabase/selects';
 import { useAuth } from '@/contexts/AuthContext';
+import { useActivity } from '@/contexts/ActivityContext';
 import { MatchParticipant, UserProfile } from '@/types/database';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -16,6 +17,7 @@ type ReviewParticipant = MatchParticipant & {
 export default function ReviewOrganizerScreen() {
   const { id } = useLocalSearchParams();
   const { user } = useAuth();
+  const { refreshActivity } = useActivity();
   const router = useRouter();
 
   const [participants, setParticipants] = useState<ReviewParticipant[]>([]);
@@ -30,6 +32,8 @@ export default function ReviewOrganizerScreen() {
   }, [id]);
 
   const fetchData = async () => {
+    if (!user) return;
+
     // Check if 48h have passed since match was completed
     const { data: match, error: matchError } = await supabase
       .from('matches')
@@ -58,15 +62,44 @@ export default function ReviewOrganizerScreen() {
     }
 
     // Si la asistencia está bloqueada (auto-confirm), todos están como attended=true
-    const initialized: ReviewParticipant[] = data.map(p => ({
-      ...p,
-      attended: p.attended !== null ? p.attended : true,
-      attitude: null,
-      level_rating: 0
-    }));
+    const { data: existingReviews, error: reviewsError } = await supabase
+      .from('match_reviews')
+      .select('reviewee_id')
+      .eq('match_id', id)
+      .eq('reviewer_id', user.id);
+
+    if (reviewsError) {
+      Alert.alert('Error', reviewsError.message);
+      router.back();
+      return;
+    }
+
+    const reviewedIds = new Set((existingReviews || []).map(r => r.reviewee_id as string));
+    const initialized: ReviewParticipant[] = data
+      .filter(p => !reviewedIds.has(p.user_id))
+      .map(p => ({
+        ...p,
+        attended: p.attended !== null ? p.attended : true,
+        attitude: null,
+        level_rating: 0
+      }));
 
     setParticipants(initialized);
     setLoading(false);
+  };
+
+  const clearOrganizerReviewNotification = async () => {
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('notifications')
+      .update({ read: true })
+      .eq('user_id', user.id)
+      .eq('match_id', id)
+      .eq('type', 'pending_organizer_review');
+
+    if (error) throw error;
+    await refreshActivity();
   };
 
   const toggleAttendance = (participantId: string) => {
@@ -96,6 +129,14 @@ export default function ReviewOrganizerScreen() {
     setSaving(true);
 
     try {
+      if (participants.length === 0) {
+        await clearOrganizerReviewNotification();
+        Alert.alert('Listo', 'No quedan jugadores pendientes de valorar.', [
+          { text: 'Aceptar', onPress: () => router.back() },
+        ]);
+        return;
+      }
+
       // 1. Actualizar asistencias en paralelo (solo si no está bloqueada)
       if (!attendanceLocked) {
         await Promise.all(
@@ -134,12 +175,7 @@ export default function ReviewOrganizerScreen() {
       }
 
       // 4. Marcar notificación del organizador como leída
-      await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('user_id', user.id)
-        .eq('match_id', id)
-        .eq('type', 'pending_organizer_review');
+      await clearOrganizerReviewNotification();
 
       Alert.alert('Éxito', 'Lista guardada. Los jugadores que asistieron recibirán una notificación para valorar el partido.', [
         { text: 'Aceptar', onPress: () => router.back() },

@@ -1,5 +1,5 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { ActivityProvider, useActivity } from '@/contexts/ActivityContext';
+import { useActivity } from '@/contexts/ActivityContext';
 import { FloatingTabBar } from '@/components/rondo/FloatingTabBar';
 import { supabase } from '@/lib/supabase';
 import { Tabs, useNavigation } from 'expo-router';
@@ -92,11 +92,5 @@ function TabLayoutContent() {
 }
 
 export default function TabLayout() {
-  const { user } = useAuth();
-
-  return (
-    <ActivityProvider user={user}>
-      <TabLayoutContent />
-    </ActivityProvider>
-  );
+  return <TabLayoutContent />;
 }

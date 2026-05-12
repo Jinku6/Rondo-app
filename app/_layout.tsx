@@ -6,6 +6,7 @@ import '../global.css';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { ActivityProvider } from '@/contexts/ActivityContext';
 import { useEffect, useRef, useState } from 'react';
 import { View, ActivityIndicator, Modal, Text, TouchableOpacity, Platform, Alert } from 'react-native';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
@@ -200,7 +201,7 @@ function BirthdayGateModal() {
 // Componente interno para gestionar la redirección
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
-  const { session, loading } = useAuth();
+  const { session, user, loading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
   // Flag para evitar redirigir a tabs cuando estamos en flujo de recuperación de contraseña
@@ -289,15 +290,17 @@ function RootLayoutNav() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack screenOptions={{ headerBackTitle: 'Atrás' }}>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-      </Stack>
-      <StatusBar style="auto" />
-      {/* Intercepta usuarios sin birthday (Google OAuth, etc.) */}
-      <BirthdayGateModal />
-    </ThemeProvider>
+    <ActivityProvider user={user}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <Stack screenOptions={{ headerBackTitle: 'Atrás' }}>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+        </Stack>
+        <StatusBar style="auto" />
+        {/* Intercepta usuarios sin birthday (Google OAuth, etc.) */}
+        <BirthdayGateModal />
+      </ThemeProvider>
+    </ActivityProvider>
   );
 }
 
