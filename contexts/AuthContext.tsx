@@ -23,6 +23,48 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+const GOOGLE_BIRTHDAY_SCOPE = 'https://www.googleapis.com/auth/user.birthday.read';
+const GOOGLE_OAUTH_SCOPES = `openid email profile ${GOOGLE_BIRTHDAY_SCOPE}`;
+
+type GoogleBirthdayResponse = {
+  birthdays?: Array<{
+    date?: {
+      year?: number;
+      month?: number;
+      day?: number;
+    };
+  }>;
+};
+
+const toIsoBirthday = (date?: { year?: number; month?: number; day?: number }) => {
+  if (!date?.year || !date.month || !date.day) return null;
+  const year = String(date.year).padStart(4, '0');
+  const month = String(date.month).padStart(2, '0');
+  const day = String(date.day).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const fetchGoogleBirthday = async (providerToken?: string | null) => {
+  if (!providerToken) return null;
+
+  try {
+    const response = await fetch('https://people.googleapis.com/v1/people/me?personFields=birthdays', {
+      headers: { Authorization: `Bearer ${providerToken}` },
+    });
+
+    if (!response.ok) {
+      if (__DEV__) console.warn('fetch google birthday error:', response.status);
+      return null;
+    }
+
+    const data = await response.json() as GoogleBirthdayResponse;
+    return data.birthdays?.map((birthday) => toIsoBirthday(birthday.date)).find(Boolean) ?? null;
+  } catch (error) {
+    if (__DEV__) console.warn('fetch google birthday error:', getAuthErrorMessage(error, 'No se pudo leer la fecha de Google.'));
+    return null;
+  }
+};
+
 const getAuthRedirectUrl = (path: string) => {
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     return `${window.location.origin}${path}`;
@@ -46,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchProfile = useCallback(async (userId: string, authUser?: User) => {
+  const fetchProfile = useCallback(async (userId: string, authUser?: User, providerToken?: string | null) => {
     try {
     const { data, error } = await supabase
       .from('users')
@@ -65,7 +107,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.warn('fetch private profile error:', privateError.message);
       }
 
-      let profileData = { ...data, birthday: privateData?.birthday ?? null };
+      const provider = authUser?.app_metadata?.provider;
+      let birthday = privateData?.birthday ?? null;
+
+      if (provider === 'google' && !birthday) {
+        const googleBirthday = await fetchGoogleBirthday(providerToken);
+
+        if (googleBirthday) {
+          const { error: birthdayError } = await supabase
+            .from('user_account_private')
+            .upsert(
+              { user_id: userId, birthday: googleBirthday, updated_at: new Date().toISOString() },
+              { onConflict: 'user_id' },
+            );
+
+          if (birthdayError) {
+            if (__DEV__) console.warn('save google birthday error:', birthdayError.message);
+          } else {
+            birthday = googleBirthday;
+          }
+        }
+      }
+
+      let profileData = { ...data, birthday };
 
       // Sincronizar foto de Google si el perfil no tiene avatar pero el proveedor sí
       if (!data.avatar_url && authUser) {
@@ -107,7 +171,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
         if (session?.user) {
           setTimeout(() => {
-            if (active) fetchProfile(session.user.id, session.user);
+            if (active) fetchProfile(session.user.id, session.user, session.provider_token);
           }, 0);
         }
       })
@@ -126,7 +190,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (authUser) {
           setTimeout(() => {
-            if (active) fetchProfile(authUser.id, authUser);
+            if (active) fetchProfile(authUser.id, authUser, session?.provider_token);
           }, 0);
         } else {
           setProfile(null);
@@ -200,7 +264,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const refreshProfile = async () => {
     if (user) {
-      await fetchProfile(user.id, user);
+      await fetchProfile(user.id, user, session?.provider_token);
     }
   };
 
@@ -209,7 +273,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (Platform.OS === 'web') {
         const { error } = await supabase.auth.signInWithOAuth({
           provider: 'google',
-          options: { redirectTo: getAuthRedirectUrl('/') },
+          options: {
+            redirectTo: getAuthRedirectUrl('/'),
+            scopes: GOOGLE_OAUTH_SCOPES,
+            queryParams: {
+              prompt: 'consent',
+            },
+          },
         });
         if (error) Alert.alert('Error Google', error.message);
         return;
@@ -222,6 +292,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       options: {
         redirectTo: redirectUrl,
         skipBrowserRedirect: true,
+        scopes: GOOGLE_OAUTH_SCOPES,
+        queryParams: {
+          prompt: 'consent',
+        },
       },
     });
 

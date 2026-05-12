@@ -9,6 +9,7 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
+      "usesAppleSignIn": true,
       "bundleIdentifier": "com.jinku620.rondo",
       "associatedDomains": [
         "applinks:rondofc.app"
@@ -99,7 +100,8 @@
           "organization": "rondo-sl"
         }
       ],
-      "./plugins/with-android-play-console-compat"
+      "./plugins/with-android-play-console-compat",
+      "expo-apple-authentication"
     ],
     "experiments": {
       "typedRoutes": true,

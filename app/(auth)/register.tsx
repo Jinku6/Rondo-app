@@ -13,6 +13,7 @@ import { z } from 'zod';
 import { Colors } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ConfirmHcaptcha from '@hcaptcha/react-native-hcaptcha';
+import { AppleSignInButton } from '@/components/auth/AppleSignInButton';
 
 const MIN_PASSWORD_LENGTH = 12;
 
@@ -496,6 +497,8 @@ export default function RegisterScreen() {
               <Ionicons name="logo-google" size={20} color="#4285F4" />
               <Text style={{ color: c.text, fontWeight: '600', fontSize: 15, marginLeft: 10 }}>Continuar con Google</Text>
             </TouchableOpacity>
+
+            <AppleSignInButton />
 
             {/* Back */}
             <TouchableOpacity

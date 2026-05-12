@@ -8,6 +8,7 @@ import { Link, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { z } from 'zod';
 import { Colors } from '@/constants/theme';
+import { AppleSignInButton } from '@/components/auth/AppleSignInButton';
 
 const LoginSchema = z.object({
   email: z.string().email('El correo electrónico ingresado no es válido'),
@@ -185,6 +186,8 @@ export default function LoginScreen() {
               <Ionicons name="logo-google" size={20} color="#4285F4" />
               <Text style={{ fontSize: 15, fontWeight: '600', color: c.text }}>Continuar con Google</Text>
             </TouchableOpacity>
+
+            <AppleSignInButton />
           </View>
 
           {/* Footer */}

@@ -6,6 +6,7 @@ import {
   Text,
   ActivityIndicator,
   Alert,
+  Keyboard,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -16,6 +17,7 @@ import {
   reportVenueIssue,
   resolveExternalPlace,
 } from '@/lib/location/locationService';
+import { isValidCoords } from '@/lib/utils';
 import type { ExistingVenueResolution, Venue } from '@/types/location';
 
 interface Props {
@@ -56,6 +58,7 @@ export function UbicacionInput({
   const [seleccionado, setSeleccionado] = useState<GeoResult | null>(null);
   const [pendingResult, setPendingResult] = useState<GeoResult | null>(null);
   const [manualMode, setManualMode] = useState(false);
+  const [manualOpening, setManualOpening] = useState(false);
   const [resolving, setResolving] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const sessionTokenRef = useRef(`rondo-${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -109,6 +112,10 @@ export function UbicacionInput({
         Alert.alert('No se pudo encontrar la ubicacion', 'Prueba con otra busqueda o crea la ubicacion manualmente.');
         return;
       }
+      if (!isValidCoords(resolved.lat, resolved.lng)) {
+        Alert.alert('Ubicacion sin coordenadas', 'Prueba con otra busqueda o crea la ubicacion manualmente.');
+        return;
+      }
       setResultados([]);
       setPendingResult(resolved);
       setManualMode(false);
@@ -121,7 +128,9 @@ export function UbicacionInput({
 
   const handleManual = async () => {
     const name = value.trim();
-    if (name.length < 3) return;
+    if (name.length < 3 || manualOpening) return;
+    Keyboard.dismiss();
+    setManualOpening(true);
     let initialPin = DEFAULT_MANUAL_PIN;
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
@@ -146,6 +155,7 @@ export function UbicacionInput({
     });
     setManualMode(true);
     resetSessionToken();
+    setManualOpening(false);
   };
 
   const handleConfirmLocation = async (confirmed: {
@@ -287,7 +297,9 @@ export function UbicacionInput({
       {value.trim().length >= 3 && !loading && (
         <TouchableOpacity
           onPress={handleManual}
+          disabled={manualOpening}
           className="mt-2 border border-dashed border-slate-300 dark:border-gray-700 rounded-lg px-4 py-3"
+          style={{ opacity: manualOpening ? 0.6 : 1 }}
         >
           <Text className="text-sm font-semibold text-slate-700 dark:text-slate-200">
             No encuentro el campo

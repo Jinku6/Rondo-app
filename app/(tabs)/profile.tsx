@@ -15,6 +15,7 @@ import { Colors } from '@/constants/theme';
 import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
 import { getErrorMessage, logSupabaseError } from '@/lib/supabaseErrors';
 import { containsProfanity } from '@/lib/profanityFilter';
+import { ScreenTitle } from '@/components/ui/ScreenTitle';
 import {
   formatMemberSince,
   getAttitudeEmoji,
@@ -334,8 +335,14 @@ export default function ProfileScreen() {
           }}
           showsVerticalScrollIndicator={false}
         >
-          <PendingReviewsAlert />
-
+          <Text style={{ fontSize: 12, color: c.textDim, letterSpacing: 2.4, textTransform: 'uppercase', marginBottom: 4 }}>
+            Perfil
+          </Text>
+          <View style={{ marginBottom: 20 }}>
+            <ScreenTitle>
+              Mi Perfil
+            </ScreenTitle>
+          </View>
           {/* ── Identity ───────────────────────────────────────────── */}
           <View style={{ alignItems: 'center', paddingVertical: 24 }}>
             <View style={{ position: 'relative' }}>
@@ -416,7 +423,7 @@ export default function ProfileScreen() {
             {/* Años */}
             <View style={{ flex: 1, alignItems: 'center', paddingVertical: 18 }}>
               <Text style={{ fontSize: 11, fontWeight: '700', color: c.textDim, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 }}>
-                Años
+                Edad
               </Text>
               <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 22, fontWeight: '900', color: c.text }}>
                 {age !== null ? age : '—'}
@@ -532,6 +539,24 @@ export default function ProfileScreen() {
                 </Text>
               </View>
 
+              {/* Actitud */}
+              <View style={{
+                flex: 1,
+                backgroundColor: c.bgElev,
+                borderRadius: 16,
+                borderWidth: 1,
+                borderColor: c.border,
+                padding: 16,
+                alignItems: 'center',
+              }}>
+                <Text style={{ fontSize: 28, marginBottom: 6 }}>
+                  {getAttitudeEmoji(profile.average_attitude)}
+                </Text>
+                <Text style={{ fontSize: 10, fontWeight: '700', color: c.textMuted, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center' }}>
+                  Actitud
+                </Text>
+              </View>
+
               {/* Nivel */}
               <View style={{
                 flex: 1,
@@ -550,26 +575,10 @@ export default function ProfileScreen() {
                   Nivel
                 </Text>
               </View>
-
-              {/* Actitud */}
-              <View style={{
-                flex: 1,
-                backgroundColor: c.bgElev,
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: c.border,
-                padding: 16,
-                alignItems: 'center',
-              }}>
-                <Text style={{ fontSize: 28, marginBottom: 6 }}>
-                  {getAttitudeEmoji(profile.average_attitude)}
-                </Text>
-                <Text style={{ fontSize: 10, fontWeight: '700', color: c.textMuted, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center' }}>
-                  Actitud
-                </Text>
-              </View>
             </View>
           )}
+
+          <PendingReviewsAlert />
 
           <TouchableOpacity
             onPress={startEditing}

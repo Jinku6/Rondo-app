@@ -29,7 +29,7 @@ import {
 import * as Sentry from '@sentry/react-native';
 
 const SENTRY_REDACTED = '[Filtered]';
-const SENTRY_SENSITIVE_KEY = /authorization|token|secret|password|email|phone|birthday|location|latitude|longitude|lat|lng|ip_address/i;
+const SENTRY_SENSITIVE_KEY = /authorization|token|secret|password|api[_-]?key|apikey|email|phone|birthday|location|latitude|longitude|lat|lng|ip_address/i;
 const SENTRY_SENSITIVE_TEXT = /([\w.%+-]+@[\w.-]+\.[A-Za-z]{2,})|(\+?\d[\d\s().-]{7,}\d)|(eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/g;
 
 const scrubSentryValue = (value: unknown): unknown => {
