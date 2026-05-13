@@ -41,17 +41,25 @@ describe('security hardening artifacts', () => {
     expect(exists('supabase/functions/cancel-match/index.ts')).toBe(true);
     expect(exists('supabase/functions/cancel-participation/index.ts')).toBe(true);
     expect(exists('supabase/functions/waitlist/index.ts')).toBe(true);
+    expect(exists('supabase/functions/signup-brevo/index.ts')).toBe(true);
+    expect(exists('supabase/functions/delete-brevo-contact/index.ts')).toBe(true);
     expect(exists('supabase/functions/auto-confirm-attendance/index.ts')).toBe(true);
     expect(exists('supabase/functions/README.md')).toBe(true);
 
     const cancelMatch = read('supabase/functions/cancel-match/index.ts');
     const autoConfirm = read('supabase/functions/auto-confirm-attendance/index.ts');
     const waitlist = read('supabase/functions/waitlist/index.ts');
+    const signupBrevo = read('supabase/functions/signup-brevo/index.ts');
+    const deleteBrevoContact = read('supabase/functions/delete-brevo-contact/index.ts');
 
     expect(cancelMatch).toMatch(/createUserClient/);
     expect(cancelMatch).toMatch(/createServiceClient/);
     expect(autoConfirm).toMatch(/X-Cron-Secret/i);
     expect(waitlist).toMatch(/HCAPTCHA_SECRET/i);
+    expect(signupBrevo).toMatch(/auth\.admin\.getUserById/);
+    expect(signupBrevo).toMatch(/BREVO_API_KEY/);
+    expect(deleteBrevoContact).toMatch(/requireUser/);
+    expect(deleteBrevoContact).toMatch(/BREVO_API_KEY/);
   });
 
   it('removes dangerous client-side auth and telemetry defaults', () => {

@@ -204,9 +204,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   }, [fetchProfile]);
 
+  const syncSignupWithBrevo = async (userId: string, email: string) => {
+    try {
+      const { error } = await supabase.functions.invoke('signup-brevo', {
+        body: { userId, email },
+      });
+
+      if (error && __DEV__) {
+        console.warn('signup brevo sync error:', error.message);
+      }
+    } catch (error) {
+      if (__DEV__) console.warn('signup brevo sync error:', getAuthErrorMessage(error, 'No se pudo sincronizar con Brevo.'));
+    }
+  };
+
   const signUp = async (email: string, password: string, username: string, fullName: string, preferredPosition: string, phone: string, birthday: string, captchaToken?: string) => {
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -221,6 +235,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           },
         },
       });
+      if (!error && data.user?.id) {
+        await syncSignupWithBrevo(data.user.id, email);
+      }
       return { error: error?.message ?? null };
     } catch (error) {
       return { error: getAuthErrorMessage(error, 'No se pudo completar el registro.') };

@@ -10,3 +10,8 @@ verify_jwt = false
 [functions.waitlist]
 verify_jwt = false
 
+[functions.signup-brevo]
+verify_jwt = false
+
+[functions.delete-brevo-contact]
+verify_jwt = true
