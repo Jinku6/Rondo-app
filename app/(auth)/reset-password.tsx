@@ -7,7 +7,24 @@ import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 
-const MIN_PASSWORD_LENGTH = 12;
+const MIN_PASSWORD_LENGTH = 6;
+const PASSWORD_REQUIREMENTS = [
+  {
+    test: (value: string) => value.length >= MIN_PASSWORD_LENGTH,
+    title: 'Contraseña muy corta',
+    message: `La contraseña debe tener mínimo ${MIN_PASSWORD_LENGTH} caracteres.`,
+  },
+  {
+    test: (value: string) => /[A-Z]/.test(value),
+    title: 'Contraseña insegura',
+    message: 'La contraseña debe incluir al menos una letra mayúscula.',
+  },
+  {
+    test: (value: string) => /\d/.test(value),
+    title: 'Contraseña insegura',
+    message: 'La contraseña debe incluir al menos un número.',
+  },
+];
 
 export default function ResetPasswordScreen() {
   const router = useRouter();
@@ -15,14 +32,20 @@ export default function ResetPasswordScreen() {
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
+  const passwordRules = [
+    { ok: password.length >= MIN_PASSWORD_LENGTH, label: `Mínimo ${MIN_PASSWORD_LENGTH} caracteres` },
+    { ok: /[A-Z]/.test(password), label: 'Una letra mayúscula' },
+    { ok: /\d/.test(password), label: 'Un número' },
+  ];
 
   const handleReset = async () => {
     if (!password) {
       Alert.alert('Campo requerido', 'Introduce tu nueva contraseña.');
       return;
     }
-    if (password.length < MIN_PASSWORD_LENGTH) {
-      Alert.alert('Contraseña muy corta', `La contraseña debe tener al menos ${MIN_PASSWORD_LENGTH} caracteres.`);
+    const unmetRequirement = PASSWORD_REQUIREMENTS.find(({ test }) => !test(password));
+    if (unmetRequirement) {
+      Alert.alert(unmetRequirement.title, unmetRequirement.message);
       return;
     }
     if (password !== confirm) {
@@ -87,14 +110,28 @@ export default function ResetPasswordScreen() {
 
         <Text className="text-slate-700 dark:text-slate-300 font-medium mb-1">Nueva contraseña</Text>
         <TextInput
-          className="w-full bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-xl p-3 text-gray-900 dark:text-white mb-4"
-          placeholder={`Mínimo ${MIN_PASSWORD_LENGTH} caracteres`}
+          className="w-full bg-white dark:bg-gray-900 border border-slate-200 dark:border-gray-800 rounded-xl p-3 text-gray-900 dark:text-white mb-2"
+          placeholder="Introduce tu contraseña"
           placeholderTextColor="#9ca3af"
           value={password}
           onChangeText={setPassword}
           secureTextEntry
           returnKeyType="next"
         />
+        <View style={{ marginBottom: 16, gap: 4 }}>
+          {passwordRules.map(({ ok, label }) => (
+            <View key={label} style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Ionicons
+                name={ok ? 'checkmark-circle' : 'ellipse-outline'}
+                size={13}
+                color={ok ? '#22C55E' : '#9ca3af'}
+              />
+              <Text style={{ fontSize: 11, marginLeft: 6, color: ok ? '#22C55E' : '#9ca3af' }}>
+                {label}
+              </Text>
+            </View>
+          ))}
+        </View>
 
         <Text className="text-slate-700 dark:text-slate-300 font-medium mb-1">Confirmar contraseña</Text>
         <TextInput

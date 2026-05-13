@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ConfirmHcaptcha from '@hcaptcha/react-native-hcaptcha';
 import { AppleSignInButton } from '@/components/auth/AppleSignInButton';
 
-const MIN_PASSWORD_LENGTH = 12;
+const MIN_PASSWORD_LENGTH = 6;
 
 const RegisterSchema = z.object({
   fullName: z.string().min(2, 'El nombre debe tener al menos 2 caracteres'),

@@ -27,7 +27,7 @@ import {
 
 const c = Colors;
 
-const MIN_PASSWORD_LENGTH = 12;
+const MIN_PASSWORD_LENGTH = 6;
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 const AVATAR_MIME_EXTENSIONS: Record<string, string> = {
   'image/jpeg': 'jpg',
