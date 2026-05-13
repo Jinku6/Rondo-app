@@ -55,6 +55,7 @@ const POSITIONS = [
 ];
 
 const c = Colors;
+const MIN_BIRTHDAY_DATE = new Date(1900, 0, 1);
 
 const inp = {
   backgroundColor: 'rgba(255,255,255,0.04)' as const,
@@ -363,6 +364,7 @@ export default function RegisterScreen() {
                   value={birthday ?? new Date(2000, 0, 1)}
                   mode="date"
                   display="default"
+                  minimumDate={MIN_BIRTHDAY_DATE}
                   maximumDate={new Date(new Date().getFullYear() - 14, 11, 31)}
                   onChange={(_: DateTimePickerEvent, date?: Date) => {
                     setShowBirthdayPicker(false);
@@ -388,6 +390,7 @@ export default function RegisterScreen() {
                         value={birthday ?? new Date(2000, 0, 1)}
                         mode="date"
                         display="spinner"
+                        minimumDate={MIN_BIRTHDAY_DATE}
                         maximumDate={new Date(new Date().getFullYear() - 14, 11, 31)}
                         onChange={(_: DateTimePickerEvent, date?: Date) => { if (date) setBirthday(date); }}
                       />

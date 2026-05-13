@@ -32,6 +32,7 @@ import * as Sentry from '@sentry/react-native';
 const SENTRY_REDACTED = '[Filtered]';
 const SENTRY_SENSITIVE_KEY = /authorization|token|secret|password|api[_-]?key|apikey|email|phone|birthday|location|latitude|longitude|lat|lng|ip_address/i;
 const SENTRY_SENSITIVE_TEXT = /([\w.%+-]+@[\w.-]+\.[A-Za-z]{2,})|(\+?\d[\d\s().-]{7,}\d)|(eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/g;
+const MIN_BIRTHDAY_DATE = new Date(1900, 0, 1);
 
 const scrubSentryValue = (value: unknown): unknown => {
   if (typeof value === 'string') return value.replace(SENTRY_SENSITIVE_TEXT, SENTRY_REDACTED);
@@ -152,6 +153,7 @@ function BirthdayGateModal() {
               value={birthday}
               mode="date"
               display="default"
+              minimumDate={MIN_BIRTHDAY_DATE}
               maximumDate={new Date(new Date().getFullYear() - 14, 11, 31)}
               onChange={(_: DateTimePickerEvent, date?: Date) => {
                 setShowPicker(false);
@@ -167,6 +169,7 @@ function BirthdayGateModal() {
                 value={birthday}
                 mode="date"
                 display="spinner"
+                minimumDate={MIN_BIRTHDAY_DATE}
                 maximumDate={new Date(new Date().getFullYear() - 14, 11, 31)}
                 onChange={(_: DateTimePickerEvent, date?: Date) => {
                   if (date) setBirthday(date);
