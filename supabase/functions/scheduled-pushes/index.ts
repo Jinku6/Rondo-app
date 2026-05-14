@@ -1,0 +1,231 @@
+import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+import { handleOptions, jsonError, jsonResponse, requirePost } from '../_shared/http.ts';
+import { createServiceClient } from '../_shared/supabase.ts';
+import { sendPushMessages } from '../_shared/push.ts';
+
+type ScheduledType = 'match_reminders' | 'nearby_digest';
+
+type MatchRow = {
+  id: string;
+  title: string;
+  date_time: string;
+  organizer_id: string;
+  location_city?: string | null;
+  location_lat?: number | null;
+  location_lng?: number | null;
+  latitude_snapshot?: number | null;
+  longitude_snapshot?: number | null;
+};
+
+type LocationPreference = {
+  user_id: string;
+  city: string;
+  latitude: number;
+  longitude: number;
+};
+
+const SEARCH_RADIUS_KM = 20;
+const NEARBY_LOOKAHEAD_HOURS = 72;
+
+function assertCronSecret(req: Request) {
+  const expectedSecret = Deno.env.get('CRON_SECRET');
+  const providedSecret = req.headers.get('X-Cron-Secret');
+  return !!expectedSecret && providedSecret === expectedSecret;
+}
+
+async function getRequestType(req: Request): Promise<ScheduledType | null> {
+  const urlType = new URL(req.url).searchParams.get('type') as ScheduledType | null;
+  if (urlType) return urlType;
+
+  try {
+    const body = await req.json() as { type?: ScheduledType };
+    return body.type ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function distanceKm(a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }) {
+  const toRad = (value: number) => (value * Math.PI) / 180;
+  const earthRadiusKm = 6371;
+  const dLat = toRad(b.latitude - a.latitude);
+  const dLng = toRad(b.longitude - a.longitude);
+  const lat1 = toRad(a.latitude);
+  const lat2 = toRad(b.latitude);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * earthRadiusKm * Math.asin(Math.sqrt(h));
+}
+
+async function sendMatchReminders() {
+  const supabase = createServiceClient();
+  const now = new Date();
+  const windowStart = new Date(now.getTime() + 25 * 60 * 1000).toISOString();
+  const windowEnd = new Date(now.getTime() + 35 * 60 * 1000).toISOString();
+
+  const { data: matches, error } = await supabase
+    .from('matches')
+    .select('id, title, date_time, organizer_id, match_participants(user_id, status)')
+    .in('status', ['open', 'full'])
+    .gte('date_time', windowStart)
+    .lte('date_time', windowEnd);
+
+  if (error) throw error;
+
+  const messages = [];
+
+  for (const match of matches ?? []) {
+    const participants = (match.match_participants ?? []) as Array<{ user_id: string; status: string }>;
+    for (const participant of participants.filter((p) => ['joined', 'approved'].includes(p.status))) {
+      messages.push({
+        userId: participant.user_id,
+        type: 'match_reminder' as const,
+        title: 'En 30 min empieza el partido',
+        body: `${match.title} empieza en media hora. Que no te pille calentando en el sofá.`,
+        matchId: match.id,
+        url: `/match/${match.id}`,
+        dedupeKey: `match_reminder:${match.id}:${participant.user_id}`,
+      });
+    }
+  }
+
+  return sendPushMessages(messages);
+}
+
+async function loadNearbyMatchesForPreference(preference: LocationPreference) {
+  const supabase = createServiceClient();
+  const nowIso = new Date().toISOString();
+  const endIso = new Date(Date.now() + NEARBY_LOOKAHEAD_HOURS * 60 * 60 * 1000).toISOString();
+
+  const { data: rpcData, error: rpcError } = await supabase.rpc('partidos_cerca', {
+    lat: preference.latitude,
+    lng: preference.longitude,
+    radio_km: SEARCH_RADIUS_KM,
+  });
+
+  if (!rpcError && Array.isArray(rpcData)) {
+    const ids = rpcData.map((row: { id: string }) => row.id).filter(Boolean).slice(0, 20);
+    if (ids.length === 0) return [];
+
+    const { data } = await supabase
+      .from('matches')
+      .select('id, title, date_time, organizer_id, location_city')
+      .in('id', ids)
+      .eq('status', 'open')
+      .gte('date_time', nowIso)
+      .lte('date_time', endIso)
+      .order('date_time', { ascending: true });
+
+    return (data ?? []) as MatchRow[];
+  }
+
+  const { data } = await supabase
+    .from('matches')
+    .select('id, title, date_time, organizer_id, location_city, location_lat, location_lng, latitude_snapshot, longitude_snapshot')
+    .eq('status', 'open')
+    .gte('date_time', nowIso)
+    .lte('date_time', endIso)
+    .order('date_time', { ascending: true })
+    .limit(200);
+
+  return ((data ?? []) as MatchRow[]).filter((match) => {
+    const latitude = match.latitude_snapshot ?? match.location_lat;
+    const longitude = match.longitude_snapshot ?? match.location_lng;
+    if (typeof latitude !== 'number' || typeof longitude !== 'number') return false;
+    return distanceKm(
+      { latitude: preference.latitude, longitude: preference.longitude },
+      { latitude, longitude },
+    ) <= SEARCH_RADIUS_KM;
+  });
+}
+
+async function sendNearbyDigest() {
+  const supabase = createServiceClient();
+  const startOfDay = new Date();
+  startOfDay.setHours(0, 0, 0, 0);
+
+  const { data: preferences, error } = await supabase
+    .from('user_location_preferences')
+    .select('user_id, city, latitude, longitude');
+
+  if (error) throw error;
+
+  const messages = [];
+
+  for (const preference of (preferences ?? []) as LocationPreference[]) {
+    const { count: tokenCount } = await supabase
+      .from('push_tokens')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', preference.user_id)
+      .eq('enabled', true);
+
+    if ((tokenCount ?? 0) === 0) continue;
+
+    const { count: digestCount } = await supabase
+      .from('push_notification_log')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', preference.user_id)
+      .eq('type', 'nearby_digest')
+      .gte('sent_at', startOfDay.toISOString())
+      .in('status', ['sent', 'skipped']);
+
+    if ((digestCount ?? 0) > 0) continue;
+
+    const nearbyMatches = await loadNearbyMatchesForPreference(preference);
+    if (nearbyMatches.length === 0) continue;
+
+    const candidateIds = nearbyMatches.map((match) => match.id);
+    const { data: participations } = await supabase
+      .from('match_participants')
+      .select('match_id')
+      .eq('user_id', preference.user_id)
+      .in('match_id', candidateIds);
+
+    const joinedIds = new Set((participations ?? []).map((row: { match_id: string }) => row.match_id));
+    const relevantMatches = nearbyMatches.filter((match) =>
+      match.organizer_id !== preference.user_id && !joinedIds.has(match.id)
+    );
+
+    if (relevantMatches.length === 0) continue;
+
+    const firstMatch = relevantMatches[0];
+    const count = relevantMatches.length;
+    const params = new URLSearchParams({
+      lat: String(preference.latitude),
+      lng: String(preference.longitude),
+      ciudad: preference.city,
+      dateRange: 'this_week',
+    });
+
+    messages.push({
+      userId: preference.user_id,
+      type: 'nearby_digest' as const,
+      title: '¡Te están buscando!',
+      body: `Hemos encontrado ${count} ${count === 1 ? 'partido' : 'partidos'} cerca de ${preference.city}. Si te falta césped, entra.`,
+      matchId: firstMatch.id,
+      url: `/search/results?${params.toString()}`,
+      dedupeKey: `nearby_digest:${preference.user_id}:${startOfDay.toISOString().slice(0, 10)}`,
+    });
+  }
+
+  return sendPushMessages(messages);
+}
+
+Deno.serve(async (req: Request) => {
+  const options = handleOptions(req);
+  if (options) return options;
+
+  const methodError = requirePost(req);
+  if (methodError) return methodError;
+  if (!assertCronSecret(req)) return jsonError('Unauthorized', 401);
+
+  const type = await getRequestType(req);
+
+  try {
+    if (type === 'match_reminders') return jsonResponse(await sendMatchReminders());
+    if (type === 'nearby_digest') return jsonResponse(await sendNearbyDigest());
+    return jsonError('Unknown scheduled push type', 400);
+  } catch (error) {
+    console.error('[scheduled-pushes] failed', error);
+    return jsonError('Scheduled push failed', 500);
+  }
+});

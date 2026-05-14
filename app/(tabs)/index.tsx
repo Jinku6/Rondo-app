@@ -7,6 +7,7 @@ import { PendingReviewsAlert } from '@/components/PendingReviewsAlert';
 import { HomeHero } from '@/components/rondo/HomeHero';
 import { SearchCard } from '@/components/rondo/SearchCard';
 import { reverseGeocodeCiudad, type GeoResult } from '@/lib/geocoding';
+import { saveUserLocationPreference } from '@/lib/notifications';
 import { Colors } from '@/constants/theme';
 import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
 
@@ -58,6 +59,12 @@ export default function SearchScreen() {
     location: { label: string; lat: number; lng: number },
     date: Date,
   ) => {
+    void saveUserLocationPreference({
+      city: location.label,
+      latitude: location.lat,
+      longitude: location.lng,
+    });
+
     const params: Record<string, string> = {
       lat: String(location.lat),
       lng: String(location.lng),
@@ -90,6 +97,12 @@ export default function SearchScreen() {
       target.setDate(target.getDate() + 1);
       pushSearch(location, target);
     } else {
+      void saveUserLocationPreference({
+        city: location.label,
+        latitude: location.lat,
+        longitude: location.lng,
+      });
+
       const params: Record<string, string> = { dateRange: mode, lat: String(location.lat), lng: String(location.lng), ciudad: location.label };
       if (position !== 'cualquiera') params.position = position;
       router.push({ pathname: '/search/results', params });

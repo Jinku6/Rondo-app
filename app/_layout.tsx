@@ -15,7 +15,13 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Linking from 'expo-linking';
 import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
+import * as Notifications from 'expo-notifications';
 import { parseTrustedAuthCallback } from '@/lib/auth/deepLinks';
+import {
+  handleNotificationNavigation,
+  registerForPushNotificationsAsync,
+  savePushToken,
+} from '@/lib/notifications';
 import {
   Archivo_500Medium,
   Archivo_600SemiBold,
@@ -209,6 +215,8 @@ function RootLayoutNav() {
   const router = useRouter();
   // Flag para evitar redirigir a tabs cuando estamos en flujo de recuperación de contraseña
   const passwordRecoveryRef = useRef(false);
+  const notificationListener = useRef<Notifications.EventSubscription | null>(null);
+  const responseListener = useRef<Notifications.EventSubscription | null>(null);
 
   // Escuchar el evento PASSWORD_RECOVERY de Supabase
   useEffect(() => {
@@ -283,6 +291,39 @@ function RootLayoutNav() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, loading, segments]);
+
+  useEffect(() => {
+    if (loading || !session) return;
+
+    let active = true;
+
+    const setupNotifications = async () => {
+      try {
+        const token = await registerForPushNotificationsAsync();
+        if (active && token) await savePushToken(token);
+
+        notificationListener.current = Notifications.addNotificationReceivedListener(() => undefined);
+        responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
+          handleNotificationNavigation(response.notification, router);
+        });
+
+        const lastResponse = await Notifications.getLastNotificationResponseAsync();
+        if (active && lastResponse) handleNotificationNavigation(lastResponse.notification, router);
+      } catch (error) {
+        if (__DEV__) console.warn('notification setup error:', error);
+      }
+    };
+
+    void setupNotifications();
+
+    return () => {
+      active = false;
+      notificationListener.current?.remove();
+      responseListener.current?.remove();
+      notificationListener.current = null;
+      responseListener.current = null;
+    };
+  }, [session, loading, router]);
 
   if (loading) {
     return (

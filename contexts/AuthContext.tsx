@@ -4,6 +4,7 @@ import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { PUBLIC_USER_SELECT } from '@/lib/supabase/selects';
 import { parseOAuthCallbackUrl } from '@/lib/auth/oauthCallback';
+import { removePushToken } from '@/lib/notifications';
 import { UserProfile } from '@/types/database';
 import * as Linking from 'expo-linking';
 import * as WebBrowser from 'expo-web-browser';
@@ -271,6 +272,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
+      await removePushToken();
       await supabase.auth.signOut();
     } catch (error) {
       if (__DEV__) console.warn('sign out error:', getAuthErrorMessage(error, 'No se pudo cerrar sesion.'));

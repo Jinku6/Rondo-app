@@ -82,6 +82,15 @@
         }
       ],
       [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/rondo-icon.png",
+          "color": "#22C55E",
+          "defaultChannel": "default",
+          "iosDisplayInForeground": true
+        }
+      ],
+      [
         "expo-splash-screen",
         {
           "image": "./assets/images/splash-icon.png",

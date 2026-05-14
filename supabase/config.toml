@@ -7,6 +7,12 @@ verify_jwt = true
 [functions.auto-confirm-attendance]
 verify_jwt = false
 
+[functions.send-push]
+verify_jwt = false
+
+[functions.scheduled-pushes]
+verify_jwt = false
+
 [functions.waitlist]
 verify_jwt = false
 
