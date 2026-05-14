@@ -15,6 +15,10 @@
         "applinks:rondofc.app"
       ],
       "infoPlist": {
+        "CFBundleDevelopmentRegion": "es-ES",
+        "CFBundleLocalizations": [
+          "es"
+        ],
         "LSApplicationQueriesSchemes": [
           "comgooglemaps",
           "waze",
