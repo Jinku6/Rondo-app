@@ -49,7 +49,9 @@ export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarP
         height: TAB_H,
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: 'rgba(17,24,39,0.92)',
+        backgroundColor: colors.tabBarBg,
+        borderWidth: 1,
+        borderColor: colors.border,
         borderRadius: 22,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 12 },
@@ -69,6 +71,7 @@ export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarP
           brandColor={colors.brand}
           dangerColor={colors.danger}
           dimColor={colors.textDim}
+          badgeBorderColor={colors.bgElev}
           onPress={() => go(tab.name)}
         />
       ))}
@@ -90,7 +93,7 @@ export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarP
             shadowOpacity: 1,
             shadowRadius: 24,
             elevation: 8,
-            borderColor: '#000',
+            borderColor: colors.bg,
             borderWidth: 4,
             marginTop: FAB_FLOAT_OFFSET,
           }}
@@ -112,6 +115,7 @@ export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarP
           brandColor={colors.brand}
           dangerColor={colors.danger}
           dimColor={colors.textDim}
+          badgeBorderColor={colors.bgElev}
           onPress={() => go(tab.name)}
         />
       ))}
@@ -128,10 +132,11 @@ interface TabBtnProps {
   brandColor: string;
   dangerColor: string;
   dimColor: string;
+  badgeBorderColor: string;
   onPress: () => void;
 }
 
-function TabBtn({ label, iconName, isMaterial, active, badge, brandColor, dangerColor, dimColor, onPress }: TabBtnProps) {
+function TabBtn({ label, iconName, isMaterial, active, badge, brandColor, dangerColor, dimColor, badgeBorderColor, onPress }: TabBtnProps) {
   const color = active ? brandColor : dimColor;
 
   return (
@@ -178,7 +183,7 @@ function TabBtn({ label, iconName, isMaterial, active, badge, brandColor, danger
             justifyContent: 'center',
             zIndex: 1,
             borderWidth: 1.5,
-            borderColor: '#111827',
+            borderColor: badgeBorderColor,
           }}>
             <Text style={{ color: '#fff', fontSize: 9, fontWeight: 'bold', textAlign: 'center' }}>
               {badge > 99 ? '99+' : String(badge)}

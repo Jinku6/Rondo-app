@@ -2,7 +2,7 @@ import React from 'react';
 import { ActivityIndicator, Image, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { UserProfile } from '@/types/database';
 import { calculateAge, isSafeUrl } from '@/lib/utils';
 import {
@@ -12,8 +12,6 @@ import {
   POSITION_LABELS,
 } from '@/components/profile/profileDisplay';
 
-const c = Colors;
-
 interface ProfileOverviewProps {
   profile: UserProfile;
   uploading?: boolean;
@@ -21,6 +19,7 @@ interface ProfileOverviewProps {
 }
 
 export function ProfileOverview({ profile, uploading = false, onPickImage }: ProfileOverviewProps) {
+  const { colors: c } = useTheme();
   const age = calculateAge(profile.birthday);
   const reliability = getReliabilityInfo(profile.reliability_score);
 

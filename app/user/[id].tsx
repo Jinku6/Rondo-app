@@ -9,16 +9,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { ProfileOverview } from '@/components/profile/ProfileOverview';
 import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
 import { ScreenTitle } from '@/components/ui/ScreenTitle';
-import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { PUBLIC_USER_SELECT } from '@/lib/supabase/selects';
 import { firstParam, isValidUUID } from '@/lib/utils';
 import { UserProfile } from '@/types/database';
 
-const c = Colors;
-
 export default function UserProfileScreen() {
+  const { colors: c } = useTheme();
   const params = useLocalSearchParams();
   const id = firstParam(params.id as string | string[]);
   const router = useRouter();

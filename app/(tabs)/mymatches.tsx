@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
 import { ScreenTitle } from '@/components/ui/ScreenTitle';
 import { StatCard } from '@/components/ui/StatCard';
+import { useTheme } from '@/hooks/use-theme';
 
 type MyMatch = Match & { _role: 'organizer' | 'player'; _pendingCount?: number };
 
@@ -34,6 +35,7 @@ const formatTime = (dateStr: string) => {
 export default function MyMatchesScreen() {
   const { user } = useAuth();
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const [matches, setMatches] = useState<MyMatch[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -163,7 +165,7 @@ export default function MyMatchesScreen() {
       <TouchableOpacity
         activeOpacity={0.7}
         onPress={() => router.push(`/match/${item.id}`)}
-        className={`flex-row bg-surface rounded-xl overflow-hidden mb-4 border border-white/5 border-t-4 ${borderColorClass} ${isArchived ? 'opacity-60' : 'opacity-100'}`}
+        className={`flex-row bg-surface rounded-xl overflow-hidden mb-4 border border-border border-t-4 ${borderColorClass} ${isArchived ? 'opacity-60' : 'opacity-100'}`}
       >
         {/* Left Block (Date/Time) */}
         <View className="bg-brand w-20 items-center justify-center py-4">
@@ -188,14 +190,14 @@ export default function MyMatchesScreen() {
 
           {/* Location */}
           <View className="flex-row items-center mb-3">
-            <Ionicons name="location-outline" size={14} color="#8A938F" />
+            <Ionicons name="location-outline" size={14} color={colors.textDim} />
             <Text className="font-body text-ink-dim text-xs ml-1 flex-1" numberOfLines={1}>
               {item.location}
             </Text>
           </View>
 
           {/* Separator */}
-          <View className="border-t border-dashed border-white/10 mb-3" />
+          <View className="border-t border-dashed border-border mb-3" />
 
           {/* Footer Row */}
           <View className="flex-row justify-between items-center">
@@ -203,13 +205,13 @@ export default function MyMatchesScreen() {
               {/* Stack Avatars */}
               <View className="flex-row items-center">
                 <View className="w-6 h-6 rounded-full bg-surface2 border border-surface z-20 items-center justify-center">
-                  <Ionicons name="person" size={12} color="#8A938F" />
+                  <Ionicons name="person" size={12} color={colors.textDim} />
                 </View>
                 <View className="w-6 h-6 rounded-full bg-surface2 border border-surface z-10 -ml-2 items-center justify-center">
-                  <Ionicons name="person" size={12} color="#8A938F" />
+                  <Ionicons name="person" size={12} color={colors.textDim} />
                 </View>
                 <View className="w-6 h-6 rounded-full bg-surface2 border border-surface z-0 -ml-2 items-center justify-center">
-                  <Ionicons name="person" size={12} color="#8A938F" />
+                  <Ionicons name="person" size={12} color={colors.textDim} />
                 </View>
               </View>
               <Text className="font-mono text-ink-dim text-xs ml-2">{item.participant_count || 0}/{Object.values(item.requested_positions || {}).reduce((a, b) => a + (b as number), 0)}</Text>
@@ -270,14 +272,14 @@ export default function MyMatchesScreen() {
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={() => setShowArchived(false)}
-                className={`flex-1 items-center justify-center py-3 rounded-lg ${!showArchived ? 'bg-brand border border-brand' : 'bg-white/5 border border-white/5'}`}
+                className={`flex-1 items-center justify-center py-3 rounded-lg ${!showArchived ? 'bg-brand border border-brand' : 'bg-input/5 border border-border'}`}
               >
                 <Text className={`font-display uppercase text-xs tracking-wider ${!showArchived ? 'text-white' : 'text-ink-dim'}`}>Activos</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 activeOpacity={0.7}
                 onPress={() => setShowArchived(true)}
-                className={`flex-1 items-center justify-center py-3 rounded-lg ${showArchived ? 'bg-white/15 border border-white/20' : 'bg-white/5 border border-white/5'}`}
+                className={`flex-1 items-center justify-center py-3 rounded-lg ${showArchived ? 'bg-input/15 border border-border-strong' : 'bg-input/5 border border-border'}`}
               >
                 <Text className={`font-display uppercase text-xs tracking-wider ${showArchived ? 'text-white' : 'text-ink-dim'}`}>Archivados</Text>
               </TouchableOpacity>
@@ -327,9 +329,9 @@ export default function MyMatchesScreen() {
                 <TouchableOpacity
                   activeOpacity={0.7}
                   onPress={() => router.push('/(tabs)/' as any)}
-                  className="bg-surface border border-white/10 px-5 py-3 rounded-xl flex-row items-center gap-2"
+                  className="bg-surface border border-border px-5 py-3 rounded-xl flex-row items-center gap-2"
                 >
-                  <Ionicons name="search-outline" size={18} color="#8A938F" />
+                  <Ionicons name="search-outline" size={18} color={colors.textDim} />
                   <Text className="text-ink-dim font-display uppercase text-xs tracking-wider">Buscar</Text>
                 </TouchableOpacity>
               </View>

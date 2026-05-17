@@ -18,8 +18,8 @@ import {
   Match,
   MatchParticipant,
 } from '@/types/database';
-import { Colors } from '@/constants/theme';
 import CancelMatchModal, { CancelWindow } from '@/components/CancelMatchModal';
+import { useTheme } from '@/hooks/use-theme';
 import { openDirections } from '@/lib/location/openDirections';
 import {
   formatDate,
@@ -28,11 +28,11 @@ import {
 } from '@/components/match/MatchDetailParts';
 import { MatchDetailContent } from '@/components/match/MatchDetailContent';
 
-const c = Colors;
-
 // ─── screen ───────────────────────────────────────────────────────────────────
 
 export default function MatchDetailScreen() {
+  const { colors: c } = useTheme();
+  const s = createStyles(c);
   const { id } = useLocalSearchParams();
   const { user } = useAuth();
   const router = useRouter();
@@ -420,7 +420,7 @@ export default function MatchDetailScreen() {
 
 // ─── styles ───────────────────────────────────────────────────────────────────
 
-const s = StyleSheet.create({
+const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: c.bg,

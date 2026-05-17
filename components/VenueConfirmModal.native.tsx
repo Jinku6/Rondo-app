@@ -14,9 +14,9 @@ import {
   View,
 } from 'react-native';
 import MapView, { Marker } from 'react-native-maps';
-import { Colors } from '@/constants/theme';
 import { buscarDireccionTemporal, reverseGeocodeDireccion, type GeoResult } from '@/lib/geocoding';
 import { isValidCoords } from '@/lib/utils';
+import { useTheme } from '@/hooks/use-theme';
 
 interface Props {
   visible: boolean;
@@ -65,7 +65,7 @@ export function VenueConfirmModal({
   const [cityText, setCityText] = useState(city || '');
   const mapRef = useRef<MapView | null>(null);
   const addressTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const c = Colors;
+  const { colors: c } = useTheme();
 
   const moveMapToPin = (coordinate: { latitude: number; longitude: number }) => {
     mapRef.current?.animateToRegion(

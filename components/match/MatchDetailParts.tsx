@@ -3,6 +3,7 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ChevronRight } from 'lucide-react-native';
 
 import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import type {
   MatchLevel,
   MatchParticipant,
@@ -158,9 +159,17 @@ export function InfoCell({
   flex?: number;
   children: ReactNode;
 }) {
+  const { colors } = useTheme();
+
   return (
-    <View style={[styles.infoCell, flex != null && { flex }]}>
-      <Text style={styles.infoCellLabel}>{label}</Text>
+    <View
+      style={[
+        styles.infoCell,
+        { backgroundColor: colors.bgSurface, borderColor: colors.border },
+        flex != null && { flex },
+      ]}
+    >
+      <Text style={[styles.infoCellLabel, { color: colors.textDim }]}>{label}</Text>
       {children}
     </View>
   );
@@ -225,6 +234,7 @@ export function PlayerRow({
   rightContent?: ReactNode;
   isLast?: boolean;
 }) {
+  const { colors } = useTheme();
   const name = participant?.user?.full_name ?? 'Jugador';
   const pos = participant?.user?.preferred_position;
   const posCfg = pos ? POSITION_CONFIG[pos as PositionKey] : null;
@@ -233,7 +243,7 @@ export function PlayerRow({
 
   return (
     <Pressable
-      className={`flex-row items-center justify-between py-3 ${isLast ? '' : 'border-b-[0.5px] border-white/10'}`}
+      className={`flex-row items-center justify-between py-3 ${isLast ? '' : 'border-b-[0.5px] border-border'}`}
       style={({ pressed }) => pressed && { opacity: 0.65 }}
       onPress={onPress}
       accessibilityRole={onPress ? 'button' : undefined}
@@ -247,18 +257,18 @@ export function PlayerRow({
           textSize={13}
         />
         <View className="flex-1 min-w-0 flex-col">
-          <Text className="text-[14px] font-semibold text-white" numberOfLines={1}>
+          <Text className="text-[14px] font-semibold text-ink" numberOfLines={1}>
             {name}
           </Text>
           {!!positionLabel && (
-            <Text className="text-[11px] text-[#8A938F]" numberOfLines={1}>
+            <Text className="text-[11px] text-ink-dim" numberOfLines={1}>
               {positionLabel}
             </Text>
           )}
         </View>
       </View>
       <View className="ml-3 shrink-0">
-        {rightContent || <ChevronRight size={16} color="#8A938F" />}
+        {rightContent || <ChevronRight size={16} color={colors.textDim} />}
       </View>
     </Pressable>
   );

@@ -9,6 +9,10 @@ export const Colors = {
   bgElev: '#111827',
   bgSurface: '#161A18',
   bgSurface2: '#1F2423',
+  inputBg: 'rgba(255,255,255,0.05)',
+  pressed: 'rgba(255,255,255,0.10)',
+  scrim: 'rgba(0,0,0,0.60)',
+  tabBarBg: 'rgba(17,24,39,0.92)',
   border: 'rgba(255,255,255,0.08)',
   borderStrong: 'rgba(255,255,255,0.16)',
 
@@ -33,6 +37,10 @@ export const ColorsLight = {
   bgElev: '#F8FAF9',
   bgSurface: '#F0F5F1',
   bgSurface2: '#E8EEE9',
+  inputBg: '#FFFFFF',
+  pressed: 'rgba(17,24,39,0.06)',
+  scrim: 'rgba(15,23,42,0.45)',
+  tabBarBg: 'rgba(255,255,255,0.94)',
   border: 'rgba(0,0,0,0.08)',
   borderStrong: 'rgba(0,0,0,0.16)',
 
@@ -52,6 +60,47 @@ export const ColorsLight = {
 } as const;
 
 export type ThemeColors = typeof Colors;
+
+export const ColorChannels = {
+  dark: {
+    bg: '10 10 10',
+    bgElev: '17 24 39',
+    bgSurface: '22 26 24',
+    bgSurface2: '31 36 35',
+    inputBg: '255 255 255',
+    pressed: '255 255 255',
+    border: '255 255 255',
+    borderStrong: '255 255 255',
+    text: '244 243 238',
+    textDim: '138 147 143',
+    textMuted: '90 98 93',
+    brand: '34 197 94',
+    brandDeep: '22 163 74',
+    brandInk: '255 255 255',
+    danger: '239 68 68',
+    warning: '245 158 11',
+    info: '59 130 246',
+  },
+  light: {
+    bg: '255 255 255',
+    bgElev: '248 250 249',
+    bgSurface: '240 245 241',
+    bgSurface2: '232 238 233',
+    inputBg: '17 24 39',
+    pressed: '17 24 39',
+    border: '0 0 0',
+    borderStrong: '0 0 0',
+    text: '17 24 39',
+    textDim: '55 65 81',
+    textMuted: '75 85 99',
+    brand: '34 197 94',
+    brandDeep: '22 101 52',
+    brandInk: '255 255 255',
+    danger: '185 28 28',
+    warning: '146 64 14',
+    info: '29 78 216',
+  },
+} as const;
 
 // ─── TYPOGRAPHY ─────────────────────────────────────────────────
 export const Fonts = {

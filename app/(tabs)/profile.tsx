@@ -16,6 +16,7 @@ import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
 import { getErrorMessage, logSupabaseError } from '@/lib/supabaseErrors';
 import { containsProfanity } from '@/lib/profanityFilter';
 import { ScreenTitle } from '@/components/ui/ScreenTitle';
+import { useTheme } from '@/hooks/use-theme';
 import {
   formatMemberSince,
   getAttitudeEmoji,
@@ -65,6 +66,7 @@ const sectionCard = {
 };
 
 export default function ProfileScreen() {
+  const { colors: c } = useTheme();
   const { user, profile, refreshProfile, signOut } = useAuth();
   const insets = useSafeAreaInsets();
 

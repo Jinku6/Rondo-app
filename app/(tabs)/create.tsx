@@ -16,6 +16,7 @@ import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
 import { ScreenTitle } from '@/components/ui/ScreenTitle';
 import { ColorSwatch } from '@/components/ui/ColorSwatch';
 import { TEAM_COLOR_OPTIONS } from '@/constants/teamColors';
+import { useTheme } from '@/hooks/use-theme';
 
 const CreateMatchSchema = z.object({
   title: z.string().min(3, 'El título debe tener al menos 3 caracteres'),
@@ -60,7 +61,7 @@ function PickerModal({
     <Modal transparent animationType="slide" visible={visible}>
       <View className="flex-1 justify-end bg-black/70">
         <View className="bg-bg-elev pb-10 pt-4 px-6 rounded-t-3xl">
-          <View className="flex-row justify-between mb-3 border-b border-white/10 pb-3">
+          <View className="flex-row justify-between mb-3 border-b border-border pb-3">
             <TouchableOpacity onPress={onCancel}>
               <Text className="text-danger font-semibold text-base">Cancelar</Text>
             </TouchableOpacity>
@@ -80,6 +81,7 @@ export default function CreateMatchScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
 
   const [title, setTitle] = useState('');
   const [location, setLocation] = useState('');
@@ -295,15 +297,15 @@ export default function CreateMatchScreen() {
         </ScreenTitle>
 
         {/* 1. Información General */}
-        <View className="bg-bg-elev border border-white/10 p-5 rounded-lg-r mb-4">
+        <View className="bg-bg-elev border border-border p-5 rounded-lg-r mb-4">
           <SectionHeader num={1} title="Información" />
           <View className="gap-3.5">
             <View>
               <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Título del Partido</Text>
               <TextInput
-                className="bg-white/5 border border-white/10 rounded-md-r px-4 py-3 text-ink font-body text-[15px]"
+                className="bg-input/5 border border-border rounded-md-r px-4 py-3 text-ink font-body text-[15px]"
                 placeholder="Fútbol-7 Jueves Tarde"
-                placeholderTextColor="#5A625D"
+                placeholderTextColor={colors.textMuted}
                 keyboardAppearance="dark"
                 value={title}
                 onChangeText={setTitle}
@@ -312,7 +314,7 @@ export default function CreateMatchScreen() {
             <View>
               <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Ubicación</Text>
               {/* Note: Assuming UbicacionInput renders its own input or requires styling. Since we can't easily inject classNames into it unless supported, we wrap it if possible or rely on its own styles. If it doesn't take className, it might look slightly off, but let's assume it accepts a style wrapper or similar, actually I will just render it. */}
-              <View className="bg-white/5 border border-white/10 rounded-md-r px-4 py-1">
+              <View className="bg-input/5 border border-border rounded-md-r px-4 py-1">
                 <UbicacionInput
                   value={location}
                   createdBy={user?.id}
@@ -341,9 +343,9 @@ export default function CreateMatchScreen() {
             <View>
               <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Descripción</Text>
               <TextInput
-                className="bg-white/5 border border-white/10 rounded-md-r px-4 py-3 text-ink font-body text-[15px] min-h-[80px]"
+                className="bg-input/5 border border-border rounded-md-r px-4 py-3 text-ink font-body text-[15px] min-h-[80px]"
                 placeholder="Buen ambiente, nivel medio, cervezas después de jugar"
-                placeholderTextColor="#5A625D"
+                placeholderTextColor={colors.textMuted}
                 keyboardAppearance="dark"
                 value={description}
                 onChangeText={setDescription}
@@ -356,7 +358,7 @@ export default function CreateMatchScreen() {
         </View>
 
         {/* 2. Nivel */}
-        <View className="bg-bg-elev border border-white/10 p-5 rounded-lg-r mb-4">
+        <View className="bg-bg-elev border border-border p-5 rounded-lg-r mb-4">
           <SectionHeader num={2} title="Nivel" />
           <View className="flex-row gap-2">
             {LEVELS.map(l => {
@@ -366,11 +368,11 @@ export default function CreateMatchScreen() {
                   key={l.key}
                   onPress={() => setLevel(l.key as MatchLevel)}
                   className={`flex-1 py-3.5 rounded-md-r items-center border-2 ${
-                    isActive ? `${l.activeBg} ${l.activeBorder}` : 'bg-white/5 border-transparent'
+                    isActive ? `${l.activeBg} ${l.activeBorder}` : 'bg-input/5 border-transparent'
                   }`}
                 >
                   <Text className="text-[22px] mb-1">{l.emoji}</Text>
-                  <Text style={{ color: isActive ? l.color : '#8A938F' }} className="font-body font-bold text-xs">
+                  <Text style={{ color: isActive ? l.color : colors.textDim }} className="font-body font-bold text-xs">
                     {l.label}
                   </Text>
                 </TouchableOpacity>
@@ -380,13 +382,13 @@ export default function CreateMatchScreen() {
         </View>
 
         {/* 3. Fecha y Hora */}
-        <View className="bg-bg-elev border border-white/10 p-5 rounded-lg-r mb-4">
+        <View className="bg-bg-elev border border-border p-5 rounded-lg-r mb-4">
           <SectionHeader num={3} title="Cuándo" />
           <View className="flex-row gap-3">
             <View className="flex-1">
               <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Día</Text>
               <TouchableOpacity
-                className="bg-white/5 border border-white/10 rounded-md-r px-4 py-3.5 flex-row items-center justify-between"
+                className="bg-input/5 border border-border rounded-md-r px-4 py-3.5 flex-row items-center justify-between"
                 onPress={() => { if (Platform.OS !== 'web') openDatePicker(); }}
                 activeOpacity={Platform.OS === 'web' ? 1 : 0.7}
               >
@@ -401,7 +403,7 @@ export default function CreateMatchScreen() {
                   <TextInput
                     className="flex-1 text-ink font-body text-[15px]"
                     placeholder="05/04/2026"
-                    placeholderTextColor="#5A625D"
+                    placeholderTextColor={colors.textMuted}
                     keyboardAppearance="dark"
                     value={dateText}
                     onChangeText={handleDateChangeText}
@@ -414,7 +416,7 @@ export default function CreateMatchScreen() {
             <View className="flex-1">
               <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Hora</Text>
               <TouchableOpacity
-                className="bg-white/5 border border-white/10 rounded-md-r px-4 py-3.5 flex-row items-center justify-between"
+                className="bg-input/5 border border-border rounded-md-r px-4 py-3.5 flex-row items-center justify-between"
                 onPress={() => { if (Platform.OS !== 'web') openTimePicker(); }}
                 activeOpacity={Platform.OS === 'web' ? 1 : 0.7}
               >
@@ -429,7 +431,7 @@ export default function CreateMatchScreen() {
                   <TextInput
                     className="flex-1 text-ink font-body text-[15px]"
                     placeholder="20:00"
-                    placeholderTextColor="#5A625D"
+                    placeholderTextColor={colors.textMuted}
                     keyboardAppearance="dark"
                     value={timeText}
                     onChangeText={handleTimeChangeText}
@@ -462,7 +464,7 @@ export default function CreateMatchScreen() {
         )}
 
         {/* 4. Posiciones */}
-        <View className="bg-bg-elev border border-white/10 p-5 rounded-lg-r mb-4">
+        <View className="bg-bg-elev border border-border p-5 rounded-lg-r mb-4">
           <SectionHeader num={4} title="Posiciones" />
           <View>
             {[
@@ -472,7 +474,7 @@ export default function CreateMatchScreen() {
               { key: 'delantero',   label: 'Delantero',        emoji: '⚡' },
               { key: 'cualquiera',  label: 'Cualquiera',       emoji: '⚽' },
             ].map((pos) => (
-              <View key={pos.key} className="flex-row justify-between items-center py-3 border-b border-white/5 last:border-b-0">
+              <View key={pos.key} className="flex-row justify-between items-center py-3 border-b border-border last:border-b-0">
                 <View className="flex-row items-center gap-3">
                   <Text className="text-xl">{pos.emoji}</Text>
                   <Text className="text-ink font-body font-semibold text-sm">{pos.label}</Text>
@@ -480,9 +482,9 @@ export default function CreateMatchScreen() {
                 <View className="flex-row items-center gap-2">
                   <TouchableOpacity
                     onPress={() => updatePosition(pos.key as PositionKey, -1)}
-                    className="w-9 h-9 rounded-md-r bg-white/5 items-center justify-center border border-white/10"
+                    className="w-9 h-9 rounded-md-r bg-input/5 items-center justify-center border border-border"
                   >
-                    <Ionicons name="remove" size={18} color="#8A938F" />
+                    <Ionicons name="remove" size={18} color={colors.textDim} />
                   </TouchableOpacity>
                   <Text className="w-8 text-center font-body font-bold text-lg text-ink">
                     {positions[pos.key as PositionKey]}
@@ -497,7 +499,7 @@ export default function CreateMatchScreen() {
               </View>
             ))}
           </View>
-          <View className="flex-row justify-between items-center mt-4 pt-4 border-t border-white/10">
+          <View className="flex-row justify-between items-center mt-4 pt-4 border-t border-border">
             <Text className="text-ink-dim font-body font-semibold text-sm">Total jugadores</Text>
             <View className="bg-brand px-4 py-1.5 rounded-full">
               <Text className="font-body font-black text-white text-base">{totalPlayers}</Text>
@@ -506,7 +508,7 @@ export default function CreateMatchScreen() {
         </View>
 
         {/* 5. Colores de Equipos */}
-        <View className="bg-bg-elev border border-white/10 p-5 rounded-lg-r mb-4">
+        <View className="bg-bg-elev border border-border p-5 rounded-lg-r mb-4">
           <SectionHeader num={5} title="Colores de Camiseta" />
           <View className="flex-row gap-3">
             {[
@@ -536,18 +538,18 @@ export default function CreateMatchScreen() {
         </View>
 
         {/* 6. Extra */}
-        <View className="bg-bg-elev border border-white/10 p-5 rounded-lg-r mb-6">
+        <View className="bg-bg-elev border border-border p-5 rounded-lg-r mb-6">
           <SectionHeader num={6} title="Configuración" />
           <View className="mb-5">
             <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Precio por persona (€)</Text>
             <TextInput
-              className="bg-white/5 border border-white/10 rounded-md-r px-4 py-3.5 text-ink font-body text-[15px]"
+              className="bg-input/5 border border-border rounded-md-r px-4 py-3.5 text-ink font-body text-[15px]"
               value={price}
               onChangeText={setPrice}
               keyboardType="numeric"
               keyboardAppearance="dark"
               placeholder="0.00"
-              placeholderTextColor="#5A625D"
+              placeholderTextColor={colors.textMuted}
             />
             <Text className="text-[10px] text-ink-muted mt-2 font-body">
               El organizador gestiona el cobro manualmente.
@@ -574,7 +576,7 @@ export default function CreateMatchScreen() {
           <TouchableOpacity
             onPress={() => router.back()}
             disabled={loading}
-            className="flex-1 bg-white/5 border border-white/10 rounded-xl-r py-4 items-center justify-center"
+            className="flex-1 bg-input/5 border border-border rounded-xl-r py-4 items-center justify-center"
           >
             <Text className="text-ink-dim font-display font-bold text-[15px]">Cancelar</Text>
           </TouchableOpacity>

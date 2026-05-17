@@ -1,6 +1,5 @@
 import { ConversationListItem, ConversationListItemData } from '@/components/messages/ConversationListItem';
 import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
-import { Colors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { isSafeUrl } from '@/lib/utils';
@@ -10,6 +9,7 @@ import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, Touchable
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenTitle } from '@/components/ui/ScreenTitle';
 import { PendingReviewsAlert } from '@/components/PendingReviewsAlert';
+import { useTheme } from '@/hooks/use-theme';
 
 type MessagesTab = 'active' | 'archived';
 
@@ -73,6 +73,7 @@ export default function MessagesScreen() {
   const { user } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const [selectedTab, setSelectedTab] = useState<MessagesTab>('active');
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [loading, setLoading] = useState(true);
@@ -149,7 +150,7 @@ export default function MessagesScreen() {
     if (loading) {
       return (
         <View className="items-center justify-center pt-16">
-          <ActivityIndicator size="large" color={Colors.brand} />
+          <ActivityIndicator size="large" color={colors.brand} />
         </View>
       );
     }
@@ -208,8 +209,8 @@ export default function MessagesScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => fetchThreads(true)}
-              tintColor={Colors.brand}
-              colors={[Colors.brand]}
+              tintColor={colors.brand}
+              colors={[colors.brand]}
             />
           }
           contentContainerStyle={{
@@ -234,14 +235,14 @@ export default function MessagesScreen() {
                 <TouchableOpacity
                   activeOpacity={0.7}
                   onPress={() => setSelectedTab('active')}
-                  className={`flex-1 items-center justify-center py-3 rounded-lg ${selectedTab === 'active' ? 'bg-brand border border-brand' : 'bg-white/5 border border-white/5'}`}
+                  className={`flex-1 items-center justify-center py-3 rounded-lg ${selectedTab === 'active' ? 'bg-brand border border-brand' : 'bg-input/5 border border-border'}`}
                 >
                   <Text className={`font-display uppercase text-xs tracking-wider ${selectedTab === 'active' ? 'text-white' : 'text-ink-dim'}`}>Activos</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                   activeOpacity={0.7}
                   onPress={() => setSelectedTab('archived')}
-                  className={`flex-1 items-center justify-center py-3 rounded-lg ${selectedTab === 'archived' ? 'bg-white/15 border border-white/20' : 'bg-white/5 border border-white/5'}`}
+                  className={`flex-1 items-center justify-center py-3 rounded-lg ${selectedTab === 'archived' ? 'bg-input/15 border border-border-strong' : 'bg-input/5 border border-border'}`}
                 >
                   <Text className={`font-display uppercase text-xs tracking-wider ${selectedTab === 'archived' ? 'text-white' : 'text-ink-dim'}`}>Archivados</Text>
                 </TouchableOpacity>

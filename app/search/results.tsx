@@ -10,12 +10,12 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { EmptyState } from '@/components/ui/empty-state';
 import { isValidCoords, firstParam } from '@/lib/utils';
-import { Colors, Fonts, Radius } from '@/constants/theme';
+import { Fonts, Radius } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MatchCard } from '@/components/rondo/MatchCard';
 import { ScreenTitle } from '@/components/ui/ScreenTitle';
+import { useTheme } from '@/hooks/use-theme';
 
-const c = Colors;
 const SEARCH_RADIUS_KM = 20;
 
 const VALID_POSITIONS = new Set(['cualquiera', 'portero', 'defensa', 'mediocentro', 'delantero']);
@@ -57,6 +57,7 @@ function buildEyebrow(ciudad: string, dateStr: string, dateRangeStr: string, pos
 
 export default function SearchResultsScreen() {
   const { lat, lng, ciudad, date, position, dateRange } = useLocalSearchParams();
+  const { colors: c } = useTheme();
   const [matches, setMatches] = useState<Match[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

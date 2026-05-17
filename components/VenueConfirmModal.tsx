@@ -12,8 +12,8 @@ import {
   TouchableWithoutFeedback,
   View,
 } from 'react-native';
-import { Colors } from '@/constants/theme';
 import { buscarDireccionTemporal, type GeoResult } from '@/lib/geocoding';
+import { useTheme } from '@/hooks/use-theme';
 
 interface Props {
   visible: boolean;
@@ -52,7 +52,7 @@ export function VenueConfirmModal({
   const [lngText, setLngText] = useState(String(longitude));
   const [cityText, setCityText] = useState(city || '');
   const addressTimeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const c = Colors;
+  const { colors: c } = useTheme();
 
   useEffect(() => {
     setNameText(name);

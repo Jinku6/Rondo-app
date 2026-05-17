@@ -14,6 +14,7 @@ import { Colors } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ConfirmHcaptcha from '@hcaptcha/react-native-hcaptcha';
 import { AppleSignInButton } from '@/components/auth/AppleSignInButton';
+import { useTheme } from '@/hooks/use-theme';
 
 const MIN_PASSWORD_LENGTH = 6;
 
@@ -80,6 +81,7 @@ const lbl = {
 };
 
 export default function RegisterScreen() {
+  const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
 
   const [email, setEmail] = useState('');

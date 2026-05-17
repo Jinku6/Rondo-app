@@ -7,8 +7,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Link, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { z } from 'zod';
-import { Colors } from '@/constants/theme';
 import { AppleSignInButton } from '@/components/auth/AppleSignInButton';
+import { useTheme } from '@/hooks/use-theme';
 
 const LoginSchema = z.object({
   email: z.string().email('El correo electrónico ingresado no es válido'),
@@ -58,7 +58,7 @@ export default function LoginScreen() {
     }
   }
 
-  const c = Colors;
+  const { colors: c } = useTheme();
 
   return (
     <KeyboardAvoidingView
@@ -180,7 +180,7 @@ export default function LoginScreen() {
               style={{
                 borderRadius: 14, minHeight: 52, alignItems: 'center', justifyContent: 'center',
                 flexDirection: 'row', gap: 10,
-                backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: c.border,
+                backgroundColor: c.inputBg, borderWidth: 1, borderColor: c.border,
               }}
             >
               <Ionicons name="logo-google" size={20} color="#4285F4" />

@@ -25,13 +25,13 @@ export function ConversationListItem({ conversation, onPress }: ConversationList
       onPress={() => onPress(conversation)}
       accessibilityRole="button"
       accessibilityLabel={`Abrir conversación con ${conversation.name}`}
-      className="flex-row items-center gap-3 border-b border-white/10 py-4"
+      className="flex-row items-center gap-3 border-b border-border py-4"
       style={({ pressed }) => ({ opacity: pressed ? 0.65 : 1 })}
     >
       {conversation.avatarUrl ? (
         <Image
           source={{ uri: conversation.avatarUrl }}
-          className="h-11 w-11 shrink-0 rounded-full border border-white/10"
+          className="h-11 w-11 shrink-0 rounded-full border border-border"
         />
       ) : (
         <View

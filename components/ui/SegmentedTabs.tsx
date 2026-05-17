@@ -18,7 +18,7 @@ export function SegmentedTabs<TValue extends string>({
   onChange,
 }: SegmentedTabsProps<TValue>) {
   return (
-    <View className="flex-row rounded-xl border border-white/10 bg-bg-surface p-1">
+    <View className="flex-row rounded-xl border border-border bg-bg-surface p-1">
       {options.map((option) => {
         const isActive = option.value === value;
 

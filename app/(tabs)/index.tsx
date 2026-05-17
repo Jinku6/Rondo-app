@@ -8,12 +8,13 @@ import { HomeHero } from '@/components/rondo/HomeHero';
 import { SearchCard } from '@/components/rondo/SearchCard';
 import { reverseGeocodeCiudad, type GeoResult } from '@/lib/geocoding';
 import { saveUserLocationPreference } from '@/lib/notifications';
-import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
 
 export default function SearchScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { colors: c } = useTheme();
 
   const [ciudadLabel, setCiudadLabel] = useState('');
   const [ciudadLat, setCiudadLat] = useState<number | null>(null);
@@ -108,8 +109,6 @@ export default function SearchScreen() {
       router.push({ pathname: '/search/results', params });
     }
   };
-
-  const c = Colors;
 
   return (
     <View style={{ flex: 1, backgroundColor: c.bg }}>

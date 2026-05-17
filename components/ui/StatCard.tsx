@@ -21,8 +21,8 @@ const toneClasses = {
     value: 'text-warning',
   },
   muted: {
-    idle: 'bg-white/5 border-white/10',
-    active: 'bg-white/10 border-white/25',
+    idle: 'bg-input/5 border-border',
+    active: 'bg-input/10 border-border-strong',
     value: 'text-ink-dim',
   },
 } as const;

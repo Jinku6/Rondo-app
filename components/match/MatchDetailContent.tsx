@@ -2,7 +2,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-nati
 import { Ionicons } from '@expo/vector-icons';
 import { ArrowRight, Share2 } from 'lucide-react-native';
 
-import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 import type { Match, MatchParticipant } from '@/types/database';
 import {
   Badge,
@@ -18,8 +18,6 @@ import {
   STATUS_CONFIG,
   totalSlots,
 } from '@/components/match/MatchDetailParts';
-
-const c = Colors;
 
 type Props = {
   match: Match;
@@ -70,6 +68,8 @@ export function MatchDetailContent({
   onPlayerPress,
   onPlayerChatPress,
 }: Props) {
+  const { colors: c } = useTheme();
+  const s = createStyles(c);
   const levelCfg = LEVEL_CONFIG[match.level];
   const statusCfg = STATUS_CONFIG[match.status] ?? STATUS_CONFIG.open;
   const organizer = match.organizer;
@@ -310,14 +310,14 @@ export function MatchDetailContent({
 
         {!isArchived && (
           <Pressable
-            className="min-h-[52px] w-full flex-row items-center justify-center gap-2 rounded-md-r border border-white/10 bg-bg-surface px-5 py-3.5"
+            className="min-h-[52px] w-full flex-row items-center justify-center gap-2 rounded-md-r border border-border bg-bg-surface px-5 py-3.5"
             style={({ pressed }) => pressed && { opacity: 0.7 }}
             onPress={onShare}
             accessibilityRole="button"
             accessibilityLabel="Compartir partido"
           >
             <Share2 size={18} color={c.text} />
-            <Text className="font-display text-base font-extrabold uppercase tracking-[0.64px] text-[#F4F3EE]">
+            <Text className="font-display text-base font-extrabold uppercase tracking-[0.64px] text-ink">
               Compartir partido
             </Text>
           </Pressable>
@@ -350,7 +350,7 @@ export function MatchDetailContent({
       )}
 
       <View style={[s.section, { borderBottomWidth: 0 }]}>
-        <Text className="mb-2.5 font-mono text-[9px] font-bold uppercase tracking-[1.5px] text-[#8A938F]">
+        <Text className="mb-2.5 font-mono text-[9px] font-bold uppercase tracking-[1.5px] text-ink-dim">
           JUGADORES APUNTADOS ({nonOrganizerJoined.length})
         </Text>
         {nonOrganizerJoined.map((p, index) => (
@@ -379,7 +379,7 @@ export function MatchDetailContent({
   );
 }
 
-const s = StyleSheet.create({
+const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
   titleBlock: {
     padding: 16,
     borderBottomWidth: 1,

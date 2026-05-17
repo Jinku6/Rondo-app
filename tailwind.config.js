@@ -1,5 +1,3 @@
-const { Colors, Radius } = require('./constants/theme');
-
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: ["./app/**/*.{js,jsx,ts,tsx}", "./components/**/*.{js,jsx,ts,tsx}"],
@@ -8,26 +6,34 @@ module.exports = {
     extend: {
       colors: {
         brand: {
-          DEFAULT: '#22C55E',
-          deep: '#16A34A',
-          soft: 'rgba(34,197,94,0.14)',
-          glow: 'rgba(34,197,94,0.32)',
-          ink: '#FFFFFF',
+          DEFAULT: 'rgb(var(--color-brand) / <alpha-value>)',
+          deep: 'rgb(var(--color-brand-deep) / <alpha-value>)',
+          soft: 'rgb(var(--color-brand) / 0.14)',
+          glow: 'rgb(var(--color-brand) / 0.32)',
+          ink: 'rgb(var(--color-brand-ink) / <alpha-value>)',
         },
         bg: {
-          DEFAULT: '#0A0A0A',
-          elev: '#111827',
-          surface: '#161A18',
-          surface2: '#1F2423',
+          DEFAULT: 'rgb(var(--color-bg) / <alpha-value>)',
+          elev: 'rgb(var(--color-bg-elev) / <alpha-value>)',
+          surface: 'rgb(var(--color-bg-surface) / <alpha-value>)',
+          surface2: 'rgb(var(--color-bg-surface2) / <alpha-value>)',
+        },
+        surface: 'rgb(var(--color-surface) / <alpha-value>)',
+        surface2: 'rgb(var(--color-surface2) / <alpha-value>)',
+        input: 'rgb(var(--color-input) / <alpha-value>)',
+        pressed: 'rgb(var(--color-pressed) / <alpha-value>)',
+        border: {
+          DEFAULT: 'rgb(var(--color-border) / 0.08)',
+          strong: 'rgb(var(--color-border-strong) / 0.16)',
         },
         ink: {
-          DEFAULT: '#F4F3EE',
-          dim: '#8A938F',
-          muted: '#5A625D',
+          DEFAULT: 'rgb(var(--color-ink) / <alpha-value>)',
+          dim: 'rgb(var(--color-ink-dim) / <alpha-value>)',
+          muted: 'rgb(var(--color-ink-muted) / <alpha-value>)',
         },
-        danger: '#EF4444',
-        warning: '#F59E0B',
-        info: '#3B82F6',
+        danger: 'rgb(var(--color-danger) / <alpha-value>)',
+        warning: 'rgb(var(--color-warning) / <alpha-value>)',
+        info: 'rgb(var(--color-info) / <alpha-value>)',
       },
       fontFamily: {
         display: ['Archivo_900Black', 'Archivo_800ExtraBold', 'sans-serif'],

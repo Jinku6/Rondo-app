@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Text, TextProps, StyleProp, TextStyle } from 'react-native';
 
-import { Colors } from '@/constants/theme';
+import { useTheme } from '@/hooks/use-theme';
 
 interface ScreenTitleProps extends TextProps {
   children: ReactNode;
@@ -9,6 +9,8 @@ interface ScreenTitleProps extends TextProps {
 }
 
 export function ScreenTitle({ children, style, ...props }: ScreenTitleProps) {
+  const { colors } = useTheme();
+
   return (
     <Text
       {...props}
@@ -18,7 +20,7 @@ export function ScreenTitle({ children, style, ...props }: ScreenTitleProps) {
           fontSize: 30,
           lineHeight: 34,
           fontWeight: '900',
-          color: Colors.text,
+          color: colors.text,
           textTransform: 'uppercase',
         },
         style,

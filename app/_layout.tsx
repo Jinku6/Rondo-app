@@ -5,6 +5,7 @@ import 'react-native-reanimated';
 import '../global.css';
 
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useThemeVars } from '@/hooks/use-theme-vars';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { ActivityProvider } from '@/contexts/ActivityContext';
 import { useEffect, useRef, useState } from 'react';
@@ -210,6 +211,7 @@ function BirthdayGateModal() {
 // Componente interno para gestionar la redirección
 function RootLayoutNav() {
   const colorScheme = useColorScheme();
+  const themeVars = useThemeVars();
   const { session, user, loading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
@@ -327,7 +329,7 @@ function RootLayoutNav() {
 
   if (loading) {
     return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={[{ flex: 1, justifyContent: 'center', alignItems: 'center' }, themeVars]}>
         <ActivityIndicator size="large" color="#22C55E" />
       </View>
     );
@@ -336,6 +338,7 @@ function RootLayoutNav() {
   return (
     <ActivityProvider user={user}>
       <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <View style={[{ flex: 1 }, themeVars]}>
         <Stack screenOptions={{ headerBackTitle: 'Atrás' }}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
@@ -343,6 +346,7 @@ function RootLayoutNav() {
         <StatusBar style="auto" />
         {/* Intercepta usuarios sin birthday (Google OAuth, etc.) */}
         <BirthdayGateModal />
+        </View>
       </ThemeProvider>
     </ActivityProvider>
   );

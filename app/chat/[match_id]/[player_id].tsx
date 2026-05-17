@@ -1,5 +1,5 @@
-import { Colors } from '@/constants/theme';
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/hooks/use-theme';
 import { processMessageText } from '@/lib/messageFilter';
 import { supabase } from '@/lib/supabase';
 import { firstParam, isSafeUrl } from '@/lib/utils';
@@ -20,8 +20,6 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const c = Colors;
 
 type MatchDetails = {
   organizer_id: string;
@@ -51,6 +49,7 @@ function formatCompactMatchDate(iso?: string | null): string | null {
 }
 
 function Avatar({ user }: { user: UserProfile }) {
+  const { colors: c } = useTheme();
   const initial = user.full_name?.charAt(0).toUpperCase() || '?';
 
   if (isSafeUrl(user.avatar_url)) {
@@ -87,6 +86,7 @@ function CompactMatchPill({
   match: MatchDetails;
   onPress: () => void;
 }) {
+  const { colors: c } = useTheme();
   const matchDate = formatCompactMatchDate(match.date_time);
   const label = matchDate ? `${match.title} · ${matchDate}` : match.title;
 
@@ -128,6 +128,7 @@ function ChatHeader({
   onUserPress: () => void;
   onMatchPress: () => void;
 }) {
+  const { colors: c } = useTheme();
   if (!otherUser) {
     return <Text style={{ color: c.text, fontSize: 15, fontWeight: '700' }}>Chat</Text>;
   }
@@ -164,6 +165,7 @@ function ChatHeader({
 }
 
 function MessageBubble({ item, isMe }: { item: ChatMessage; isMe: boolean }) {
+  const { colors: c } = useTheme();
   return (
     <View style={{ maxWidth: '82%', alignSelf: isMe ? 'flex-end' : 'flex-start', marginBottom: 10 }}>
       <View
@@ -213,6 +215,7 @@ function ChatInputBar({
   onSend: () => void;
   onFocus: () => void;
 }) {
+  const { colors: c } = useTheme();
   const canSend = value.trim().length > 0 && !sending;
 
   return (
@@ -277,6 +280,7 @@ function ChatInputBar({
 }
 
 export default function ChatScreen() {
+  const { colors: c } = useTheme();
   const { match_id, player_id } = useLocalSearchParams();
   const matchId = useMemo(() => firstParam(match_id as string | string[]), [match_id]);
   const playerId = useMemo(() => firstParam(player_id as string | string[]), [player_id]);
@@ -474,7 +478,7 @@ export default function ChatScreen() {
     headerShadowVisible: false,
     headerBackTitleVisible: false,
     headerTitleAlign: 'left' as const,
-  }), [renderHeaderTitle, otherUser?.full_name]);
+  }), [c.bg, c.text, renderHeaderTitle, otherUser?.full_name]);
 
   const renderMessage = useCallback(({ item }: { item: ChatMessage }) => (
     <MessageBubble item={item} isMe={item.sender_id === user?.id} />
