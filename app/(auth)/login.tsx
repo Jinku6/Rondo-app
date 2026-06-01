@@ -1,14 +1,20 @@
+import { AppleSignInButton } from '@/components/auth/AppleSignInButton';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/hooks/use-theme';
+import { Ionicons } from '@expo/vector-icons';
+import { Link, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback,
-  ActivityIndicator, Alert, Platform, KeyboardAvoidingView, ScrollView, Keyboard, Image,
+  ActivityIndicator, Alert,
+  Image,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Text, TextInput, TouchableOpacity, TouchableWithoutFeedback,
+  View,
 } from 'react-native';
-import { useAuth } from '@/contexts/AuthContext';
-import { Link, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { z } from 'zod';
-import { AppleSignInButton } from '@/components/auth/AppleSignInButton';
-import { useTheme } from '@/hooks/use-theme';
 
 const LoginSchema = z.object({
   email: z.string().email('El correo electrónico ingresado no es válido'),
@@ -87,7 +93,7 @@ export default function LoginScreen() {
               Rondo
             </Text>
             <Text style={{ fontSize: 13, color: c.textDim, marginTop: 4 }}>
-              Organiza partidos sin perder el balón ⚽
+              Organiza y encuentra partidos ⚽
             </Text>
           </View>
 
@@ -162,8 +168,8 @@ export default function LoginScreen() {
               {loading
                 ? <ActivityIndicator color="#fff" />
                 : <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 16, fontWeight: '800', color: '#fff', letterSpacing: 0.5, textTransform: 'uppercase' }}>
-                    Entrar a jugar
-                  </Text>
+                  Entrar a jugar
+                </Text>
               }
             </TouchableOpacity>
 
