@@ -2,7 +2,7 @@
   "expo": {
     "name": "Rondo",
     "slug": "rondo",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "icon": "./assets/images/icon.png",
     "scheme": "rondo",
     "userInterfaceStyle": "automatic",
