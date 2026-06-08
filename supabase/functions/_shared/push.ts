@@ -33,6 +33,11 @@ type ExpoTicket = {
   };
 };
 
+type PushTokenRow = {
+  token: string;
+  platform: 'ios' | 'android' | 'web';
+};
+
 const chunk = <T>(items: T[], size: number) => {
   const chunks: T[][] = [];
   for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
@@ -87,7 +92,7 @@ export async function sendPushMessages(messages: PushMessage[]) {
   const supabase = createServiceClient();
   const sent: string[] = [];
   const skipped: string[] = [];
-  const failed: Array<{ dedupeKey: string; error: string }> = [];
+  const failed: { dedupeKey: string; error: string }[] = [];
 
   for (const message of messages) {
     const { count } = await supabase
@@ -103,7 +108,7 @@ export async function sendPushMessages(messages: PushMessage[]) {
 
     const { data: tokens, error } = await supabase
       .from('push_tokens')
-      .select('token')
+      .select('token, platform')
       .eq('user_id', message.userId)
       .eq('enabled', true);
 
@@ -113,7 +118,7 @@ export async function sendPushMessages(messages: PushMessage[]) {
       continue;
     }
 
-    const payloads = tokens.map(({ token }: { token: string }) => ({
+    const payloads = (tokens as PushTokenRow[]).map(({ token, platform }) => ({
       to: token,
       title: message.title,
       body: message.body,
@@ -123,6 +128,8 @@ export async function sendPushMessages(messages: PushMessage[]) {
         url: message.url ?? null,
       },
       sound: 'default',
+      priority: 'high',
+      ...(platform === 'android' ? { channelId: 'default' } : {}),
     }));
 
     let messageFailed = false;
@@ -152,6 +159,7 @@ export async function sendPushMessages(messages: PushMessage[]) {
 
         tickets.forEach((ticket, index) => {
           if (ticket.status === 'error') {
+            messageFailed = true;
             const token = batch[index]?.to;
             if (ticket.details?.error === 'DeviceNotRegistered' && token) disabledTokens.push(token);
             lastError = ticket.message ?? ticket.details?.error ?? 'Expo push ticket error';
