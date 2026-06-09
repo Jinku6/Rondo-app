@@ -14,3 +14,9 @@ These functions are versioned here so the repository is the source of truth for 
 - `delete-brevo-contact`: `verify_jwt=true`; the authenticated user's email is deleted from Brevo before local account deletion.
 
 Deploy with `supabase functions deploy <name>` after validating `supabase/config.toml`.
+
+## Scheduled push types
+
+- `match_reminders`: reminds joined players 30 minutes before a match.
+- `nearby_digest`: sends the daily nearby-match digest.
+- `review_reminders`: reminds players 24 hours after a pending review notification if they still have not reviewed.

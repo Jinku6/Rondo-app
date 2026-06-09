@@ -51,6 +51,7 @@ export interface Match {
   price_per_player: number;
   requires_approval: boolean;
   status: MatchStatus;
+  completed_at: string | null;
   created_at: string;
   // Joins opcionales
   organizer?: UserProfile;

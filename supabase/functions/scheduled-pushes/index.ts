@@ -3,7 +3,7 @@ import { handleOptions, jsonError, jsonResponse, requirePost } from '../_shared/
 import { createServiceClient } from '../_shared/supabase.ts';
 import { sendPushMessages } from '../_shared/push.ts';
 
-type ScheduledType = 'match_reminders' | 'nearby_digest';
+type ScheduledType = 'match_reminders' | 'nearby_digest' | 'review_reminders';
 
 type MatchRow = {
   id: string;
@@ -26,6 +26,7 @@ type LocationPreference = {
 
 const SEARCH_RADIUS_KM = 20;
 const NEARBY_LOOKAHEAD_HOURS = 72;
+const REVIEW_REMINDER_DELAY_HOURS = 24;
 
 function assertCronSecret(req: Request) {
   const expectedSecret = Deno.env.get('CRON_SECRET');
@@ -210,6 +211,53 @@ async function sendNearbyDigest() {
   return sendPushMessages(messages);
 }
 
+async function sendReviewReminders() {
+  const supabase = createServiceClient();
+  const cutoff = new Date(Date.now() - REVIEW_REMINDER_DELAY_HOURS * 60 * 60 * 1000).toISOString();
+
+  const { data: notifications, error } = await supabase
+    .from('notifications')
+    .select('id, user_id, match_id, created_at')
+    .eq('type', 'pending_player_review')
+    .eq('read', false)
+    .lte('created_at', cutoff);
+
+  if (error) throw error;
+
+  const messages = [];
+
+  for (const notification of notifications ?? []) {
+    const [{ data: match }, { count: reviewCount }] = await Promise.all([
+      supabase
+        .from('matches')
+        .select('id, title, status, organizer_id')
+        .eq('id', notification.match_id)
+        .maybeSingle(),
+      supabase
+        .from('match_reviews')
+        .select('id', { count: 'exact', head: true })
+        .eq('match_id', notification.match_id)
+        .eq('reviewer_id', notification.user_id),
+    ]);
+
+    if (!match || match.status !== 'completed') continue;
+    if (match.organizer_id === notification.user_id) continue;
+    if ((reviewCount ?? 0) > 0) continue;
+
+    messages.push({
+      userId: notification.user_id,
+      type: 'review_player_reminder' as const,
+      title: 'Te queda una valoración pendiente',
+      body: `${match.title} sigue esperando tu opinión. Un minuto y partido cerrado.`,
+      matchId: notification.match_id,
+      url: `/match/review-player/${notification.match_id}`,
+      dedupeKey: `review_player_reminder:${notification.id}`,
+    });
+  }
+
+  return sendPushMessages(messages);
+}
+
 Deno.serve(async (req: Request) => {
   const options = handleOptions(req);
   if (options) return options;
@@ -223,6 +271,7 @@ Deno.serve(async (req: Request) => {
   try {
     if (type === 'match_reminders') return jsonResponse(await sendMatchReminders());
     if (type === 'nearby_digest') return jsonResponse(await sendNearbyDigest());
+    if (type === 'review_reminders') return jsonResponse(await sendReviewReminders());
     return jsonError('Unknown scheduled push type', 400);
   } catch (error) {
     console.error('[scheduled-pushes] failed', error);

@@ -187,7 +187,7 @@ export default function MatchDetailScreen() {
             try {
               const { error: updateError } = await supabase
                 .from('matches')
-                .update({ status: 'completed' })
+                .update({ status: 'completed', completed_at: new Date().toISOString() })
                 .eq('id', match.id);
               if (updateError) throw updateError;
 
@@ -197,11 +197,16 @@ export default function MatchDetailScreen() {
                 .eq('match_id', match.id)
                 .eq('status', 'pending');
 
-              await supabase.from('notifications').insert({
-                user_id: user!.id,
-                match_id: match.id,
-                type: 'pending_organizer_review',
-              });
+              const { error: notificationError } = await supabase.from('notifications').upsert(
+                {
+                  user_id: user!.id,
+                  match_id: match.id,
+                  type: 'pending_organizer_review',
+                },
+                { onConflict: 'user_id,match_id,type', ignoreDuplicates: true }
+              );
+
+              if (notificationError && __DEV__) console.warn('pending organizer review notification error:', notificationError);
 
               Alert.alert(
                 '✅ Partido finalizado',

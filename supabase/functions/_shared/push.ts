@@ -10,6 +10,7 @@ export type PushType =
   | 'match_reminder'
   | 'review_organizer'
   | 'review_player'
+  | 'review_player_reminder'
   | 'nearby_digest'
   | 'chat_message'
   | 'participant_left'
