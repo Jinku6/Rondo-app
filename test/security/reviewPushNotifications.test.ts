@@ -10,6 +10,7 @@ describe('review push notifications', () => {
     const sendPush = read('supabase/functions/send-push/index.ts');
     const scheduledPushes = read('supabase/functions/scheduled-pushes/index.ts');
     const sharedPush = read('supabase/functions/_shared/push.ts');
+    const scheduleMigration = read('supabase/migrations/20260609193000_schedule_review_reminder_pushes.sql');
 
     expect(sendPush).toMatch(/pending_player_review/);
     expect(sendPush).toMatch(/Valora a los compa/);
@@ -24,5 +25,9 @@ describe('review push notifications', () => {
     expect(scheduledPushes).toMatch(/Te queda una valoración pendiente/);
     expect(scheduledPushes).toMatch(/Un minuto y partido cerrado/);
     expect(scheduledPushes).toMatch(/review_player_reminder:\$\{notification\.id\}/);
+
+    expect(scheduleMigration).toMatch(/push-review-reminders/);
+    expect(scheduleMigration).toMatch(/0 \* \* \* \*/);
+    expect(scheduleMigration).toMatch(/type=review_reminders/);
   });
 });
