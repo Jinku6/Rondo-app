@@ -34,7 +34,7 @@ export default function ReviewOrganizerScreen() {
   const fetchData = async () => {
     if (!user) return;
 
-    // Check if 48h have passed since match was completed
+    // Check if 24h have passed since match was completed
     const { data: match, error: matchError } = await supabase
       .from('matches')
       .select('completed_at')
@@ -43,7 +43,7 @@ export default function ReviewOrganizerScreen() {
 
     if (!matchError && match?.completed_at) {
       const elapsed = Date.now() - new Date(match.completed_at).getTime();
-      if (elapsed > 48 * 60 * 60 * 1000) {
+      if (elapsed > 24 * 60 * 60 * 1000) {
         setAttendanceLocked(true);
       }
     }
@@ -207,7 +207,7 @@ export default function ReviewOrganizerScreen() {
         {attendanceLocked ? (
           <View className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 mb-6">
             <Text className="text-amber-600 dark:text-amber-400 text-sm">
-              ⏰ Han pasado más de 48h desde que finalizó el partido. La asistencia se ha confirmado automáticamente para todos los jugadores.
+              ⏰ Han pasado más de 24h desde que finalizó el partido. La asistencia se ha confirmado automáticamente para todos los jugadores.
             </Text>
           </View>
         ) : (
