@@ -60,6 +60,9 @@ describe('security hardening artifacts', () => {
     expect(signupBrevo).toMatch(/BREVO_API_KEY/);
     expect(deleteBrevoContact).toMatch(/requireUser/);
     expect(deleteBrevoContact).toMatch(/BREVO_API_KEY/);
+    expect(deleteBrevoContact).toMatch(/skipped:\s*'missing_config'/);
+    expect(deleteBrevoContact).toMatch(/catch\s*\(\s*error\s*\)/);
+    expect(deleteBrevoContact).not.toMatch(/Brevo no configurado/);
   });
 
   it('removes dangerous client-side auth and telemetry defaults', () => {

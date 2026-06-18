@@ -17,25 +17,30 @@ Deno.serve(async (req: Request) => {
 
   const brevoApiKey = Deno.env.get('BREVO_API_KEY');
   if (!brevoApiKey) {
-    console.error('[delete-brevo-contact] Missing BREVO_API_KEY');
-    return jsonError('Brevo no configurado', 500);
+    console.warn('[delete-brevo-contact] Missing BREVO_API_KEY');
+    return jsonResponse({ success: true, skipped: 'missing_config' });
   }
 
-  const brevoResponse = await fetch(`https://api.brevo.com/v3/contacts/${encodeURIComponent(email)}`, {
-    method: 'DELETE',
-    headers: {
-      'api-key': brevoApiKey,
-      Accept: 'application/json',
-    },
-  });
+  try {
+    const brevoResponse = await fetch(`https://api.brevo.com/v3/contacts/${encodeURIComponent(email)}`, {
+      method: 'DELETE',
+      headers: {
+        'api-key': brevoApiKey,
+        Accept: 'application/json',
+      },
+    });
 
-  if (brevoResponse.status === 404) {
-    return jsonResponse({ success: true, skipped: 'not_found' });
-  }
+    if (brevoResponse.status === 404) {
+      return jsonResponse({ success: true, skipped: 'not_found' });
+    }
 
-  if (!brevoResponse.ok && brevoResponse.status !== 204) {
-    console.error('[delete-brevo-contact] Brevo error', await brevoResponse.text());
-    return jsonError('No se pudo eliminar el contacto de Brevo', 502);
+    if (!brevoResponse.ok && brevoResponse.status !== 204) {
+      console.warn('[delete-brevo-contact] Brevo error', await brevoResponse.text());
+      return jsonResponse({ success: true, skipped: 'brevo_error' });
+    }
+  } catch (error) {
+    console.warn('[delete-brevo-contact] Brevo request failed', error);
+    return jsonResponse({ success: true, skipped: 'brevo_request_failed' });
   }
 
   return jsonResponse({ success: true });

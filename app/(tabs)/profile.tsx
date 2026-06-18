@@ -310,7 +310,7 @@ export default function ProfileScreen() {
   const doDeleteAccount = async () => {
     try {
       const { error: brevoError } = await supabase.functions.invoke('delete-brevo-contact');
-      if (brevoError) throw brevoError;
+      if (brevoError && __DEV__) console.warn('delete-brevo-contact no bloqueante:', brevoError.message);
 
       const { error: profileError } = await supabase.from('users').delete().eq('id', user.id);
       if (profileError) throw profileError;
