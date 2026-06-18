@@ -1,9 +1,10 @@
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Alert, Platform } from 'react-native';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { PUBLIC_USER_SELECT } from '@/lib/supabase/selects';
 import { parseOAuthCallbackUrl } from '@/lib/auth/oauthCallback';
+import { syncSignupWithBrevo } from '@/lib/auth/syncSignupWithBrevo';
 import { removePushToken } from '@/lib/notifications';
 import { UserProfile } from '@/types/database';
 import * as Linking from 'expo-linking';
@@ -88,6 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const brevoSyncedUserIdsRef = useRef(new Set<string>());
 
   const fetchProfile = useCallback(async (userId: string, authUser?: User, providerToken?: string | null) => {
     try {
@@ -182,7 +184,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Escuchar cambios de autenticación
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      (event, session) => {
         if (!active) return;
         const authUser = session?.user ?? null;
         setSession(session);
@@ -191,7 +193,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (authUser) {
           setTimeout(() => {
-            if (active) fetchProfile(authUser.id, authUser, session?.provider_token);
+            if (!active) return;
+            fetchProfile(authUser.id, authUser, session?.provider_token);
+            if (event === 'SIGNED_IN' && !brevoSyncedUserIdsRef.current.has(authUser.id)) {
+              brevoSyncedUserIdsRef.current.add(authUser.id);
+              syncSignupWithBrevo(authUser);
+            }
           }, 0);
         } else {
           setProfile(null);
@@ -204,20 +211,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       subscription.unsubscribe();
     };
   }, [fetchProfile]);
-
-  const syncSignupWithBrevo = async (userId: string, email: string) => {
-    try {
-      const { error } = await supabase.functions.invoke('signup-brevo', {
-        body: { userId, email },
-      });
-
-      if (error && __DEV__) {
-        console.warn('signup brevo sync error:', error.message);
-      }
-    } catch (error) {
-      if (__DEV__) console.warn('signup brevo sync error:', getAuthErrorMessage(error, 'No se pudo sincronizar con Brevo.'));
-    }
-  };
 
   const signUp = async (email: string, password: string, username: string, fullName: string, preferredPosition: string, phone: string, birthday: string, captchaToken?: string) => {
     try {
@@ -237,7 +230,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         },
       });
       if (!error && data.user?.id) {
-        await syncSignupWithBrevo(data.user.id, email);
+        await syncSignupWithBrevo(data.user);
       }
       return { error: error?.message ?? null };
     } catch (error) {
@@ -332,16 +325,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       if (callback.type === 'code') {
-        const { error: sessionError } = await supabase.auth.exchangeCodeForSession(callback.code);
+        const { data: sessionData, error: sessionError } = await supabase.auth.exchangeCodeForSession(callback.code);
         if (sessionError) Alert.alert('Error de autenticación', sessionError.message);
+        else await syncSignupWithBrevo(sessionData.user);
         return;
       }
       if (callback.type === 'tokens') {
-        const { error: sessionError } = await supabase.auth.setSession({
+        const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
           access_token: callback.accessToken,
           refresh_token: callback.refreshToken,
         });
         if (sessionError) Alert.alert('Error de autenticación', sessionError.message);
+        else await syncSignupWithBrevo(sessionData.user);
         return;
       }
       Alert.alert('Error de autenticación', 'El enlace de Google no es válido.');

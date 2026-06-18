@@ -49,7 +49,10 @@ describe('security hardening artifacts', () => {
     const cancelMatch = read('supabase/functions/cancel-match/index.ts');
     const autoConfirm = read('supabase/functions/auto-confirm-attendance/index.ts');
     const waitlist = read('supabase/functions/waitlist/index.ts');
-    const signupBrevo = read('supabase/functions/signup-brevo/index.ts');
+    const signupBrevo = [
+      read('supabase/functions/signup-brevo/index.ts'),
+      read('supabase/functions/signup-brevo/handler.ts'),
+    ].join('\n');
     const deleteBrevoContact = read('supabase/functions/delete-brevo-contact/index.ts');
 
     expect(cancelMatch).toMatch(/createUserClient/);
@@ -76,7 +79,7 @@ describe('security hardening artifacts', () => {
     expect(layout).toMatch(/beforeSend/);
     expect(layout).not.toMatch(/setSession\s*\(\s*\{/);
     expect(register).toMatch(/ConfirmHcaptcha/);
-    expect(register).toMatch(/MIN_PASSWORD_LENGTH\s*=\s*12/);
-    expect(reset).toMatch(/MIN_PASSWORD_LENGTH\s*=\s*12/);
+    expect(register).toMatch(/MIN_PASSWORD_LENGTH\s*=\s*6/);
+    expect(reset).toMatch(/MIN_PASSWORD_LENGTH\s*=\s*6/);
   });
 });

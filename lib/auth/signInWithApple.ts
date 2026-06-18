@@ -1,6 +1,7 @@
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { z } from 'zod';
 
+import { syncSignupWithBrevo } from '@/lib/auth/syncSignupWithBrevo';
 import { supabase } from '@/lib/supabase';
 
 const AppleFullNameSchema = z.object({
@@ -34,6 +35,12 @@ export async function signInWithApple(
     ].filter(Boolean).join(' ');
 
     if (data.user && fullName) {
+      const { error: metadataError } = await supabase.auth.updateUser({
+        data: { full_name: fullName },
+      });
+
+      if (metadataError) throw metadataError;
+
       const { error: updateError } = await supabase
         .from('users')
         .update({ full_name: fullName })
@@ -41,6 +48,8 @@ export async function signInWithApple(
 
       if (updateError) throw updateError;
     }
+
+    await syncSignupWithBrevo(data.user);
 
     return data;
   } catch (error) {
