@@ -18,6 +18,8 @@ import * as Font from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
 import { parseTrustedAuthCallback } from '@/lib/auth/deepLinks';
+import type { PreferredPosition } from '@/types/database';
+import { POSITION_LABELS, POSITIONS } from '@/components/profile/profileDisplay';
 import {
   handleNotificationNavigation,
   registerForPushNotificationsAsync,
@@ -83,35 +85,53 @@ export const unstable_settings = {
   anchor: '(tabs)',
 };
 
-// Modal que pide la fecha de nacimiento a usuarios sin birthday (ej. Google OAuth)
-function BirthdayGateModal() {
+// Modal que pide datos minimos a usuarios con perfil incompleto (ej. Google OAuth).
+function ProfileCompletionGateModal() {
   const { profile, refreshProfile } = useAuth();
   const colorScheme = useColorScheme();
   const isDark = colorScheme === 'dark';
 
   const [birthday, setBirthday] = useState<Date>(new Date(2000, 0, 1));
+  const [preferredPosition, setPreferredPosition] = useState<PreferredPosition | ''>('');
   const [saving, setSaving] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
 
-  // Mostrar solo cuando hay perfil cargado y no tiene birthday
+  // Mostrar solo cuando hay perfil cargado y falta algun dato obligatorio.
   const needsBirthday = !!profile && !profile.birthday;
-  if (!needsBirthday) return null;
+  const needsPosition = !!profile && !profile.preferred_position;
+  if (!needsBirthday && !needsPosition) return null;
 
   const handleSave = async () => {
+    if (needsPosition && !preferredPosition) {
+      Alert.alert('Posición pendiente', 'Elige tu posición antes de continuar.');
+      return;
+    }
+
     setSaving(true);
     const iso = birthday.toISOString().split('T')[0];
     try {
-      const { error } = await supabase
-        .from('user_account_private')
-        .upsert(
-          { user_id: profile!.id, birthday: iso, updated_at: new Date().toISOString() },
-          { onConflict: 'user_id' },
-        );
+      if (needsBirthday) {
+        const { error } = await supabase
+          .from('user_account_private')
+          .upsert(
+            { user_id: profile!.id, birthday: iso, updated_at: new Date().toISOString() },
+            { onConflict: 'user_id' },
+          );
 
-      if (error) throw error;
+        if (error) throw error;
+      }
+
+      if (needsPosition) {
+        const { error } = await supabase
+          .from('users')
+          .update({ preferred_position: preferredPosition })
+          .eq('id', profile!.id);
+
+        if (error) throw error;
+      }
       await refreshProfile();
     } catch {
-      Alert.alert('Error', 'No se pudo guardar la fecha. Inténtalo de nuevo.');
+      Alert.alert('Error', 'No se pudo guardar tu perfil. Intentalo de nuevo.');
     } finally {
       setSaving(false);
     }
@@ -135,24 +155,29 @@ function BirthdayGateModal() {
         </View>
 
         <Text style={{ fontSize: 26, fontWeight: 'bold', color: textPrimary, textAlign: 'center', marginBottom: 10 }}>
-          ¿Cuándo es tu cumpleaños?
+          Completa tu perfil
         </Text>
         <Text style={{ fontSize: 15, color: textSecondary, textAlign: 'center', marginBottom: 32, lineHeight: 22 }}>
-          Necesitamos tu fecha de nacimiento para mostrar tu edad a los organizadores de partidos.
+          Necesitamos estos datos para que otros jugadores y organizadores sepan con quien juegan.
         </Text>
 
         {/* Selector de fecha */}
-        <View style={{ width: '100%', marginBottom: 28 }}>
-          <TouchableOpacity
-            onPress={() => setShowPicker(true)}
-            style={{ backgroundColor: cardBg, borderWidth: 1, borderColor: border, borderRadius: 14, padding: 16, flexDirection: 'row', alignItems: 'center' }}
-          >
-            <Ionicons name="calendar-outline" size={20} color="#22C55E" style={{ marginRight: 12 }} />
-            <Text style={{ fontSize: 16, fontWeight: '600', color: textPrimary, flex: 1 }}>
-              {birthdayLabel}
-            </Text>
-            <Ionicons name="chevron-forward" size={18} color={textSecondary} />
-          </TouchableOpacity>
+        <View style={{ width: '100%', marginBottom: 28, gap: 18 }}>
+          {needsBirthday && (
+            <View>
+              <Text style={{ color: textSecondary, fontSize: 13, fontWeight: '700', marginBottom: 8, textTransform: 'uppercase' }}>
+                Fecha de nacimiento
+              </Text>
+              <TouchableOpacity
+                onPress={() => setShowPicker(true)}
+                style={{ backgroundColor: cardBg, borderWidth: 1, borderColor: border, borderRadius: 14, padding: 16, flexDirection: 'row', alignItems: 'center', minHeight: 54 }}
+              >
+                <Ionicons name="calendar-outline" size={20} color="#22C55E" style={{ marginRight: 12 }} />
+                <Text style={{ fontSize: 16, fontWeight: '600', color: textPrimary, flex: 1 }}>
+                  {birthdayLabel}
+                </Text>
+                <Ionicons name="chevron-forward" size={18} color={textSecondary} />
+              </TouchableOpacity>
 
           {/* Android: picker inline */}
           {Platform.OS === 'android' && showPicker && (
@@ -189,6 +214,41 @@ function BirthdayGateModal() {
               >
                 <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15 }}>Confirmar</Text>
               </TouchableOpacity>
+            </View>
+          )}
+            </View>
+          )}
+
+          {needsPosition && (
+            <View>
+              <Text style={{ color: textSecondary, fontSize: 13, fontWeight: '700', marginBottom: 8, textTransform: 'uppercase' }}>
+                Posicion
+              </Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+                {POSITIONS.map((position) => {
+                  const active = preferredPosition === position;
+                  return (
+                    <TouchableOpacity
+                      key={position}
+                      onPress={() => setPreferredPosition(position as PreferredPosition)}
+                      style={{
+                        minHeight: 46,
+                        paddingHorizontal: 14,
+                        borderRadius: 12,
+                        borderWidth: 1,
+                        borderColor: active ? '#22C55E' : border,
+                        backgroundColor: active ? 'rgba(34,197,94,0.16)' : cardBg,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      <Text style={{ color: active ? '#22C55E' : textPrimary, fontSize: 15, fontWeight: '700' }}>
+                        {POSITION_LABELS[position]}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
             </View>
           )}
         </View>
@@ -344,8 +404,8 @@ function RootLayoutNav() {
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
         </Stack>
         <StatusBar style="auto" />
-        {/* Intercepta usuarios sin birthday (Google OAuth, etc.) */}
-        <BirthdayGateModal />
+        {/* Intercepta usuarios con perfil incompleto (Google OAuth, etc.) */}
+        <ProfileCompletionGateModal />
         </View>
       </ThemeProvider>
     </ActivityProvider>
