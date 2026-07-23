@@ -38,36 +38,8 @@ import {
 } from '@expo-google-fonts/jetbrains-mono';
 import * as Sentry from '@sentry/react-native';
 
-const SENTRY_REDACTED = '[Filtered]';
-const SENTRY_SENSITIVE_KEY = /authorization|token|secret|password|api[_-]?key|apikey|email|phone|birthday|location|latitude|longitude|lat|lng|ip_address/i;
-const SENTRY_SENSITIVE_TEXT = /([\w.%+-]+@[\w.-]+\.[A-Za-z]{2,})|(\+?\d[\d\s().-]{7,}\d)|(eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/g;
+import { scrubSentryEvent } from '@/lib/sentry/scrub';
 const MIN_BIRTHDAY_DATE = new Date(1900, 0, 1);
-
-const scrubSentryValue = (value: unknown): unknown => {
-  if (typeof value === 'string') return value.replace(SENTRY_SENSITIVE_TEXT, SENTRY_REDACTED);
-  if (Array.isArray(value)) return value.map(scrubSentryValue);
-  if (!value || typeof value !== 'object') return value;
-
-  return Object.fromEntries(
-    Object.entries(value as Record<string, unknown>).map(([key, entry]) => [
-      key,
-      SENTRY_SENSITIVE_KEY.test(key) ? SENTRY_REDACTED : scrubSentryValue(entry),
-    ]),
-  );
-};
-
-const scrubSentryEvent = (event: any) => {
-  if (event.user) {
-    event.user = event.user.id ? { id: event.user.id } : undefined;
-  }
-  event.extra = scrubSentryValue(event.extra) as any;
-  event.contexts = scrubSentryValue(event.contexts) as any;
-  event.request = scrubSentryValue(event.request) as any;
-  event.breadcrumbs = Array.isArray(event.breadcrumbs)
-    ? event.breadcrumbs.map(scrubSentryValue)
-    : event.breadcrumbs;
-  return event;
-};
 
 Sentry.init({
   dsn: 'https://f1d68a7332dc132619af76b18cc06b8c@o4511344482648064.ingest.de.sentry.io/4511344484089936',
