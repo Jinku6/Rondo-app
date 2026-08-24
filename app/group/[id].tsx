@@ -338,9 +338,11 @@ export default function GroupDetailScreen() {
           <View style={{ flexDirection: 'row', gap: 12 }}>
             <Ionicons name="location-outline" size={22} color={c.brand} />
             <View style={{ flex: 1 }}>
-              <Text style={{ color: c.text, fontSize: 16, fontWeight: '800' }}>{group.venue?.canonical_name}</Text>
+              <Text style={{ color: c.text, fontSize: 16, fontWeight: '800' }}>{group.city || group.venue?.city || 'Ciudad por definir'}</Text>
               <Text style={{ color: c.textDim, fontSize: 13, lineHeight: 19, marginTop: 3 }}>
-                {[group.venue?.address, group.venue?.city].filter(Boolean).join(', ')}
+                {group.venue
+                  ? [group.venue.canonical_name, group.venue.address].filter(Boolean).join(', ')
+                  : 'El campo se decide en cada pachanga.'}
               </Text>
             </View>
           </View>

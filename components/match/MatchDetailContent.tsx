@@ -155,10 +155,10 @@ export function MatchDetailContent({
           </InfoCell>
         </View>
 
-        <InfoCell label="Cupos">
+        <InfoCell label={isSeriesMatch && slots === 0 ? 'Confirmados' : 'Cupos'}>
           <Text style={s.cuposValue}>
             {filled}
-            <Text style={s.cuposTotal}>/{slots}</Text>
+            {slots > 0 && <Text style={s.cuposTotal}>/{slots}</Text>}
           </Text>
         </InfoCell>
       </View>

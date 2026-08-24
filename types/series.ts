@@ -10,7 +10,8 @@ export interface MatchSeries {
   id: string;
   organizer_id: string;
   title: string;
-  venue_id: string;
+  venue_id: string | null;
+  city: string | null;
   automation_mode: 'manual' | 'auto';
   requested_positions: RequestedPositions;
   min_players: number;

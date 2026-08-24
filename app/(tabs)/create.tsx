@@ -17,6 +17,7 @@ import { ScreenTitle } from '@/components/ui/ScreenTitle';
 import { ColorSwatch } from '@/components/ui/ColorSwatch';
 import { TEAM_COLOR_OPTIONS } from '@/constants/teamColors';
 import { useTheme } from '@/hooks/use-theme';
+import { getErrorMessage, logSupabaseError } from '@/lib/supabaseErrors';
 
 const CreateMatchSchema = z.object({
   title: z.string().min(3, 'El título debe tener al menos 3 caracteres'),
@@ -39,6 +40,7 @@ type OrganizerSeries = {
   id: string;
   title: string;
   is_active: boolean;
+  city: string | null;
   venue: { canonical_name: string }[];
 };
 
@@ -123,6 +125,7 @@ export default function CreateMatchScreen() {
   const [loading, setLoading] = useState(false);
   const [creationMode, setCreationMode] = useState<CreationMode>('match');
   const [minPlayers, setMinPlayers] = useState('2');
+  const [seriesCity, setSeriesCity] = useState('');
   const [myGroups, setMyGroups] = useState<OrganizerSeries[]>([]);
   const [groupsLoading, setGroupsLoading] = useState(false);
   const [groupsError, setGroupsError] = useState<string | null>(null);
@@ -137,13 +140,14 @@ export default function CreateMatchScreen() {
       try {
         const { data, error } = await supabase
           .from('match_series')
-          .select('id,title,is_active,venue:venues(canonical_name)')
+          .select('id,title,is_active,city,venue:venues(canonical_name)')
           .eq('organizer_id', user.id)
           .order('created_at', { ascending: false });
         if (error) throw error;
         if (active) setMyGroups((data ?? []) as OrganizerSeries[]);
       } catch (error) {
-        if (active) setGroupsError(error instanceof Error ? error.message : String(error));
+        logSupabaseError('load recurring groups', error);
+        if (active) setGroupsError(getErrorMessage(error, 'No hemos podido cargar tus grupos.'));
       } finally {
         if (active) setGroupsLoading(false);
       }
@@ -247,8 +251,8 @@ export default function CreateMatchScreen() {
   };
 
   async function handleCreateSeries() {
-    const currentTotal = Object.values(positions).reduce((a, b) => a + b, 0);
     const parsedMinPlayers = Number(minPlayers);
+    const normalizedCity = seriesCity.trim();
 
     if (!user) {
       Alert.alert('Error', 'No estás autenticado');
@@ -258,24 +262,20 @@ export default function CreateMatchScreen() {
       Alert.alert('Falta el nombre', 'Ponle un nombre de al menos 3 caracteres al grupo.');
       return;
     }
-    if (!venueId) {
-      Alert.alert('Falta el sitio habitual', 'Elige un campo guardado desde las sugerencias.');
+    if (normalizedCity.length === 1) {
+      Alert.alert('Revisa la ciudad', 'Escribe al menos 2 caracteres o déjala vacía.');
       return;
     }
-    if (currentTotal < 2) {
-      Alert.alert('Faltan jugadores', 'Reparte al menos 2 plazas entre las posiciones.');
-      return;
-    }
-    if (!Number.isInteger(parsedMinPlayers) || parsedMinPlayers < 2 || parsedMinPlayers > currentTotal) {
-      Alert.alert('Revisa el mínimo', `Indica un número entre 2 y ${currentTotal}.`);
+    if (!Number.isInteger(parsedMinPlayers) || parsedMinPlayers < 2) {
+      Alert.alert('Revisa el mínimo', 'Indica un número de 2 o más jugadores.');
       return;
     }
     if (Number.isNaN(Number(price)) || Number(price) < 0) {
       Alert.alert('Precio no válido', 'Indica un precio igual o mayor que cero.');
       return;
     }
-    if (containsProfanity(title) || containsProfanity(location)) {
-      Alert.alert('Vocabulario no permitido', 'Por favor, utiliza palabras respetuosas en el nombre y la ubicación.');
+    if (containsProfanity(title) || containsProfanity(normalizedCity)) {
+      Alert.alert('Vocabulario no permitido', 'Por favor, utiliza palabras respetuosas en el nombre y la ciudad.');
       return;
     }
 
@@ -286,22 +286,24 @@ export default function CreateMatchScreen() {
         .insert({
           organizer_id: user.id,
           title: title.trim(),
-          venue_id: venueId,
+          city: normalizedCity || null,
           automation_mode: 'manual',
-          requested_positions: positions,
           min_players: parsedMinPlayers,
           price_per_player: Number(price),
-          requires_approval: requiresApproval,
         })
         .select('id')
         .single();
       if (error) throw error;
 
-      Alert.alert('Grupo listo', 'Ya tenéis sitio fijo para organizar la próxima pachanga.', [
+      Alert.alert('Grupo listo', 'El vestuario ya tiene su grupo para preparar la próxima pachanga.', [
         { text: 'Abrir grupo', onPress: () => router.replace(`/group/${data.id}` as never) },
       ]);
     } catch (error) {
-      Alert.alert('No se pudo crear el grupo', error instanceof Error ? error.message : String(error));
+      logSupabaseError('create recurring group', error);
+      Alert.alert(
+        'No se pudo crear el grupo',
+        getErrorMessage(error, 'Revisa los datos e inténtalo otra vez.'),
+      );
     } finally {
       setLoading(false);
     }
@@ -407,7 +409,7 @@ export default function CreateMatchScreen() {
         <View className="bg-bg-elev border border-border p-5 rounded-lg-r mb-4">
           <Text className="text-ink font-display font-black text-lg mb-2">¿Es para tu grupo fijo?</Text>
           <Text className="text-ink-muted font-body text-sm mb-4">
-            Reutiliza jugadores y sitio habitual, o publica un partido suelto.
+            Reutiliza la plantilla y organiza cada pachanga con el mismo grupo.
           </Text>
           <View className="flex-row gap-2">
             {([
@@ -458,7 +460,7 @@ export default function CreateMatchScreen() {
                     <View className="flex-1">
                       <Text className="text-ink font-body font-bold text-sm">{group.title}</Text>
                       <Text className="text-ink-muted font-body text-xs mt-0.5">
-                        {group.venue?.[0]?.canonical_name ?? 'Sitio habitual'} · {group.is_active ? 'Activo' : 'En pausa'}
+                        {group.city ?? group.venue?.[0]?.canonical_name ?? 'Sin ciudad definida'} · {group.is_active ? 'Activo' : 'En pausa'}
                       </Text>
                     </View>
                     <Ionicons name="chevron-forward" size={19} color={colors.textDim} />
@@ -486,10 +488,10 @@ export default function CreateMatchScreen() {
                 onChangeText={setTitle}
               />
             </View>
-            <View>
-              <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Ubicación</Text>
-              {/* Note: Assuming UbicacionInput renders its own input or requires styling. Since we can't easily inject classNames into it unless supported, we wrap it if possible or rely on its own styles. If it doesn't take className, it might look slightly off, but let's assume it accepts a style wrapper or similar, actually I will just render it. */}
-              <View className="bg-input/5 border border-border rounded-md-r px-4 py-1">
+            {creationMode === 'match' ? (
+              <View>
+                <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Ubicación</Text>
+                <View className="bg-input/5 border border-border rounded-md-r px-4 py-1">
                 <UbicacionInput
                   value={location}
                   createdBy={user?.id}
@@ -513,8 +515,27 @@ export default function CreateMatchScreen() {
                     setLocationQualityStatus(r.qualityStatus || 'confirmed');
                   }}
                 />
+                </View>
               </View>
-            </View>
+            ) : (
+              <View>
+                <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">
+                  Ciudad (opcional)
+                </Text>
+                <TextInput
+                  accessibilityLabel="Ciudad opcional del grupo"
+                  className="bg-input/5 border border-border rounded-md-r px-4 py-3 text-ink font-body text-[15px]"
+                  placeholder="Madrid"
+                  placeholderTextColor={colors.textMuted}
+                  keyboardAppearance="dark"
+                  autoCapitalize="words"
+                  maxLength={80}
+                  value={seriesCity}
+                  onChangeText={setSeriesCity}
+                />
+                <Text className="text-[10px] text-ink-muted mt-2 font-body">El campo se decide en cada pachanga.</Text>
+              </View>
+            )}
             {creationMode === 'match' && <View>
               <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Descripción</Text>
               <TextInput
@@ -643,9 +664,10 @@ export default function CreateMatchScreen() {
         )}
 
         {/* 4. Posiciones */}
-        <View className="bg-bg-elev border border-border p-5 rounded-lg-r mb-4">
-          <SectionHeader num={creationMode === 'match' ? 4 : 2} title="Posiciones" />
-          <View>
+        {creationMode === 'match' && (
+          <View className="bg-bg-elev border border-border p-5 rounded-lg-r mb-4">
+            <SectionHeader num={4} title="Posiciones" />
+            <View>
             {[
               { key: 'portero',     label: 'Portero',          emoji: '🧤' },
               { key: 'defensa',     label: 'Defensa',          emoji: '🛡️' },
@@ -678,13 +700,14 @@ export default function CreateMatchScreen() {
               </View>
             ))}
           </View>
-          <View className="flex-row justify-between items-center mt-4 pt-4 border-t border-border">
-            <Text className="text-ink-dim font-body font-semibold text-sm">Total jugadores</Text>
-            <View className="bg-brand px-4 py-1.5 rounded-full">
-              <Text className="font-body font-black text-white text-base">{totalPlayers}</Text>
+            <View className="flex-row justify-between items-center mt-4 pt-4 border-t border-border">
+              <Text className="text-ink-dim font-body font-semibold text-sm">Total jugadores</Text>
+              <View className="bg-brand px-4 py-1.5 rounded-full">
+                <Text className="font-body font-black text-white text-base">{totalPlayers}</Text>
+              </View>
             </View>
           </View>
-        </View>
+        )}
 
         {/* 5. Colores de Equipos */}
         {creationMode === 'match' && (
@@ -720,7 +743,7 @@ export default function CreateMatchScreen() {
 
         {/* 6. Extra */}
         <View className="bg-bg-elev border border-border p-5 rounded-lg-r mb-6">
-          <SectionHeader num={creationMode === 'match' ? 6 : 3} title="Configuración" />
+          <SectionHeader num={creationMode === 'match' ? 6 : 2} title="Configuración" />
           <View className="mb-5">
             <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Precio por persona (€)</Text>
             <TextInput

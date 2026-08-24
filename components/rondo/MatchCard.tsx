@@ -126,8 +126,14 @@ export const MatchCard: React.FC<MatchCardProps> = ({ match, onPress }) => {
               )}
             </View>
             <Text style={{ fontFamily: Fonts.mono, fontSize: 11, fontWeight: '700' }}>
-              <Text style={{ color: c.brand }}>{joinedCount}</Text>
-              <Text style={{ color: c.textMuted }}>/{maxPlayers}</Text>
+              {maxPlayers > 0 ? (
+                <>
+                  <Text style={{ color: c.brand }}>{joinedCount}</Text>
+                  <Text style={{ color: c.textMuted }}>/{maxPlayers}</Text>
+                </>
+              ) : (
+                <Text style={{ color: c.textMuted }}>{joinedCount} confirmados</Text>
+              )}
             </Text>
           </View>
 
