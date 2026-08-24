@@ -39,6 +39,7 @@ import {
 import * as Sentry from '@sentry/react-native';
 
 import { scrubSentryEvent } from '@/lib/sentry/scrub';
+import { getPendingSeriesInvite } from '@/lib/seriesInvite';
 const MIN_BIRTHDAY_DATE = new Date(1900, 0, 1);
 
 Sentry.init({
@@ -315,13 +316,21 @@ function RootLayoutNav() {
     if (passwordRecoveryRef.current) return; // No redirigir durante recuperación de contraseña
 
     const inAuthGroup = segments[0] === '(auth)';
+    const inPublicJoin = String(segments[0]) === 'join';
 
-    if (!session && !inAuthGroup) {
+    if (!session && !inAuthGroup && !inPublicJoin) {
       // Redirigir al inicio de sesión si no hay sesión y no estamos ya en la zona auth
       router.replace('/(auth)/login');
     } else if (session && inAuthGroup) {
-      // Redirigir a la app principal si hay sesión y estábamos en una pantalla de auth
-      router.replace('/(tabs)');
+      const redirectAfterAuth = async () => {
+        try {
+          const pendingInvite = await getPendingSeriesInvite();
+          router.replace(pendingInvite ? `/join/${pendingInvite}` as never : '/(tabs)');
+        } catch {
+          router.replace('/(tabs)');
+        }
+      };
+      void redirectAfterAuth();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, loading, segments]);

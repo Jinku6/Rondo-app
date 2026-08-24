@@ -28,6 +28,12 @@ import {
 } from '@/components/match/MatchDetailParts';
 import { MatchDetailContent } from '@/components/match/MatchDetailContent';
 
+type SeriesMatch = Match & {
+  series_id?: string | null;
+};
+
+type SeriesResponse = 'pending' | 'joined' | 'declined';
+
 // ─── screen ───────────────────────────────────────────────────────────────────
 
 export default function MatchDetailScreen() {
@@ -38,7 +44,7 @@ export default function MatchDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  const [match, setMatch] = useState<Match | null>(null);
+  const [match, setMatch] = useState<SeriesMatch | null>(null);
   const [participants, setParticipants] = useState<MatchParticipant[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -60,7 +66,7 @@ export default function MatchDetailScreen() {
         return;
       }
 
-      setMatch(matchData as Match);
+      setMatch(matchData as SeriesMatch);
 
       const { data: partData, error: partError } = await supabase
         .from('match_participants')
@@ -109,6 +115,27 @@ export default function MatchDetailScreen() {
       );
     } finally {
       joiningRef.current = false;
+      setActionLoading(false);
+    }
+  };
+
+  const handleSeriesResponse = async (response: Exclude<SeriesResponse, 'pending'>) => {
+    if (!user || !match?.series_id) return;
+
+    setActionLoading(true);
+    try {
+      const { error } = await supabase.rpc('respond_to_series_match', {
+        p_match_id: match.id,
+        p_response: response,
+      });
+      if (error) throw error;
+      await fetchMatchDetails();
+    } catch (error) {
+      Alert.alert(
+        'No pudimos guardar tu respuesta',
+        error instanceof Error ? error.message : 'Inténtalo de nuevo en unos segundos.',
+      );
+    } finally {
       setActionLoading(false);
     }
   };
@@ -325,6 +352,12 @@ export default function MatchDetailScreen() {
   const isOrganizer = user?.id === match.organizer_id;
   const isArchived = match.status === 'completed' || match.status === 'cancelled';
   const myParticipation = participants.find(p => p.user_id === user?.id);
+  const isSeriesMatch = Boolean(match.series_id);
+  const rawSeriesResponse = myParticipation?.status as string | undefined;
+  const seriesResponse: SeriesResponse | null = isSeriesMatch &&
+    (rawSeriesResponse === 'pending' || rawSeriesResponse === 'joined' || rawSeriesResponse === 'declined')
+    ? rawSeriesResponse
+    : null;
   const isJoined = myParticipation?.status === 'joined' || myParticipation?.status === 'approved';
   const isPending = myParticipation?.status === 'pending';
   const isRejected = myParticipation?.status === 'rejected';
@@ -335,7 +368,7 @@ export default function MatchDetailScreen() {
   const locationLabel = matchWithSnapshots.location_name_snapshot || match.location;
 
   const ctaDisabled =
-    isJoined || isOrganizer || isPending || isRejected || match.status === 'full' || match.status !== 'open' || isArchived;
+    isSeriesMatch || isJoined || isOrganizer || isPending || isRejected || match.status === 'full' || match.status !== 'open' || isArchived;
   
   const getCtaLabel = () => {
     if (isArchived) return match.status === 'completed' ? 'Partido Finalizado' : 'Partido Cancelado';
@@ -388,6 +421,8 @@ export default function MatchDetailScreen() {
           isArchived={isArchived}
           isJoined={isJoined}
           isPending={isPending}
+          isSeriesMatch={isSeriesMatch}
+          seriesResponse={seriesResponse}
           ctaDisabled={ctaDisabled}
           actionLoading={actionLoading}
           locationLabel={locationLabel}
@@ -396,6 +431,7 @@ export default function MatchDetailScreen() {
           onOrganizerPress={organizerId => router.push(`/user/${organizerId}` as any)}
           onOrganizerChatPress={() => router.push(`/chat/${match.id}/${user!.id}` as any)}
           onJoin={handleJoin}
+          onSeriesResponse={handleSeriesResponse}
           onLeave={handleLeave}
           onFinalize={handleFinalize}
           onCancelMatch={handleCancelMatch}

@@ -19,6 +19,8 @@ import {
   totalSlots,
 } from '@/components/match/MatchDetailParts';
 
+type SeriesResponse = 'pending' | 'joined' | 'declined';
+
 type Props = {
   match: Match;
   participants: MatchParticipant[];
@@ -26,6 +28,8 @@ type Props = {
   isArchived: boolean;
   isJoined: boolean;
   isPending: boolean;
+  isSeriesMatch: boolean;
+  seriesResponse: SeriesResponse | null;
   ctaDisabled: boolean;
   actionLoading: boolean;
   locationLabel: string;
@@ -34,6 +38,7 @@ type Props = {
   onOrganizerPress: (organizerId: string) => void;
   onOrganizerChatPress: () => void;
   onJoin: () => void;
+  onSeriesResponse: (response: Exclude<SeriesResponse, 'pending'>) => void;
   onLeave: () => void;
   onFinalize: () => void;
   onCancelMatch: () => void;
@@ -51,6 +56,8 @@ export function MatchDetailContent({
   isArchived,
   isJoined,
   isPending,
+  isSeriesMatch,
+  seriesResponse,
   ctaDisabled,
   actionLoading,
   locationLabel,
@@ -59,6 +66,7 @@ export function MatchDetailContent({
   onOrganizerPress,
   onOrganizerChatPress,
   onJoin,
+  onSeriesResponse,
   onLeave,
   onFinalize,
   onCancelMatch,
@@ -233,6 +241,51 @@ export function MatchDetailContent({
               {match.status === 'completed' ? '✅ Partido finalizado' : '🚫 Partido cancelado'}
             </Text>
           </View>
+        ) : isSeriesMatch && !isOrganizer ? (
+          <View style={s.seriesConfirmCard}>
+            {seriesResponse === 'pending' ? (
+              <>
+                <Text style={s.seriesConfirmTitle}>¿Juegas esta pachanga?</Text>
+                <Text style={s.seriesConfirmCopy}>Confirma para que el grupo sepa con quién cuenta.</Text>
+                {actionLoading ? (
+                  <ActivityIndicator color={c.brand} style={{ height: 48 }} />
+                ) : (
+                  <View style={s.seriesConfirmActions}>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Confirmar que voy"
+                      style={({ pressed }) => [s.seriesConfirmYes, pressed && { opacity: 0.7 }]}
+                      onPress={() => onSeriesResponse('joined')}
+                    >
+                      <Ionicons name="checkmark" size={20} color={c.brandInk} />
+                      <Text style={s.seriesConfirmYesText}>Voy</Text>
+                    </Pressable>
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Confirmar que no puedo ir"
+                      style={({ pressed }) => [s.seriesConfirmNo, pressed && { opacity: 0.7 }]}
+                      onPress={() => onSeriesResponse('declined')}
+                    >
+                      <Ionicons name="close" size={20} color={c.danger} />
+                      <Text style={s.seriesConfirmNoText}>No puedo</Text>
+                    </Pressable>
+                  </View>
+                )}
+              </>
+            ) : seriesResponse === 'joined' ? (
+              <>
+                <Text style={[s.seriesResponseText, { color: c.brand }]}>Confirmado: vas a jugar</Text>
+                <Pressable style={s.seriesChatButton} onPress={onOrganizerChatPress}>
+                  <Ionicons name="chatbubbles-outline" size={17} color={c.brand} />
+                  <Text style={s.seriesChatButtonText}>Abrir chat</Text>
+                </Pressable>
+              </>
+            ) : seriesResponse === 'declined' ? (
+              <Text style={[s.seriesResponseText, { color: c.danger }]}>Esta semana no puedes</Text>
+            ) : (
+              <Text style={s.seriesConfirmCopy}>Te sumas a la lista desde la próxima pachanga.</Text>
+            )}
+          </View>
         ) : isPending ? (
           <View style={s.pendingBlock}>
             <View style={s.pendingBanner}>
@@ -308,7 +361,7 @@ export function MatchDetailContent({
           </View>
         )}
 
-        {!isArchived && (
+        {!isArchived && !isSeriesMatch && (
           <Pressable
             className="min-h-[52px] w-full flex-row items-center justify-center gap-2 rounded-md-r border border-border bg-bg-surface px-5 py-3.5"
             style={({ pressed }) => pressed && { opacity: 0.7 }}
@@ -324,7 +377,7 @@ export function MatchDetailContent({
         )}
       </View>
 
-      {isOrganizer && pendingParticipants.length > 0 && !isArchived && (
+      {isOrganizer && !isSeriesMatch && pendingParticipants.length > 0 && !isArchived && (
         <View style={s.section}>
           <Text style={s.sectionLabel}>Solicitudes Pendientes ({pendingParticipants.length})</Text>
           {pendingParticipants.map(p => (
@@ -624,6 +677,80 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
   statusBannerText: {
     fontWeight: '700',
     fontSize: 14,
+  },
+  seriesConfirmCard: {
+    backgroundColor: c.bgElev,
+    borderWidth: 1,
+    borderColor: c.border,
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+  },
+  seriesConfirmTitle: {
+    fontFamily: 'Archivo_900Black',
+    color: c.text,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  seriesConfirmCopy: {
+    color: c.textDim,
+    fontSize: 13,
+    lineHeight: 19,
+  },
+  seriesConfirmActions: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  seriesConfirmYes: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 12,
+    backgroundColor: c.brand,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  seriesConfirmYesText: {
+    color: c.brandInk,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  seriesConfirmNo: {
+    flex: 1,
+    minHeight: 48,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(239,68,68,0.35)',
+    backgroundColor: 'rgba(239,68,68,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 6,
+  },
+  seriesConfirmNoText: {
+    color: c.danger,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  seriesResponseText: {
+    textAlign: 'center',
+    fontSize: 15,
+    fontWeight: '800',
+  },
+  seriesChatButton: {
+    minHeight: 48,
+    borderTopWidth: 1,
+    borderTopColor: c.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexDirection: 'row',
+    gap: 7,
+  },
+  seriesChatButtonText: {
+    color: c.brand,
+    fontSize: 14,
+    fontWeight: '700',
   },
   pendingBlock: {
     gap: 10,

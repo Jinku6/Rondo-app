@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, Switch, ActivityIndicator, Platform, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
@@ -32,6 +32,15 @@ const LEVELS = [
   { key: 'medio',       label: 'Medio',       emoji: '⚽', activeBg: 'bg-warning/20', activeBorder: 'border-warning', color: '#F59E0B' },
   { key: 'competitivo', label: 'Competitivo', emoji: '🔥', activeBg: 'bg-danger/20', activeBorder: 'border-danger', color: '#EF4444' },
 ];
+
+type CreationMode = 'match' | 'series';
+
+type OrganizerSeries = {
+  id: string;
+  title: string;
+  is_active: boolean;
+  venue: { canonical_name: string }[];
+};
 
 const SectionHeader = ({ num, title }: { num: number; title: string }) => (
   <View className="flex-row items-center mb-5">
@@ -112,6 +121,39 @@ export default function CreateMatchScreen() {
   const [price, setPrice] = useState('0');
   const [requiresApproval, setRequiresApproval] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [creationMode, setCreationMode] = useState<CreationMode>('match');
+  const [minPlayers, setMinPlayers] = useState('2');
+  const [myGroups, setMyGroups] = useState<OrganizerSeries[]>([]);
+  const [groupsLoading, setGroupsLoading] = useState(false);
+  const [groupsError, setGroupsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.id || creationMode !== 'series') return;
+
+    let active = true;
+    const loadGroups = async () => {
+      setGroupsLoading(true);
+      setGroupsError(null);
+      try {
+        const { data, error } = await supabase
+          .from('match_series')
+          .select('id,title,is_active,venue:venues(canonical_name)')
+          .eq('organizer_id', user.id)
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        if (active) setMyGroups((data ?? []) as OrganizerSeries[]);
+      } catch (error) {
+        if (active) setGroupsError(error instanceof Error ? error.message : String(error));
+      } finally {
+        if (active) setGroupsLoading(false);
+      }
+    };
+
+    void loadGroups();
+    return () => {
+      active = false;
+    };
+  }, [creationMode, user?.id]);
 
   const handleDateChangeText = (text: string) => {
     let cleaned = text.replace(/[^0-9]/g, '');
@@ -204,7 +246,73 @@ export default function CreateMatchScreen() {
     return dt;
   };
 
+  async function handleCreateSeries() {
+    const currentTotal = Object.values(positions).reduce((a, b) => a + b, 0);
+    const parsedMinPlayers = Number(minPlayers);
+
+    if (!user) {
+      Alert.alert('Error', 'No estás autenticado');
+      return;
+    }
+    if (title.trim().length < 3) {
+      Alert.alert('Falta el nombre', 'Ponle un nombre de al menos 3 caracteres al grupo.');
+      return;
+    }
+    if (!venueId) {
+      Alert.alert('Falta el sitio habitual', 'Elige un campo guardado desde las sugerencias.');
+      return;
+    }
+    if (currentTotal < 2) {
+      Alert.alert('Faltan jugadores', 'Reparte al menos 2 plazas entre las posiciones.');
+      return;
+    }
+    if (!Number.isInteger(parsedMinPlayers) || parsedMinPlayers < 2 || parsedMinPlayers > currentTotal) {
+      Alert.alert('Revisa el mínimo', `Indica un número entre 2 y ${currentTotal}.`);
+      return;
+    }
+    if (Number.isNaN(Number(price)) || Number(price) < 0) {
+      Alert.alert('Precio no válido', 'Indica un precio igual o mayor que cero.');
+      return;
+    }
+    if (containsProfanity(title) || containsProfanity(location)) {
+      Alert.alert('Vocabulario no permitido', 'Por favor, utiliza palabras respetuosas en el nombre y la ubicación.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('match_series')
+        .insert({
+          organizer_id: user.id,
+          title: title.trim(),
+          venue_id: venueId,
+          automation_mode: 'manual',
+          requested_positions: positions,
+          min_players: parsedMinPlayers,
+          price_per_player: Number(price),
+          requires_approval: requiresApproval,
+        })
+        .select('id')
+        .single();
+      if (error) throw error;
+
+      Alert.alert('Grupo listo', 'Ya tenéis sitio fijo para organizar la próxima pachanga.', [
+        { text: 'Abrir grupo', onPress: () => router.replace(`/group/${data.id}` as never) },
+      ]);
+    } catch (error) {
+      Alert.alert('No se pudo crear el grupo', error instanceof Error ? error.message : String(error));
+    } finally {
+      setLoading(false);
+    }
+  }
+
   async function handleCreate() {
+    if (creationMode === 'series') {
+      await handleCreateSeries();
+      return;
+    }
+
     const currentTotal = Object.values(positions).reduce((a, b) => a + b, 0);
     try {
       CreateMatchSchema.parse({ title, location, dateText, timeText, totalPlayers: currentTotal, price });
@@ -293,18 +401,85 @@ export default function CreateMatchScreen() {
       >
         {/* Header */}
         <ScreenTitle style={{ marginBottom: 24 }}>
-          Crear Partido
+          {creationMode === 'match' ? 'Crear Partido' : 'Grupo Fijo'}
         </ScreenTitle>
+
+        <View className="bg-bg-elev border border-border p-5 rounded-lg-r mb-4">
+          <Text className="text-ink font-display font-black text-lg mb-2">¿Es para tu grupo fijo?</Text>
+          <Text className="text-ink-muted font-body text-sm mb-4">
+            Reutiliza jugadores y sitio habitual, o publica un partido suelto.
+          </Text>
+          <View className="flex-row gap-2">
+            {([
+              { key: 'match', label: 'Partido suelto', icon: 'football-outline' },
+              { key: 'series', label: 'Grupo fijo', icon: 'people-outline' },
+            ] as const).map((mode) => {
+              const selected = creationMode === mode.key;
+              return (
+                <TouchableOpacity
+                  key={mode.key}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  onPress={() => setCreationMode(mode.key)}
+                  className={`flex-1 min-h-12 rounded-md-r border px-3 py-3 flex-row items-center justify-center gap-2 ${
+                    selected ? 'bg-brand-soft border-brand' : 'bg-input/5 border-border'
+                  }`}
+                >
+                  <Ionicons name={mode.icon} size={19} color={selected ? '#22C55E' : colors.textDim} />
+                  <Text className={`font-body font-bold text-sm ${selected ? 'text-brand' : 'text-ink-dim'}`}>
+                    {mode.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {creationMode === 'series' && (
+          <View className="bg-bg-elev border border-border p-5 rounded-lg-r mb-4">
+            <Text className="text-ink font-display font-black text-lg mb-1">Tus grupos</Text>
+            <Text className="text-ink-muted font-body text-xs mb-4">Abre uno existente o crea otro debajo.</Text>
+            {groupsLoading ? (
+              <ActivityIndicator color="#22C55E" />
+            ) : groupsError ? (
+              <Text className="text-danger font-body text-sm">No pudimos cargar tus grupos: {groupsError}</Text>
+            ) : myGroups.length === 0 ? (
+              <Text className="text-ink-dim font-body text-sm">Todavía no tienes ningún grupo fijo.</Text>
+            ) : (
+              <View className="gap-2">
+                {myGroups.map((group) => (
+                  <TouchableOpacity
+                    key={group.id}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Abrir grupo ${group.title}`}
+                    onPress={() => router.push(`/group/${group.id}` as never)}
+                    className="min-h-12 bg-input/5 border border-border rounded-md-r px-4 py-3 flex-row items-center"
+                  >
+                    <View className="flex-1">
+                      <Text className="text-ink font-body font-bold text-sm">{group.title}</Text>
+                      <Text className="text-ink-muted font-body text-xs mt-0.5">
+                        {group.venue?.[0]?.canonical_name ?? 'Sitio habitual'} · {group.is_active ? 'Activo' : 'En pausa'}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={19} color={colors.textDim} />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+        )}
 
         {/* 1. Información General */}
         <View className="bg-bg-elev border border-border p-5 rounded-lg-r mb-4">
-          <SectionHeader num={1} title="Información" />
+          <SectionHeader num={1} title={creationMode === 'match' ? 'Información' : 'Nuevo grupo'} />
           <View className="gap-3.5">
             <View>
-              <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Título del Partido</Text>
+              <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">
+                {creationMode === 'match' ? 'Título del partido' : 'Nombre del grupo'}
+              </Text>
               <TextInput
                 className="bg-input/5 border border-border rounded-md-r px-4 py-3 text-ink font-body text-[15px]"
-                placeholder="Fútbol-7 Jueves Tarde"
+                placeholder={creationMode === 'match' ? 'Fútbol-7 Jueves Tarde' : 'Los del jueves'}
                 placeholderTextColor={colors.textMuted}
                 keyboardAppearance="dark"
                 value={title}
@@ -340,7 +515,7 @@ export default function CreateMatchScreen() {
                 />
               </View>
             </View>
-            <View>
+            {creationMode === 'match' && <View>
               <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Descripción</Text>
               <TextInput
                 className="bg-input/5 border border-border rounded-md-r px-4 py-3 text-ink font-body text-[15px] min-h-[80px]"
@@ -353,10 +528,12 @@ export default function CreateMatchScreen() {
                 numberOfLines={3}
                 style={{ textAlignVertical: 'top' }}
               />
-            </View>
+            </View>}
           </View>
         </View>
 
+        {creationMode === 'match' && (
+          <>
         {/* 2. Nivel */}
         <View className="bg-bg-elev border border-border p-5 rounded-lg-r mb-4">
           <SectionHeader num={2} title="Nivel" />
@@ -462,10 +639,12 @@ export default function CreateMatchScreen() {
             <DateTimePicker value={draftTimeObj} mode="time" display="spinner" onChange={onTimePickerChange} is24Hour locale="es-ES" />
           </PickerModal>
         )}
+          </>
+        )}
 
         {/* 4. Posiciones */}
         <View className="bg-bg-elev border border-border p-5 rounded-lg-r mb-4">
-          <SectionHeader num={4} title="Posiciones" />
+          <SectionHeader num={creationMode === 'match' ? 4 : 2} title="Posiciones" />
           <View>
             {[
               { key: 'portero',     label: 'Portero',          emoji: '🧤' },
@@ -508,6 +687,7 @@ export default function CreateMatchScreen() {
         </View>
 
         {/* 5. Colores de Equipos */}
+        {creationMode === 'match' && (
         <View className="bg-bg-elev border border-border p-5 rounded-lg-r mb-4">
           <SectionHeader num={5} title="Colores de Camiseta" />
           <View className="flex-row gap-3">
@@ -536,10 +716,11 @@ export default function CreateMatchScreen() {
             ))}
           </View>
         </View>
+        )}
 
         {/* 6. Extra */}
         <View className="bg-bg-elev border border-border p-5 rounded-lg-r mb-6">
-          <SectionHeader num={6} title="Configuración" />
+          <SectionHeader num={creationMode === 'match' ? 6 : 3} title="Configuración" />
           <View className="mb-5">
             <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Precio por persona (€)</Text>
             <TextInput
@@ -552,10 +733,31 @@ export default function CreateMatchScreen() {
               placeholderTextColor={colors.textMuted}
             />
             <Text className="text-[10px] text-ink-muted mt-2 font-body">
-              El organizador gestiona el cobro manualmente.
+              El bizum se organiza como siempre, fuera de Rondo.
             </Text>
           </View>
           
+          {creationMode === 'series' && (
+            <View className="mb-5">
+              <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">
+                Mínimo para jugar
+              </Text>
+              <TextInput
+                accessibilityLabel="Mínimo de jugadores para jugar"
+                className="bg-input/5 border border-border rounded-md-r px-4 py-3.5 text-ink font-body text-[15px]"
+                value={minPlayers}
+                onChangeText={setMinPlayers}
+                keyboardType="number-pad"
+                keyboardAppearance="dark"
+                maxLength={2}
+                placeholder="2"
+                placeholderTextColor={colors.textMuted}
+              />
+              <Text className="text-[10px] text-ink-muted mt-2 font-body">El quórum de la pachanga.</Text>
+            </View>
+          )}
+
+          {creationMode === 'match' && (
           <View className="flex-row justify-between items-center py-1">
             <View className="flex-1 mr-4">
               <Text className="text-ink font-body font-semibold text-sm">Requiere aprobación</Text>
@@ -569,6 +771,7 @@ export default function CreateMatchScreen() {
               ios_backgroundColor="#3f3f46"
             />
           </View>
+          )}
         </View>
 
         {/* Actions */}
@@ -596,7 +799,7 @@ export default function CreateMatchScreen() {
               <ActivityIndicator color="#fff" />
             ) : (
               <Text className="font-display text-[15px] font-black text-white uppercase tracking-[1px]">
-                Publicar Partido
+                {creationMode === 'match' ? 'Publicar Partido' : 'Crear Grupo'}
               </Text>
             )}
           </TouchableOpacity>

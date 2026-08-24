@@ -48,6 +48,11 @@
               "scheme": "https",
               "host": "rondofc.app",
               "pathPrefix": "/match"
+            },
+            {
+              "scheme": "https",
+              "host": "rondofc.app",
+              "pathPrefix": "/join"
             }
           ],
           "category": [
