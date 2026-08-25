@@ -9,6 +9,7 @@ import type {
   MatchParticipant,
   PositionKey,
   RequestedPositions,
+  UserProfile,
 } from '@/types/database';
 import type { CancelWindow } from '@/components/CancelMatchModal';
 
@@ -225,21 +226,24 @@ export function ProfileAvatar({
 
 export function PlayerRow({
   participant,
+  user,
   onPress,
   rightContent,
   isLast = false,
 }: {
   participant?: MatchParticipant;
+  user?: UserProfile | null;
   onPress?: () => void;
   rightContent?: ReactNode;
   isLast?: boolean;
 }) {
   const { colors } = useTheme();
-  const name = participant?.user?.full_name ?? 'Jugador';
-  const pos = participant?.user?.preferred_position;
+  const profile = user ?? participant?.user;
+  const name = profile?.full_name ?? 'Jugador';
+  const pos = profile?.preferred_position;
   const posCfg = pos ? POSITION_CONFIG[pos as PositionKey] : null;
   const positionLabel = posCfg?.label;
-  const avatarUrl = participant?.user?.avatar_url;
+  const avatarUrl = profile?.avatar_url;
 
   return (
     <Pressable

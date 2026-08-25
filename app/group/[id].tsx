@@ -5,9 +5,11 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Pressable,
   RefreshControl,
   ScrollView,
   Share,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
@@ -16,11 +18,12 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MatchCard } from '@/components/rondo/MatchCard';
-import { ScreenTitle } from '@/components/ui/ScreenTitle';
+import { Badge, InfoCell, PlayerRow } from '@/components/match/MatchDetailParts';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/hooks/use-theme';
 import { buildSeriesInviteUrl } from '@/lib/seriesInvite';
 import { supabase } from '@/lib/supabase';
+import { getErrorMessage, logSupabaseError } from '@/lib/supabaseErrors';
 import { PUBLIC_USER_SELECT } from '@/lib/supabase/selects';
 import type { MatchSeries, SeriesMatch, SeriesMember } from '@/types/series';
 
@@ -146,6 +149,7 @@ export default function GroupDetailScreen() {
   const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const s = createStyles(c);
   const [group, setGroup] = useState<MatchSeries | null>(null);
   const [members, setMembers] = useState<SeriesMember[]>([]);
   const [matches, setMatches] = useState<MatchWithCardJoins[]>([]);
@@ -176,7 +180,7 @@ export default function GroupDetailScreen() {
           .single(),
         supabase
           .from('series_members')
-          .select(`*, user:users(${PUBLIC_USER_SELECT})`)
+          .select(`*, user:users!series_members_user_id_fkey(${PUBLIC_USER_SELECT})`)
           .eq('series_id', id)
           .eq('status', 'active')
           .order('created_at', { ascending: true }),
@@ -197,7 +201,8 @@ export default function GroupDetailScreen() {
       setMembers((membersResult.data ?? []) as SeriesMember[]);
       setMatches((matchesResult.data ?? []) as MatchWithCardJoins[]);
     } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : 'No hemos podido cargar el grupo.');
+      logSupabaseError('load recurring group', loadError);
+      setError(getErrorMessage(loadError, 'No hemos podido cargar el grupo.'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -290,8 +295,8 @@ export default function GroupDetailScreen() {
 
   if (loading && !group) {
     return (
-      <View style={{ flex: 1, backgroundColor: c.bg, alignItems: 'center', justifyContent: 'center' }}>
-        <Stack.Screen options={{ title: 'Grupo' }} />
+      <View style={s.loadingRoot}>
+        <Stack.Screen options={{ headerShown: false }} />
         <ActivityIndicator size="large" color={c.brand} />
       </View>
     );
@@ -299,145 +304,198 @@ export default function GroupDetailScreen() {
 
   if (error || !group) {
     return (
-      <View style={{ flex: 1, backgroundColor: c.bg, paddingHorizontal: 24, justifyContent: 'center' }}>
-        <Stack.Screen options={{ title: 'Grupo' }} />
-        <Ionicons name="alert-circle-outline" size={48} color={c.danger} />
-        <Text style={{ color: c.text, fontSize: 24, fontWeight: '900', marginTop: 20 }}>No carga el grupo</Text>
-        <Text style={{ color: c.textDim, lineHeight: 22, marginTop: 8 }}>{error}</Text>
-        <TouchableOpacity
-          accessibilityRole="button"
-          onPress={() => void loadGroup()}
-          style={{ minHeight: 52, backgroundColor: c.brand, borderRadius: 14, alignItems: 'center', justifyContent: 'center', marginTop: 24 }}
-        >
-          <Text style={{ color: c.brandInk, fontWeight: '900' }}>Probar otra vez</Text>
-        </TouchableOpacity>
+      <View style={s.root}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={{ height: insets.top }} />
+        <View style={s.header}>
+          <Pressable
+            style={({ pressed }) => [s.headerBtn, pressed && s.pressed]}
+            onPress={() => router.back()}
+            accessibilityRole="button"
+            accessibilityLabel="Volver"
+          >
+            <Ionicons name="chevron-back" size={20} color={c.textDim} />
+          </Pressable>
+        </View>
+        <View style={s.errorContent}>
+          <Ionicons name="alert-circle-outline" size={48} color={c.danger} />
+          <Text style={s.errorTitle}>No carga el grupo</Text>
+          <Text style={s.errorCopy}>{error}</Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => void loadGroup()}
+            style={({ pressed }) => [s.primaryButton, pressed && s.pressed]}
+          >
+            <Text style={s.primaryButtonText}>Probar otra vez</Text>
+          </Pressable>
+        </View>
       </View>
     );
   }
 
+  const cityLabel = group.city || group.venue?.city || 'Ciudad por definir';
+  const locationCopy = group.venue
+    ? [group.venue.canonical_name, group.venue.address].filter(Boolean).join(', ')
+    : 'El campo se decide en cada pachanga.';
+
   return (
-    <View style={{ flex: 1, backgroundColor: c.bg }}>
-      <Stack.Screen options={{ title: group.title }} />
+    <View style={s.root}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <View style={{ height: insets.top }} />
+
+      <View style={s.header}>
+        <Pressable
+          style={({ pressed }) => [s.headerBtn, pressed && s.pressed]}
+          onPress={() => router.back()}
+          accessibilityRole="button"
+          accessibilityLabel="Volver"
+        >
+          <Ionicons name="chevron-back" size={20} color={c.textDim} />
+        </Pressable>
+        <Pressable
+          style={({ pressed }) => [s.headerBtn, pressed && s.pressed]}
+          onPress={() => void shareInvite()}
+          accessibilityRole="button"
+          accessibilityLabel="Compartir invitación del grupo"
+        >
+          <Ionicons name="share-outline" size={20} color={c.brand} />
+        </Pressable>
+      </View>
+
       <ScrollView
-        contentContainerStyle={{ paddingTop: 24, paddingBottom: insets.bottom + 40, paddingHorizontal: 16 }}
+        style={s.scroll}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void loadGroup(true)} tintColor={c.brand} />}
+        showsVerticalScrollIndicator={false}
       >
-        <ScreenTitle>{group.title}</ScreenTitle>
-        <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
-          <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100, backgroundColor: c.brandSoft }}>
-            <Text style={{ color: c.brand, fontSize: 11, fontWeight: '800' }}>MODO MANUAL</Text>
-          </View>
-          <View style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100, backgroundColor: group.is_active ? c.brandSoft : c.inputBg }}>
-            <Text style={{ color: group.is_active ? c.brand : c.textDim, fontSize: 11, fontWeight: '800' }}>
-              {group.is_active ? 'ACTIVO' : 'PAUSADO'}
-            </Text>
+        <View style={s.titleBlock}>
+          <Text style={s.titleText}>{group.title}</Text>
+          <View style={s.badgeRow}>
+            <Badge
+              label="Grupo fijo"
+              color={c.brand}
+              bg={c.brandSoft}
+              border="rgba(34,197,94,0.3)"
+            />
+            <Badge
+              label={group.is_active ? 'Activo' : 'Pausado'}
+              color={group.is_active ? c.brand : c.textDim}
+              bg={group.is_active ? c.brandSoft : c.inputBg}
+              border={group.is_active ? 'rgba(34,197,94,0.3)' : c.border}
+            />
           </View>
         </View>
 
-        <View style={{ marginTop: 24, padding: 18, borderRadius: 20, backgroundColor: c.bgSurface, borderWidth: 1, borderColor: c.border }}>
-          <View style={{ flexDirection: 'row', gap: 12 }}>
-            <Ionicons name="location-outline" size={22} color={c.brand} />
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: c.text, fontSize: 16, fontWeight: '800' }}>{group.city || group.venue?.city || 'Ciudad por definir'}</Text>
-              <Text style={{ color: c.textDim, fontSize: 13, lineHeight: 19, marginTop: 3 }}>
-                {group.venue
-                  ? [group.venue.canonical_name, group.venue.address].filter(Boolean).join(', ')
-                  : 'El campo se decide en cada pachanga.'}
-              </Text>
+        <View style={s.infoSection}>
+          <View style={s.locationCard}>
+            <Ionicons name="location-outline" size={20} color={c.brand} style={s.locationIcon} />
+            <View style={s.locationBody}>
+              <Text style={s.locationName}>{cityLabel}</Text>
+              <Text style={s.locationCopy}>{locationCopy}</Text>
             </View>
           </View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 18, paddingTop: 16, borderTopWidth: 1, borderTopColor: c.border }}>
-            <Text style={{ color: c.textDim }}>{members.length} en la plantilla</Text>
-            <Text style={{ color: c.textDim }}>Mínimo {group.min_players}</Text>
+
+          <View style={s.infoRow}>
+            <InfoCell label="Plantilla" flex={1}>
+              <Text style={s.infoCellValue}>{members.length}</Text>
+            </InfoCell>
+            <InfoCell label="Mínimo" flex={1}>
+              <Text style={s.infoCellValue}>{group.min_players}</Text>
+            </InfoCell>
           </View>
         </View>
-
-        <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
-          {isOrganizer && (
-            <TouchableOpacity
-              accessibilityRole="button"
-              onPress={() => setCreateModalVisible(true)}
-              disabled={!group.is_active}
-              style={{ minHeight: 52, flex: 1, borderRadius: 14, backgroundColor: c.brand, opacity: group.is_active ? 1 : 0.45, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center' }}
-            >
-              <Ionicons name="add" size={22} color={c.brandInk} />
-              <Text style={{ color: c.brandInk, fontWeight: '900' }}>Crear esta semana</Text>
-            </TouchableOpacity>
-          )}
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={() => void shareInvite()}
-            style={{ minHeight: 52, flex: isOrganizer ? 0 : 1, minWidth: 52, paddingHorizontal: isOrganizer ? 0 : 18, borderRadius: 14, borderWidth: 1, borderColor: c.borderStrong, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center' }}
-          >
-            <Ionicons name="share-outline" size={21} color={c.text} />
-            {!isOrganizer && <Text style={{ color: c.text, fontWeight: '800' }}>Invitar al grupo</Text>}
-          </TouchableOpacity>
-        </View>
-
-        <Text style={{ color: c.text, fontSize: 18, fontWeight: '900', marginTop: 32, marginBottom: 14 }}>Próximos partidos</Text>
-        {matches.length === 0 ? (
-          <View style={{ padding: 20, borderRadius: 18, borderWidth: 1, borderStyle: 'dashed', borderColor: c.borderStrong }}>
-            <Text style={{ color: c.text, fontWeight: '800' }}>Aún no hay pachanga preparada</Text>
-            <Text style={{ color: c.textDim, lineHeight: 20, marginTop: 6 }}>
-              {isOrganizer ? 'Cuando sepáis el día, crea el partido y todos quedarán pendientes de confirmar.' : 'El capitán publicará aquí el próximo partido.'}
-            </Text>
-          </View>
-        ) : (
-          <View style={{ gap: 12 }}>
-            {matches.map(match => (
-              <MatchCard key={match.id} match={match} onPress={() => router.push(`/match/${match.id}` as never)} />
-            ))}
-          </View>
-        )}
-
-        <Text style={{ color: c.text, fontSize: 18, fontWeight: '900', marginTop: 32, marginBottom: 14 }}>Plantilla</Text>
-        {members.length === 0 ? (
-          <View style={{ padding: 20, borderRadius: 18, borderWidth: 1, borderStyle: 'dashed', borderColor: c.borderStrong }}>
-            <Text style={{ color: c.text, fontWeight: '800' }}>Comparte el enlace con el vestuario</Text>
-            <Text style={{ color: c.textDim, lineHeight: 20, marginTop: 6 }}>Cada jugador que entre aparecerá aquí.</Text>
-          </View>
-        ) : (
-          <View style={{ borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: c.border }}>
-            {members.map((member, index) => {
-              const name = member.user?.full_name || member.user?.username || 'Jugador de Rondo';
-              return (
-                <View key={member.id} style={{ minHeight: 64, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: c.bgSurface, borderTopWidth: index === 0 ? 0 : 1, borderTopColor: c.border }}>
-                  <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: c.brandSoft, alignItems: 'center', justifyContent: 'center' }}>
-                    <Text style={{ color: c.brand, fontWeight: '900' }}>{name.charAt(0).toUpperCase()}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ color: c.text, fontWeight: '800' }}>{name}</Text>
-                    <Text style={{ color: c.textDim, fontSize: 12, marginTop: 2 }}>{member.user?.preferred_position || 'Agente libre'}</Text>
-                  </View>
-                  {isOrganizer && member.user_id !== user?.id && (
-                    <TouchableOpacity
-                      accessibilityRole="button"
-                      accessibilityLabel={`Quitar a ${name}`}
-                      onPress={() => removeMember(member)}
-                      style={{ minWidth: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' }}
-                    >
-                      <Ionicons name="person-remove-outline" size={20} color={c.danger} />
-                    </TouchableOpacity>
-                  )}
-                </View>
-              );
-            })}
-          </View>
-        )}
 
         {isOrganizer && (
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={() => void toggleGroup()}
-            disabled={savingGroup}
-            style={{ minHeight: 52, marginTop: 32, borderRadius: 14, borderWidth: 1, borderColor: group.is_active ? c.danger : c.brand, alignItems: 'center', justifyContent: 'center', opacity: savingGroup ? 0.5 : 1 }}
-          >
-            {savingGroup ? <ActivityIndicator color={c.text} /> : (
-              <Text style={{ color: group.is_active ? c.danger : c.brand, fontWeight: '900' }}>
-                {group.is_active ? 'Pausar grupo' : 'Volver a activar'}
+          <View style={s.ctaBlock}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Crear el partido de esta semana"
+              onPress={() => setCreateModalVisible(true)}
+              disabled={!group.is_active}
+              style={({ pressed }) => [
+                s.primaryButton,
+                !group.is_active && s.disabled,
+                pressed && group.is_active && s.pressed,
+              ]}
+            >
+              <Ionicons name="add" size={20} color={c.brandInk} />
+              <Text style={s.primaryButtonText}>Crear esta semana</Text>
+            </Pressable>
+          </View>
+        )}
+
+        <View style={s.section}>
+          <Text style={s.sectionLabel}>Próximos partidos ({matches.length})</Text>
+          {matches.length === 0 ? (
+            <View style={s.emptyCard}>
+              <Text style={s.emptyTitle}>Aún no hay pachanga preparada</Text>
+              <Text style={s.emptyCopy}>
+                {isOrganizer ? 'Cuando sepáis el día, crea el partido y todos quedarán pendientes de confirmar.' : 'El capitán publicará aquí el próximo partido.'}
               </Text>
-            )}
-          </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={s.cardList}>
+              {matches.map(match => (
+                <MatchCard key={match.id} match={match} onPress={() => router.push(`/match/${match.id}` as never)} />
+              ))}
+            </View>
+          )}
+        </View>
+
+        <View style={[s.section, s.lastSection]}>
+          <Text style={s.sectionLabel}>Plantilla ({members.length})</Text>
+          {members.length === 0 ? (
+            <View style={s.emptyCard}>
+              <Text style={s.emptyTitle}>Comparte el enlace con el vestuario</Text>
+              <Text style={s.emptyCopy}>Cada jugador que entre aparecerá aquí.</Text>
+            </View>
+          ) : members.map((member, index) => {
+            const name = member.user?.full_name || member.user?.username || 'Jugador de Rondo';
+            return (
+              <PlayerRow
+                key={member.id}
+                user={member.user}
+                onPress={member.user_id ? () => router.push(`/user/${member.user_id}` as never) : undefined}
+                isLast={index === members.length - 1}
+                rightContent={isOrganizer && member.user_id !== user?.id ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Quitar a ${name}`}
+                    onPress={() => removeMember(member)}
+                    style={({ pressed }) => [s.removeButton, pressed && s.pressed]}
+                  >
+                    <Ionicons name="person-remove-outline" size={20} color={c.danger} />
+                  </Pressable>
+                ) : undefined}
+              />
+            );
+          })}
+        </View>
+
+        {isOrganizer && (
+          <View style={s.organizerBlock}>
+            <View style={s.organizerPanel}>
+              <Text style={s.organizerTitle}>Panel del organizador</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={group.is_active ? 'Pausar grupo' : 'Volver a activar el grupo'}
+                onPress={() => void toggleGroup()}
+                disabled={savingGroup}
+                style={({ pressed }) => [
+                  s.toggleButton,
+                  { borderColor: group.is_active ? c.danger : c.brand },
+                  savingGroup && s.disabled,
+                  pressed && !savingGroup && s.pressed,
+                ]}
+              >
+                {savingGroup ? <ActivityIndicator color={c.text} /> : (
+                  <Text style={[s.toggleButtonText, { color: group.is_active ? c.danger : c.brand }]}>
+                    {group.is_active ? 'Pausar grupo' : 'Volver a activar'}
+                  </Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
         )}
       </ScrollView>
 
@@ -450,3 +508,224 @@ export default function GroupDetailScreen() {
     </View>
   );
 }
+
+const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: c.bg,
+  },
+  loadingRoot: {
+    flex: 1,
+    backgroundColor: c.bg,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  header: {
+    minHeight: 56,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: c.border,
+  },
+  headerBtn: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pressed: {
+    opacity: 0.65,
+  },
+  disabled: {
+    opacity: 0.45,
+  },
+  scroll: {
+    flex: 1,
+  },
+  errorContent: {
+    flex: 1,
+    paddingHorizontal: 24,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  errorTitle: {
+    color: c.text,
+    fontFamily: 'Archivo_900Black',
+    fontSize: 24,
+    fontWeight: '900',
+    marginTop: 20,
+  },
+  errorCopy: {
+    color: c.textDim,
+    lineHeight: 22,
+    marginTop: 8,
+  },
+  titleBlock: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: c.border,
+  },
+  titleText: {
+    fontFamily: 'Archivo_900Black',
+    fontSize: 30,
+    fontWeight: '900',
+    color: c.text,
+    lineHeight: 34,
+    letterSpacing: -0.3,
+    marginBottom: 10,
+  },
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  infoSection: {
+    padding: 16,
+    gap: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: c.border,
+  },
+  locationCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    backgroundColor: c.bgSurface,
+    borderWidth: 1,
+    borderColor: 'rgba(34,197,94,0.12)',
+    borderRadius: 14,
+    padding: 14,
+  },
+  locationIcon: {
+    marginTop: 1,
+  },
+  locationBody: {
+    flex: 1,
+    minWidth: 0,
+  },
+  locationName: {
+    color: c.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  locationCopy: {
+    color: c.textDim,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 3,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  infoCellValue: {
+    fontFamily: 'Archivo_900Black',
+    fontSize: 18,
+    fontWeight: '900',
+    color: c.brand,
+    textAlign: 'center',
+  },
+  ctaBlock: {
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: c.border,
+  },
+  primaryButton: {
+    minHeight: 52,
+    width: '100%',
+    borderRadius: 14,
+    backgroundColor: c.brand,
+    flexDirection: 'row',
+    gap: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryButtonText: {
+    color: c.brandInk,
+    fontFamily: 'Archivo_900Black',
+    fontSize: 15,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  section: {
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: c.border,
+  },
+  lastSection: {
+    borderBottomWidth: 0,
+  },
+  sectionLabel: {
+    fontFamily: 'JetBrainsMono_500Medium',
+    fontSize: 9,
+    letterSpacing: 1.5,
+    color: c.textDim,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    marginBottom: 10,
+  },
+  emptyCard: {
+    padding: 18,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: c.borderStrong,
+    backgroundColor: c.bgSurface,
+  },
+  emptyTitle: {
+    color: c.text,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  emptyCopy: {
+    color: c.textDim,
+    fontSize: 13,
+    lineHeight: 20,
+    marginTop: 6,
+  },
+  cardList: {
+    gap: 12,
+  },
+  removeButton: {
+    minWidth: 48,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  organizerBlock: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+  },
+  organizerPanel: {
+    backgroundColor: c.bgElev,
+    borderRadius: 16,
+    padding: 16,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: c.border,
+  },
+  organizerTitle: {
+    fontFamily: 'JetBrainsMono_700Bold',
+    fontSize: 11,
+    color: c.brand,
+    textAlign: 'center',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+  },
+  toggleButton: {
+    minHeight: 48,
+    width: '100%',
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  toggleButtonText: {
+    fontSize: 14,
+    fontWeight: '800',
+  },
+});
