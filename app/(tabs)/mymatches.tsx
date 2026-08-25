@@ -11,8 +11,16 @@ import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
 import { ScreenTitle } from '@/components/ui/ScreenTitle';
 import { StatCard } from '@/components/ui/StatCard';
 import { useTheme } from '@/hooks/use-theme';
+import { getErrorMessage, logSupabaseError } from '@/lib/supabaseErrors';
 
 type MyMatch = Match & { _role: 'organizer' | 'player'; _pendingCount?: number };
+type MyGroup = {
+  id: string;
+  organizer_id: string;
+  title: string;
+  city: string | null;
+  is_active: boolean;
+};
 
 const ACTIVE_STATUSES = ['open', 'full'];
 const ARCHIVED_STATUSES = ['completed', 'cancelled'];
@@ -37,6 +45,8 @@ export default function MyMatchesScreen() {
   const insets = useSafeAreaInsets();
   const { colors } = useTheme();
   const [matches, setMatches] = useState<MyMatch[]>([]);
+  const [groups, setGroups] = useState<MyGroup[]>([]);
+  const [groupsError, setGroupsError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'organizer' | 'player'>('all');
@@ -46,19 +56,36 @@ export default function MyMatchesScreen() {
   async function fetchMyMatches() {
     if (!user) {
       setMatches([]);
+      setGroups([]);
+      setGroupsError(null);
       setLoading(false);
       setRefreshing(false);
       return;
     }
 
     try {
-      const { data: organized } = await supabase
-        .from('matches')
-        .select(`*, organizer:users(${PUBLIC_USER_SELECT})`)
-        .eq('organizer_id', user.id)
-        .order('date_time', { ascending: true });
+      setGroupsError(null);
+      const [organizedResult, groupsResult] = await Promise.all([
+        supabase
+          .from('matches')
+          .select(`*, organizer:users(${PUBLIC_USER_SELECT})`)
+          .eq('organizer_id', user.id)
+          .order('date_time', { ascending: true }),
+        supabase
+          .from('match_series')
+          .select('id,organizer_id,title,city,is_active')
+          .order('created_at', { ascending: false }),
+      ]);
 
-      const organizedList = (organized as Match[] || []);
+      if (organizedResult.error) throw organizedResult.error;
+      if (groupsResult.error) {
+        logSupabaseError('load groups in my matches', groupsResult.error);
+        setGroupsError(getErrorMessage(groupsResult.error, 'No hemos podido cargar tus grupos.'));
+      } else {
+        setGroups((groupsResult.data ?? []) as MyGroup[]);
+      }
+
+      const organizedList = (organizedResult.data as Match[] || []);
 
       const [participations, pendingData] = await Promise.all([
         supabase
@@ -265,6 +292,78 @@ export default function MyMatchesScreen() {
               <ScreenTitle>
                 Mis Partidos
               </ScreenTitle>
+            </View>
+
+            <View className="mb-6">
+              <Text className="font-mono text-[10px] font-bold uppercase tracking-[1.5px] text-ink-dim mb-3">
+                Mis grupos
+              </Text>
+              {groupsError && (
+                <View className="rounded-xl border border-danger/30 bg-danger/10 p-4 mb-3">
+                  <Text className="font-body text-sm font-semibold text-danger">No hemos podido cargar tus grupos.</Text>
+                  <Text className="font-body text-xs leading-5 text-ink-dim mt-1">{groupsError}</Text>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel="Reintentar la carga de grupos"
+                    activeOpacity={0.7}
+                    onPress={() => void fetchMyMatches()}
+                    className="min-h-12 self-start flex-row items-center justify-center mt-2"
+                  >
+                    <Ionicons name="refresh-outline" size={18} color={colors.danger} />
+                    <Text className="font-body text-sm font-bold text-danger ml-2">Probar otra vez</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              {groups.length === 0 ? (
+                !groupsError && <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel="Crear el primer grupo fijo"
+                  activeOpacity={0.7}
+                  onPress={() => router.push('/(tabs)/create')}
+                  className="min-h-[72px] flex-row items-center rounded-xl border border-dashed border-border-strong bg-surface px-4 py-3"
+                >
+                  <View className="h-11 w-11 items-center justify-center rounded-full bg-brand/10">
+                    <Ionicons name="people-outline" size={22} color={colors.brand} />
+                  </View>
+                  <View className="ml-3 flex-1">
+                    <Text className="font-display text-sm font-extrabold text-ink">Monta tu grupo fijo</Text>
+                    <Text className="font-body text-xs leading-5 text-ink-dim">La plantilla de cada pachanga, siempre a mano.</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={19} color={colors.textDim} />
+                </TouchableOpacity>
+              ) : (
+                <View className="gap-2">
+                  {groups.map(group => {
+                    const organizesGroup = group.organizer_id === user?.id;
+                    return (
+                      <TouchableOpacity
+                        key={group.id}
+                        accessibilityRole="button"
+                        accessibilityLabel={`Abrir grupo ${group.title}`}
+                        activeOpacity={0.7}
+                        onPress={() => router.push(`/group/${group.id}` as never)}
+                        className="min-h-[72px] flex-row items-center rounded-xl border border-border bg-surface px-4 py-3"
+                      >
+                        <View className="h-11 w-11 items-center justify-center rounded-full bg-brand/10">
+                          <Ionicons name="people-outline" size={22} color={colors.brand} />
+                        </View>
+                        <View className="ml-3 flex-1 min-w-0">
+                          <Text className="font-display text-[15px] font-extrabold text-ink" numberOfLines={1}>{group.title}</Text>
+                          <Text className="font-body text-xs text-ink-dim mt-1" numberOfLines={1}>
+                            {group.city || 'Sin ciudad definida'} · {group.is_active ? 'Activo' : 'Pausado'}
+                          </Text>
+                        </View>
+                        <View className={`ml-3 rounded-full border px-2 py-1 ${organizesGroup ? 'border-warning/30 bg-warning/10' : 'border-brand/30 bg-brand/10'}`}>
+                          <Text className={`font-mono text-[9px] font-bold uppercase tracking-wider ${organizesGroup ? 'text-warning' : 'text-brand'}`}>
+                            {organizesGroup ? 'Organizo' : 'Plantilla'}
+                          </Text>
+                        </View>
+                        <Ionicons name="chevron-forward" size={18} color={colors.textDim} style={{ marginLeft: 6 }} />
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
             </View>
 
             {/* SegmentedTabs */}
