@@ -49,7 +49,7 @@ export default function JoinSeriesScreen() {
         router.replace(`/group/${data}` as never);
       } catch (joinError) {
         if (!active) return;
-        setError(joinError instanceof Error ? joinError.message : 'No hemos podido meterte en el grupo.');
+        setError(joinError instanceof Error ? joinError.message : 'No hemos podido meterte en el equipo.');
       } finally {
         if (active) setJoining(false);
       }
@@ -68,7 +68,7 @@ export default function JoinSeriesScreen() {
         <Ionicons name="link-outline" size={48} color={c.danger} />
         <Text style={{ color: c.text, fontSize: 24, fontWeight: '900', marginTop: 20 }}>Este enlace no vale</Text>
         <Text style={{ color: c.textDim, fontSize: 16, lineHeight: 23, marginTop: 8 }}>
-          Pide al capitán que comparta de nuevo la invitación del grupo.
+          Pide al capitán que comparta de nuevo la invitación del equipo.
         </Text>
       </View>
     );
@@ -77,10 +77,10 @@ export default function JoinSeriesScreen() {
   if (authLoading || joining) {
     return (
       <View style={{ flex: 1, backgroundColor: c.bg, alignItems: 'center', justifyContent: 'center', gap: 16 }}>
-        <Stack.Screen options={{ title: 'Entrar al grupo' }} />
+        <Stack.Screen options={{ title: 'Entrar al equipo' }} />
         <ActivityIndicator size="large" color={c.brand} />
         <Text style={{ color: c.textDim, fontSize: 15 }}>
-          {joining ? 'Te metemos en el grupo…' : 'Preparando la invitación…'}
+          {joining ? 'Te metemos en el equipo…' : 'Preparando la invitación…'}
         </Text>
       </View>
     );
@@ -89,7 +89,7 @@ export default function JoinSeriesScreen() {
   if (error) {
     return (
       <View style={{ flex: 1, paddingTop: insets.top + 24, paddingHorizontal: 24, backgroundColor: c.bg, justifyContent: 'center' }}>
-        <Stack.Screen options={{ title: 'Entrar al grupo' }} />
+        <Stack.Screen options={{ title: 'Entrar al equipo' }} />
         <Ionicons name="alert-circle-outline" size={48} color={c.danger} />
         <Text style={{ color: c.text, fontSize: 24, fontWeight: '900', marginTop: 20 }}>No has podido entrar</Text>
         <Text style={{ color: c.textDim, fontSize: 16, lineHeight: 23, marginTop: 8 }}>{error}</Text>
@@ -106,12 +106,12 @@ export default function JoinSeriesScreen() {
 
   return (
     <View style={{ flex: 1, paddingTop: insets.top + 24, paddingBottom: insets.bottom + 24, paddingHorizontal: 24, backgroundColor: c.bg, justifyContent: 'center' }}>
-      <Stack.Screen options={{ title: 'Invitación de grupo' }} />
+      <Stack.Screen options={{ title: 'Invitación de equipo' }} />
       <View style={{ width: 64, height: 64, borderRadius: 20, backgroundColor: c.brandSoft, alignItems: 'center', justifyContent: 'center' }}>
         <Ionicons name="people-outline" size={32} color={c.brand} />
       </View>
       <Text style={{ color: c.text, fontSize: 30, lineHeight: 34, fontWeight: '900', textTransform: 'uppercase', marginTop: 24 }}>
-        Te quieren en el grupo
+        Te quieren en el equipo
       </Text>
       <Text style={{ color: c.textDim, fontSize: 16, lineHeight: 24, marginTop: 12 }}>
         Entra en Rondo y tendrás la lista y cada pachanga semanal en el mismo sitio.

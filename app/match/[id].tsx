@@ -30,6 +30,8 @@ import { MatchDetailContent } from '@/components/match/MatchDetailContent';
 
 type SeriesMatch = Match & {
   series_id?: string | null;
+  is_private?: boolean;
+  recruiting_public?: boolean;
 };
 
 type SeriesResponse = 'pending' | 'joined' | 'declined';
@@ -138,6 +140,42 @@ export default function MatchDetailScreen() {
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handlePublishTeamMatch = () => {
+    if (!match?.series_id) return;
+
+    Alert.alert(
+      'Publicar plazas libres',
+      'Los miembros que sigan pendientes o hayan dicho que no perderán su reserva. Después, cualquiera en Rondo podrá pedir plaza y este cambio no se puede deshacer.',
+      [
+        { text: 'Ahora no', style: 'cancel' },
+        {
+          text: 'Publicar plazas',
+          onPress: async () => {
+            setActionLoading(true);
+            try {
+              const { data, error } = await supabase.rpc('publish_team_match', {
+                p_match_id: match.id,
+              });
+              if (error) throw error;
+              await fetchMatchDetails();
+              Alert.alert(
+                'Partido público',
+                `Ya funciona como cualquier partido de Rondo. Quedan ${Number(data)} plazas libres.`,
+              );
+            } catch (error) {
+              Alert.alert(
+                'No se pudieron publicar las plazas',
+                error instanceof Error ? error.message : 'Inténtalo de nuevo en unos segundos.',
+              );
+            } finally {
+              setActionLoading(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   const handleLeave = () => {
@@ -353,8 +391,9 @@ export default function MatchDetailScreen() {
   const isArchived = match.status === 'completed' || match.status === 'cancelled';
   const myParticipation = participants.find(p => p.user_id === user?.id);
   const isSeriesMatch = Boolean(match.series_id);
+  const isPrivateTeamMatch = isSeriesMatch && match.is_private === true && match.recruiting_public !== true;
   const rawSeriesResponse = myParticipation?.status as string | undefined;
-  const seriesResponse: SeriesResponse | null = isSeriesMatch &&
+  const seriesResponse: SeriesResponse | null = isPrivateTeamMatch &&
     (rawSeriesResponse === 'pending' || rawSeriesResponse === 'joined' || rawSeriesResponse === 'declined')
     ? rawSeriesResponse
     : null;
@@ -368,7 +407,7 @@ export default function MatchDetailScreen() {
   const locationLabel = matchWithSnapshots.location_name_snapshot || match.location;
 
   const ctaDisabled =
-    isSeriesMatch || isJoined || isOrganizer || isPending || isRejected || match.status === 'full' || match.status !== 'open' || isArchived;
+    isPrivateTeamMatch || isJoined || isOrganizer || isPending || isRejected || match.status === 'full' || match.status !== 'open' || isArchived;
   
   const getCtaLabel = () => {
     if (isArchived) return match.status === 'completed' ? 'Partido Finalizado' : 'Partido Cancelado';
@@ -422,6 +461,7 @@ export default function MatchDetailScreen() {
           isJoined={isJoined}
           isPending={isPending}
           isSeriesMatch={isSeriesMatch}
+          isPrivateTeamMatch={isPrivateTeamMatch}
           seriesResponse={seriesResponse}
           ctaDisabled={ctaDisabled}
           actionLoading={actionLoading}
@@ -432,6 +472,7 @@ export default function MatchDetailScreen() {
           onOrganizerChatPress={() => router.push(`/chat/${match.id}/${user!.id}` as any)}
           onJoin={handleJoin}
           onSeriesResponse={handleSeriesResponse}
+          onPublishTeamMatch={handlePublishTeamMatch}
           onLeave={handleLeave}
           onFinalize={handleFinalize}
           onCancelMatch={handleCancelMatch}

@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, Switch, ActivityIndicator, Platform, Modal } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRouter, Stack } from 'expo-router';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { z } from 'zod';
@@ -41,8 +41,11 @@ type OrganizerSeries = {
   title: string;
   is_active: boolean;
   city: string | null;
+  price_per_player: number;
   venue: { canonical_name: string }[];
 };
+
+type TeamContext = Pick<OrganizerSeries, 'id' | 'title' | 'city' | 'price_per_player'>;
 
 const SectionHeader = ({ num, title }: { num: number; title: string }) => (
   <View className="flex-row items-center mb-5">
@@ -89,6 +92,8 @@ function PickerModal({
 }
 
 export default function CreateMatchScreen() {
+  const params = useLocalSearchParams<{ teamId?: string | string[] }>();
+  const teamId = Array.isArray(params.teamId) ? params.teamId[0] : params.teamId;
   const { user } = useAuth();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -124,11 +129,59 @@ export default function CreateMatchScreen() {
   const [requiresApproval, setRequiresApproval] = useState(false);
   const [loading, setLoading] = useState(false);
   const [creationMode, setCreationMode] = useState<CreationMode>('match');
-  const [minPlayers, setMinPlayers] = useState('2');
   const [seriesCity, setSeriesCity] = useState('');
   const [myGroups, setMyGroups] = useState<OrganizerSeries[]>([]);
   const [groupsLoading, setGroupsLoading] = useState(false);
   const [groupsError, setGroupsError] = useState<string | null>(null);
+  const [teamContext, setTeamContext] = useState<TeamContext | null>(null);
+  const [teamContextLoading, setTeamContextLoading] = useState(false);
+  const initializedTeamId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!teamId || !user?.id) {
+      setTeamContext(null);
+      initializedTeamId.current = null;
+      return;
+    }
+
+    let active = true;
+    const loadTeamContext = async () => {
+      setTeamContextLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from('match_series')
+          .select('id,title,city,price_per_player')
+          .eq('id', teamId)
+          .eq('organizer_id', user.id)
+          .eq('is_active', true)
+          .single();
+        if (error) throw error;
+        if (!active) return;
+
+        const nextTeam = data as TeamContext;
+        setTeamContext(nextTeam);
+        setCreationMode('match');
+        if (initializedTeamId.current !== nextTeam.id) {
+          setTitle(nextTeam.title);
+          setPrice(String(nextTeam.price_per_player));
+          initializedTeamId.current = nextTeam.id;
+        }
+      } catch (error) {
+        logSupabaseError('load team match context', error);
+        if (active) {
+          setTeamContext(null);
+          Alert.alert('No se pudo abrir el equipo', getErrorMessage(error, 'Vuelve al equipo e inténtalo otra vez.'));
+        }
+      } finally {
+        if (active) setTeamContextLoading(false);
+      }
+    };
+
+    void loadTeamContext();
+    return () => {
+      active = false;
+    };
+  }, [teamId, user?.id]);
 
   useEffect(() => {
     if (!user?.id || creationMode !== 'series') return;
@@ -140,14 +193,14 @@ export default function CreateMatchScreen() {
       try {
         const { data, error } = await supabase
           .from('match_series')
-          .select('id,title,is_active,city,venue:venues(canonical_name)')
+          .select('id,title,is_active,city,price_per_player,venue:venues(canonical_name)')
           .eq('organizer_id', user.id)
           .order('created_at', { ascending: false });
         if (error) throw error;
         if (active) setMyGroups((data ?? []) as OrganizerSeries[]);
       } catch (error) {
         logSupabaseError('load recurring groups', error);
-        if (active) setGroupsError(getErrorMessage(error, 'No hemos podido cargar tus grupos.'));
+        if (active) setGroupsError(getErrorMessage(error, 'No hemos podido cargar tus equipos.'));
       } finally {
         if (active) setGroupsLoading(false);
       }
@@ -251,7 +304,6 @@ export default function CreateMatchScreen() {
   };
 
   async function handleCreateSeries() {
-    const parsedMinPlayers = Number(minPlayers);
     const normalizedCity = seriesCity.trim();
 
     if (!user) {
@@ -259,15 +311,11 @@ export default function CreateMatchScreen() {
       return;
     }
     if (title.trim().length < 3) {
-      Alert.alert('Falta el nombre', 'Ponle un nombre de al menos 3 caracteres al grupo.');
+      Alert.alert('Falta el nombre', 'Ponle un nombre de al menos 3 caracteres al equipo.');
       return;
     }
     if (normalizedCity.length === 1) {
       Alert.alert('Revisa la ciudad', 'Escribe al menos 2 caracteres o déjala vacía.');
-      return;
-    }
-    if (!Number.isInteger(parsedMinPlayers) || parsedMinPlayers < 2) {
-      Alert.alert('Revisa el mínimo', 'Indica un número de 2 o más jugadores.');
       return;
     }
     if (Number.isNaN(Number(price)) || Number(price) < 0) {
@@ -288,20 +336,19 @@ export default function CreateMatchScreen() {
           title: title.trim(),
           city: normalizedCity || null,
           automation_mode: 'manual',
-          min_players: parsedMinPlayers,
           price_per_player: Number(price),
         })
         .select('id')
         .single();
       if (error) throw error;
 
-      Alert.alert('Grupo listo', 'El vestuario ya tiene su grupo para preparar la próxima pachanga.', [
-        { text: 'Abrir grupo', onPress: () => router.replace(`/group/${data.id}` as never) },
+      Alert.alert('Equipo listo', 'El vestuario ya tiene su equipo para preparar la próxima pachanga.', [
+        { text: 'Abrir equipo', onPress: () => router.replace(`/group/${data.id}` as never) },
       ]);
     } catch (error) {
       logSupabaseError('create recurring group', error);
       Alert.alert(
-        'No se pudo crear el grupo',
+        'No se pudo crear el equipo',
         getErrorMessage(error, 'Revisa los datos e inténtalo otra vez.'),
       );
     } finally {
@@ -312,6 +359,10 @@ export default function CreateMatchScreen() {
   async function handleCreate() {
     if (creationMode === 'series') {
       await handleCreateSeries();
+      return;
+    }
+    if (teamId && !teamContext) {
+      Alert.alert('Equipo no disponible', 'Espera a que cargue el equipo o vuelve a abrirlo.');
       return;
     }
 
@@ -351,25 +402,65 @@ export default function CreateMatchScreen() {
     }
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from('matches')
-        .insert({
-          organizer_id: user.id, title, location,
-          location_lat: locationLat, location_lng: locationLng, location_city: locationCity,
-          venue_id: venueId,
-          location_name_snapshot: location,
-          address_snapshot: locationAddressSnapshot,
-          latitude_snapshot: locationLat,
-          longitude_snapshot: locationLng,
-          location_quality_status: locationQualityStatus,
-          description, level, date_time: finalDateObj.toISOString(),
-          requested_positions: positions, team_a_color: teamAColor, team_b_color: teamBColor,
-          price_per_player: parseFloat(price) || 0, requires_approval: requiresApproval, status: 'open',
-        })
-        .select().single();
+      const matchPayload = {
+        p_title: title.trim(),
+        p_location: location.trim(),
+        p_location_lat: locationLat,
+        p_location_lng: locationLng,
+        p_location_city: locationCity,
+        p_date_time: finalDateObj.toISOString(),
+        p_description: description,
+        p_level: level,
+        p_requested_positions: positions,
+        p_team_a_color: teamAColor,
+        p_team_b_color: teamBColor,
+        p_price_per_player: parseFloat(price) || 0,
+        p_requires_approval: requiresApproval,
+        p_venue_id: venueId,
+        p_location_name_snapshot: location,
+        p_address_snapshot: locationAddressSnapshot,
+        p_latitude_snapshot: locationLat,
+        p_longitude_snapshot: locationLng,
+        p_location_quality_status: locationQualityStatus,
+      };
+
+      const result = teamContext
+        ? await supabase.rpc('create_team_match', { p_team_id: teamContext.id, ...matchPayload })
+        : await supabase
+          .from('matches')
+          .insert({
+            organizer_id: user.id,
+            title: matchPayload.p_title,
+            location: matchPayload.p_location,
+            location_lat: locationLat,
+            location_lng: locationLng,
+            location_city: locationCity,
+            venue_id: venueId,
+            location_name_snapshot: location,
+            address_snapshot: locationAddressSnapshot,
+            latitude_snapshot: locationLat,
+            longitude_snapshot: locationLng,
+            location_quality_status: locationQualityStatus,
+            description,
+            level,
+            date_time: finalDateObj.toISOString(),
+            requested_positions: positions,
+            team_a_color: teamAColor,
+            team_b_color: teamBColor,
+            price_per_player: matchPayload.p_price_per_player,
+            requires_approval: requiresApproval,
+            status: 'open',
+          })
+          .select('id')
+          .single();
+      const { data, error } = result;
       if (error) throw error;
-      Alert.alert('¡Listo!', 'El partido ya está publicado en Rondo.', [
-        { text: 'Ver partido', onPress: () => router.push(`/match/${data.id}`) },
+      const matchId = typeof data === 'string' ? data : data?.id;
+      if (!matchId) throw new Error('No se recibió el partido creado.');
+      Alert.alert('¡Listo!', teamContext
+        ? 'La plantilla ya puede confirmar. El partido sigue privado hasta que publiques las plazas libres.'
+        : 'El partido ya está publicado en Rondo.', [
+        { text: 'Ver partido', onPress: () => router.push(`/match/${matchId}`) },
         { text: 'Ir al inicio', onPress: () => router.push('/(tabs)') },
       ]);
       setTitle(''); setLocation(''); setLocationLat(null); setLocationLng(null); setLocationCity(null);
@@ -403,18 +494,31 @@ export default function CreateMatchScreen() {
       >
         {/* Header */}
         <ScreenTitle style={{ marginBottom: 24 }}>
-          {creationMode === 'match' ? 'Crear Partido' : 'Grupo Fijo'}
+          {teamContext ? 'Partido del equipo' : creationMode === 'match' ? 'Crear Partido' : 'Nuevo equipo'}
         </ScreenTitle>
 
-        <View className="bg-bg-elev border border-border p-5 rounded-lg-r mb-4">
-          <Text className="text-ink font-display font-black text-lg mb-2">¿Es para tu grupo fijo?</Text>
+        {teamId && (
+          <View className="bg-brand-soft border border-brand/30 p-5 rounded-lg-r mb-4">
+            {teamContextLoading ? <ActivityIndicator color="#22C55E" /> : (
+              <>
+                <Text className="text-brand font-display font-black text-lg">{teamContext?.title ?? 'Equipo'}</Text>
+                <Text className="text-ink-dim font-body text-sm mt-1">
+                  Partido privado: la plantilla tendrá que confirmar su plaza.
+                </Text>
+              </>
+            )}
+          </View>
+        )}
+
+        {!teamId && <View className="bg-bg-elev border border-border p-5 rounded-lg-r mb-4">
+          <Text className="text-ink font-display font-black text-lg mb-2">¿Es para tu equipo?</Text>
           <Text className="text-ink-muted font-body text-sm mb-4">
-            Reutiliza la plantilla y organiza cada pachanga con el mismo grupo.
+            Reutiliza la plantilla y organiza cada pachanga con el mismo equipo.
           </Text>
           <View className="flex-row gap-2">
             {([
               { key: 'match', label: 'Partido suelto', icon: 'football-outline' },
-              { key: 'series', label: 'Grupo fijo', icon: 'people-outline' },
+              { key: 'series', label: 'Equipo', icon: 'people-outline' },
             ] as const).map((mode) => {
               const selected = creationMode === mode.key;
               return (
@@ -435,25 +539,25 @@ export default function CreateMatchScreen() {
               );
             })}
           </View>
-        </View>
+        </View>}
 
         {creationMode === 'series' && (
           <View className="bg-bg-elev border border-border p-5 rounded-lg-r mb-4">
-            <Text className="text-ink font-display font-black text-lg mb-1">Tus grupos</Text>
+            <Text className="text-ink font-display font-black text-lg mb-1">Tus equipos</Text>
             <Text className="text-ink-muted font-body text-xs mb-4">Abre uno existente o crea otro debajo.</Text>
             {groupsLoading ? (
               <ActivityIndicator color="#22C55E" />
             ) : groupsError ? (
-              <Text className="text-danger font-body text-sm">No pudimos cargar tus grupos: {groupsError}</Text>
+              <Text className="text-danger font-body text-sm">No pudimos cargar tus equipos: {groupsError}</Text>
             ) : myGroups.length === 0 ? (
-              <Text className="text-ink-dim font-body text-sm">Todavía no tienes ningún grupo fijo.</Text>
+              <Text className="text-ink-dim font-body text-sm">Todavía no tienes ningún equipo.</Text>
             ) : (
               <View className="gap-2">
                 {myGroups.map((group) => (
                   <TouchableOpacity
                     key={group.id}
                     accessibilityRole="button"
-                    accessibilityLabel={`Abrir grupo ${group.title}`}
+                    accessibilityLabel={`Abrir equipo ${group.title}`}
                     onPress={() => router.push(`/group/${group.id}` as never)}
                     className="min-h-12 bg-input/5 border border-border rounded-md-r px-4 py-3 flex-row items-center"
                   >
@@ -473,11 +577,11 @@ export default function CreateMatchScreen() {
 
         {/* 1. Información General */}
         <View className="bg-bg-elev border border-border p-5 rounded-lg-r mb-4">
-          <SectionHeader num={1} title={creationMode === 'match' ? 'Información' : 'Nuevo grupo'} />
+          <SectionHeader num={1} title={creationMode === 'match' ? 'Información' : 'Nuevo equipo'} />
           <View className="gap-3.5">
             <View>
               <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">
-                {creationMode === 'match' ? 'Título del partido' : 'Nombre del grupo'}
+                {creationMode === 'match' ? 'Título del partido' : 'Nombre del equipo'}
               </Text>
               <TextInput
                 className="bg-input/5 border border-border rounded-md-r px-4 py-3 text-ink font-body text-[15px]"
@@ -495,6 +599,7 @@ export default function CreateMatchScreen() {
                 <UbicacionInput
                   value={location}
                   createdBy={user?.id}
+                  placeholder={teamContext?.city ? `Busca un campo en ${teamContext.city}...` : undefined}
                   onChangeText={(text) => {
                     setLocation(text);
                     setVenueId(null);
@@ -523,7 +628,7 @@ export default function CreateMatchScreen() {
                   Ciudad (opcional)
                 </Text>
                 <TextInput
-                  accessibilityLabel="Ciudad opcional del grupo"
+                  accessibilityLabel="Ciudad opcional del equipo"
                   className="bg-input/5 border border-border rounded-md-r px-4 py-3 text-ink font-body text-[15px]"
                   placeholder="Madrid"
                   placeholderTextColor={colors.textMuted}
@@ -760,26 +865,6 @@ export default function CreateMatchScreen() {
             </Text>
           </View>
           
-          {creationMode === 'series' && (
-            <View className="mb-5">
-              <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">
-                Mínimo para jugar
-              </Text>
-              <TextInput
-                accessibilityLabel="Mínimo de jugadores para jugar"
-                className="bg-input/5 border border-border rounded-md-r px-4 py-3.5 text-ink font-body text-[15px]"
-                value={minPlayers}
-                onChangeText={setMinPlayers}
-                keyboardType="number-pad"
-                keyboardAppearance="dark"
-                maxLength={2}
-                placeholder="2"
-                placeholderTextColor={colors.textMuted}
-              />
-              <Text className="text-[10px] text-ink-muted mt-2 font-body">El quórum de la pachanga.</Text>
-            </View>
-          )}
-
           {creationMode === 'match' && (
           <View className="flex-row justify-between items-center py-1">
             <View className="flex-1 mr-4">
@@ -808,7 +893,7 @@ export default function CreateMatchScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             onPress={handleCreate}
-            disabled={loading}
+            disabled={loading || (!!teamId && !teamContext)}
             style={{
               shadowColor: '#22C55E',
               shadowOffset: { width: 0, height: 4 },
@@ -816,13 +901,13 @@ export default function CreateMatchScreen() {
               shadowRadius: 14,
               elevation: 8,
             }}
-            className={`flex-[2] bg-brand rounded-xl-r py-4 items-center justify-center ${loading ? 'opacity-70' : ''}`}
+            className={`flex-[2] bg-brand rounded-xl-r py-4 items-center justify-center ${loading || (!!teamId && !teamContext) ? 'opacity-70' : ''}`}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
               <Text className="font-display text-[15px] font-black text-white uppercase tracking-[1px]">
-                {creationMode === 'match' ? 'Publicar Partido' : 'Crear Grupo'}
+                {teamContext ? 'Crear partido privado' : creationMode === 'match' ? 'Publicar Partido' : 'Crear Equipo'}
               </Text>
             )}
           </TouchableOpacity>

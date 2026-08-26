@@ -4,15 +4,12 @@ import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
   Share,
   StyleSheet,
   Text,
-  TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,116 +29,6 @@ type MatchWithCardJoins = SeriesMatch & {
   organizer?: { full_name?: string; username?: string } | null;
 };
 
-function parseLocalDateTime(dateText: string, timeText: string): Date | null {
-  const dateMatch = dateText.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
-  const timeMatch = timeText.match(/^(\d{2}):(\d{2})$/);
-  if (!dateMatch || !timeMatch) return null;
-
-  const day = Number(dateMatch[1]);
-  const month = Number(dateMatch[2]);
-  const year = Number(dateMatch[3]);
-  const hours = Number(timeMatch[1]);
-  const minutes = Number(timeMatch[2]);
-  const value = new Date(year, month - 1, day, hours, minutes);
-
-  if (
-    value.getFullYear() !== year
-    || value.getMonth() !== month - 1
-    || value.getDate() !== day
-    || value.getHours() !== hours
-    || value.getMinutes() !== minutes
-  ) return null;
-
-  return value;
-}
-
-function CreateMatchModal({
-  visible,
-  submitting,
-  onClose,
-  onSubmit,
-}: {
-  visible: boolean;
-  submitting: boolean;
-  onClose: () => void;
-  onSubmit: (dateText: string, timeText: string) => void;
-}) {
-  const { colors: c } = useTheme();
-  const [dateText, setDateText] = useState('');
-  const [timeText, setTimeText] = useState('');
-
-  useEffect(() => {
-    if (!visible) return;
-    const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    setDateText(nextWeek.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' }));
-    setTimeText('20:00');
-  }, [visible]);
-
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: c.scrim }}>
-        <View style={{ backgroundColor: c.bgElev, borderTopLeftRadius: 26, borderTopRightRadius: 26, padding: 24, paddingBottom: 36 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: c.text, fontSize: 21, fontWeight: '900' }}>Crear esta semana</Text>
-              <Text style={{ color: c.textDim, fontSize: 14, marginTop: 4 }}>La plantilla empezará pendiente de confirmar.</Text>
-            </View>
-            <TouchableOpacity
-              accessibilityRole="button"
-              accessibilityLabel="Cerrar"
-              onPress={onClose}
-              disabled={submitting}
-              style={{ width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}
-            >
-              <Ionicons name="close" size={24} color={c.textDim} />
-            </TouchableOpacity>
-          </View>
-
-          <View style={{ flexDirection: 'row', gap: 12, marginTop: 24 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={{ color: c.textDim, fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 8 }}>DÍA</Text>
-              <TextInput
-                accessibilityLabel="Día del partido"
-                value={dateText}
-                onChangeText={setDateText}
-                placeholder="DD/MM/AAAA"
-                placeholderTextColor={c.textMuted}
-                keyboardType="number-pad"
-                maxLength={10}
-                style={{ minHeight: 48, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.inputBg, color: c.text, paddingHorizontal: 14, fontSize: 16 }}
-              />
-            </View>
-            <View style={{ width: 116 }}>
-              <Text style={{ color: c.textDim, fontSize: 11, fontWeight: '700', letterSpacing: 1, marginBottom: 8 }}>HORA</Text>
-              <TextInput
-                accessibilityLabel="Hora del partido"
-                value={timeText}
-                onChangeText={setTimeText}
-                placeholder="HH:MM"
-                placeholderTextColor={c.textMuted}
-                keyboardType="number-pad"
-                maxLength={5}
-                style={{ minHeight: 48, borderRadius: 14, borderWidth: 1, borderColor: c.border, backgroundColor: c.inputBg, color: c.text, paddingHorizontal: 14, fontSize: 16 }}
-              />
-            </View>
-          </View>
-
-          <TouchableOpacity
-            accessibilityRole="button"
-            onPress={() => onSubmit(dateText, timeText)}
-            disabled={submitting}
-            style={{ minHeight: 52, borderRadius: 14, marginTop: 24, backgroundColor: c.brand, opacity: submitting ? 0.6 : 1, alignItems: 'center', justifyContent: 'center' }}
-          >
-            {submitting ? <ActivityIndicator color={c.brandInk} /> : (
-              <Text style={{ color: c.brandInk, fontSize: 16, fontWeight: '900' }}>Crear partido</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
 export default function GroupDetailScreen() {
   const params = useLocalSearchParams<{ id?: string | string[] }>();
   const id = Array.isArray(params.id) ? params.id[0] : params.id;
@@ -156,13 +43,11 @@ export default function GroupDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [creatingMatch, setCreatingMatch] = useState(false);
-  const [createModalVisible, setCreateModalVisible] = useState(false);
   const [savingGroup, setSavingGroup] = useState(false);
 
   const loadGroup = useCallback(async (refresh = false) => {
     if (!id) {
-      setError('No encontramos ese grupo.');
+      setError('No encontramos ese equipo.');
       setLoading(false);
       return;
     }
@@ -202,7 +87,7 @@ export default function GroupDetailScreen() {
       setMatches((matchesResult.data ?? []) as MatchWithCardJoins[]);
     } catch (loadError) {
       logSupabaseError('load recurring group', loadError);
-      setError(getErrorMessage(loadError, 'No hemos podido cargar el grupo.'));
+      setError(getErrorMessage(loadError, 'No hemos podido cargar el equipo.'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -219,7 +104,7 @@ export default function GroupDetailScreen() {
     if (!group) return;
     try {
       await Share.share({
-        message: `Te queremos en ${group.title}. Entra al grupo de Rondo: ${buildSeriesInviteUrl(group.invite_code)}`,
+        message: `Te queremos en ${group.title}. Entra al equipo de Rondo: ${buildSeriesInviteUrl(group.invite_code)}`,
       });
     } catch (shareError) {
       Alert.alert('No se pudo compartir', shareError instanceof Error ? shareError.message : 'Prueba de nuevo.');
@@ -243,36 +128,10 @@ export default function GroupDetailScreen() {
     }
   };
 
-  const createManualMatch = async (dateText: string, timeText: string) => {
-    if (!group) return;
-    const dateTime = parseLocalDateTime(dateText, timeText);
-    if (!dateTime || dateTime.getTime() <= Date.now()) {
-      Alert.alert('Fecha incorrecta', 'Usa DD/MM/AAAA y HH:MM con una fecha futura.');
-      return;
-    }
-
-    setCreatingMatch(true);
-    try {
-      const { data, error: createError } = await supabase.rpc('create_manual_series_match', {
-        p_series_id: group.id,
-        p_date_time: dateTime.toISOString(),
-      });
-      if (createError) throw createError;
-      if (typeof data !== 'string') throw new Error('No se recibió el partido creado.');
-      setCreateModalVisible(false);
-      await loadGroup();
-      router.push(`/match/${data}` as never);
-    } catch (createError) {
-      Alert.alert('No se pudo crear', createError instanceof Error ? createError.message : 'Prueba de nuevo.');
-    } finally {
-      setCreatingMatch(false);
-    }
-  };
-
   const removeMember = (member: SeriesMember) => {
     if (!isOrganizer) return;
     const name = member.user?.full_name || member.user?.username || 'este jugador';
-    Alert.alert('Quitar del grupo', `¿Quitamos a ${name} de la plantilla?`, [
+    Alert.alert('Quitar del equipo', `¿Quitamos a ${name} de la plantilla?`, [
       { text: 'Cancelar', style: 'cancel' },
       {
         text: 'Quitar',
@@ -319,7 +178,7 @@ export default function GroupDetailScreen() {
         </View>
         <View style={s.errorContent}>
           <Ionicons name="alert-circle-outline" size={48} color={c.danger} />
-          <Text style={s.errorTitle}>No carga el grupo</Text>
+          <Text style={s.errorTitle}>No carga el equipo</Text>
           <Text style={s.errorCopy}>{error}</Text>
           <Pressable
             accessibilityRole="button"
@@ -356,7 +215,7 @@ export default function GroupDetailScreen() {
           style={({ pressed }) => [s.headerBtn, pressed && s.pressed]}
           onPress={() => void shareInvite()}
           accessibilityRole="button"
-          accessibilityLabel="Compartir invitación del grupo"
+          accessibilityLabel="Compartir invitación del equipo"
         >
           <Ionicons name="share-outline" size={20} color={c.brand} />
         </Pressable>
@@ -372,7 +231,7 @@ export default function GroupDetailScreen() {
           <Text style={s.titleText}>{group.title}</Text>
           <View style={s.badgeRow}>
             <Badge
-              label="Grupo fijo"
+              label="Equipo"
               color={c.brand}
               bg={c.brandSoft}
               border="rgba(34,197,94,0.3)"
@@ -396,11 +255,8 @@ export default function GroupDetailScreen() {
           </View>
 
           <View style={s.infoRow}>
-            <InfoCell label="Plantilla" flex={1}>
+            <InfoCell label="Plantilla">
               <Text style={s.infoCellValue}>{members.length}</Text>
-            </InfoCell>
-            <InfoCell label="Mínimo" flex={1}>
-              <Text style={s.infoCellValue}>{group.min_players}</Text>
             </InfoCell>
           </View>
         </View>
@@ -410,7 +266,7 @@ export default function GroupDetailScreen() {
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Crear el partido de esta semana"
-              onPress={() => setCreateModalVisible(true)}
+              onPress={() => router.push({ pathname: '/(tabs)/create', params: { teamId: group.id } } as never)}
               disabled={!group.is_active}
               style={({ pressed }) => [
                 s.primaryButton,
@@ -419,7 +275,7 @@ export default function GroupDetailScreen() {
               ]}
             >
               <Ionicons name="add" size={20} color={c.brandInk} />
-              <Text style={s.primaryButtonText}>Crear esta semana</Text>
+              <Text style={s.primaryButtonText}>Crear partido</Text>
             </Pressable>
           </View>
         )}
@@ -478,7 +334,7 @@ export default function GroupDetailScreen() {
               <Text style={s.organizerTitle}>Panel del organizador</Text>
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={group.is_active ? 'Pausar grupo' : 'Volver a activar el grupo'}
+                accessibilityLabel={group.is_active ? 'Pausar equipo' : 'Volver a activar el equipo'}
                 onPress={() => void toggleGroup()}
                 disabled={savingGroup}
                 style={({ pressed }) => [
@@ -490,7 +346,7 @@ export default function GroupDetailScreen() {
               >
                 {savingGroup ? <ActivityIndicator color={c.text} /> : (
                   <Text style={[s.toggleButtonText, { color: group.is_active ? c.danger : c.brand }]}>
-                    {group.is_active ? 'Pausar grupo' : 'Volver a activar'}
+                    {group.is_active ? 'Pausar equipo' : 'Volver a activar'}
                   </Text>
                 )}
               </Pressable>
@@ -498,13 +354,6 @@ export default function GroupDetailScreen() {
           </View>
         )}
       </ScrollView>
-
-      <CreateMatchModal
-        visible={createModalVisible}
-        submitting={creatingMatch}
-        onClose={() => setCreateModalVisible(false)}
-        onSubmit={(dateText, timeText) => void createManualMatch(dateText, timeText)}
-      />
     </View>
   );
 }

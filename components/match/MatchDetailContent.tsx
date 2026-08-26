@@ -29,6 +29,7 @@ type Props = {
   isJoined: boolean;
   isPending: boolean;
   isSeriesMatch: boolean;
+  isPrivateTeamMatch: boolean;
   seriesResponse: SeriesResponse | null;
   ctaDisabled: boolean;
   actionLoading: boolean;
@@ -39,6 +40,7 @@ type Props = {
   onOrganizerChatPress: () => void;
   onJoin: () => void;
   onSeriesResponse: (response: Exclude<SeriesResponse, 'pending'>) => void;
+  onPublishTeamMatch: () => void;
   onLeave: () => void;
   onFinalize: () => void;
   onCancelMatch: () => void;
@@ -57,6 +59,7 @@ export function MatchDetailContent({
   isJoined,
   isPending,
   isSeriesMatch,
+  isPrivateTeamMatch,
   seriesResponse,
   ctaDisabled,
   actionLoading,
@@ -67,6 +70,7 @@ export function MatchDetailContent({
   onOrganizerChatPress,
   onJoin,
   onSeriesResponse,
+  onPublishTeamMatch,
   onLeave,
   onFinalize,
   onCancelMatch,
@@ -241,12 +245,12 @@ export function MatchDetailContent({
               {match.status === 'completed' ? '✅ Partido finalizado' : '🚫 Partido cancelado'}
             </Text>
           </View>
-        ) : isSeriesMatch && !isOrganizer ? (
+        ) : isPrivateTeamMatch && !isOrganizer ? (
           <View style={s.seriesConfirmCard}>
             {seriesResponse === 'pending' ? (
               <>
                 <Text style={s.seriesConfirmTitle}>¿Juegas esta pachanga?</Text>
-                <Text style={s.seriesConfirmCopy}>Confirma para que el grupo sepa con quién cuenta.</Text>
+                <Text style={s.seriesConfirmCopy}>Confirma para que el equipo sepa con quién cuenta.</Text>
                 {actionLoading ? (
                   <ActivityIndicator color={c.brand} style={{ height: 48 }} />
                 ) : (
@@ -341,6 +345,22 @@ export function MatchDetailContent({
         {isOrganizer && !isArchived && (
           <View style={s.orgPanel}>
             <Text style={s.orgPanelTitle}>Panel de Organizador</Text>
+            {isPrivateTeamMatch && slots > filled && (
+              <Pressable
+                style={[s.btnPrimary, { backgroundColor: c.brand }]}
+                onPress={onPublishTeamMatch}
+                disabled={actionLoading}
+                accessibilityRole="button"
+                accessibilityLabel="Publicar las plazas libres"
+              >
+                <View style={s.btnRow}>
+                  <Ionicons name="megaphone-outline" size={18} color={c.brandInk} />
+                  <Text style={s.btnPrimaryText}>
+                    Publicar {slots - filled} {slots - filled === 1 ? 'plaza libre' : 'plazas libres'}
+                  </Text>
+                </View>
+              </Pressable>
+            )}
             <Pressable
               style={[s.btnPrimary, { backgroundColor: c.brand }]}
               onPress={onFinalize}
@@ -361,7 +381,7 @@ export function MatchDetailContent({
           </View>
         )}
 
-        {!isArchived && !isSeriesMatch && (
+        {!isArchived && !isPrivateTeamMatch && (
           <Pressable
             className="min-h-[52px] w-full flex-row items-center justify-center gap-2 rounded-md-r border border-border bg-bg-surface px-5 py-3.5"
             style={({ pressed }) => pressed && { opacity: 0.7 }}
@@ -377,7 +397,7 @@ export function MatchDetailContent({
         )}
       </View>
 
-      {isOrganizer && !isSeriesMatch && pendingParticipants.length > 0 && !isArchived && (
+      {isOrganizer && !isPrivateTeamMatch && pendingParticipants.length > 0 && !isArchived && (
         <View style={s.section}>
           <Text style={s.sectionLabel}>Solicitudes Pendientes ({pendingParticipants.length})</Text>
           {pendingParticipants.map(p => (

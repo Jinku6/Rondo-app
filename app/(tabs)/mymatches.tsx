@@ -80,7 +80,7 @@ export default function MyMatchesScreen() {
       if (organizedResult.error) throw organizedResult.error;
       if (groupsResult.error) {
         logSupabaseError('load groups in my matches', groupsResult.error);
-        setGroupsError(getErrorMessage(groupsResult.error, 'No hemos podido cargar tus grupos.'));
+        setGroupsError(getErrorMessage(groupsResult.error, 'No hemos podido cargar tus equipos.'));
       } else {
         setGroups((groupsResult.data ?? []) as MyGroup[]);
       }
@@ -296,15 +296,15 @@ export default function MyMatchesScreen() {
 
             <View className="mb-6">
               <Text className="font-mono text-[10px] font-bold uppercase tracking-[1.5px] text-ink-dim mb-3">
-                Mis grupos
+                Mis equipos
               </Text>
               {groupsError && (
                 <View className="rounded-xl border border-danger/30 bg-danger/10 p-4 mb-3">
-                  <Text className="font-body text-sm font-semibold text-danger">No hemos podido cargar tus grupos.</Text>
+                  <Text className="font-body text-sm font-semibold text-danger">No hemos podido cargar tus equipos.</Text>
                   <Text className="font-body text-xs leading-5 text-ink-dim mt-1">{groupsError}</Text>
                   <TouchableOpacity
                     accessibilityRole="button"
-                    accessibilityLabel="Reintentar la carga de grupos"
+                    accessibilityLabel="Reintentar la carga de equipos"
                     activeOpacity={0.7}
                     onPress={() => void fetchMyMatches()}
                     className="min-h-12 self-start flex-row items-center justify-center mt-2"
@@ -317,7 +317,7 @@ export default function MyMatchesScreen() {
               {groups.length === 0 ? (
                 !groupsError && <TouchableOpacity
                   accessibilityRole="button"
-                  accessibilityLabel="Crear el primer grupo fijo"
+                  accessibilityLabel="Crear el primer equipo"
                   activeOpacity={0.7}
                   onPress={() => router.push('/(tabs)/create')}
                   className="min-h-[72px] flex-row items-center rounded-xl border border-dashed border-border-strong bg-surface px-4 py-3"
@@ -326,7 +326,7 @@ export default function MyMatchesScreen() {
                     <Ionicons name="people-outline" size={22} color={colors.brand} />
                   </View>
                   <View className="ml-3 flex-1">
-                    <Text className="font-display text-sm font-extrabold text-ink">Monta tu grupo fijo</Text>
+                    <Text className="font-display text-sm font-extrabold text-ink">Monta tu equipo</Text>
                     <Text className="font-body text-xs leading-5 text-ink-dim">La plantilla de cada pachanga, siempre a mano.</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={19} color={colors.textDim} />
@@ -339,7 +339,7 @@ export default function MyMatchesScreen() {
                       <TouchableOpacity
                         key={group.id}
                         accessibilityRole="button"
-                        accessibilityLabel={`Abrir grupo ${group.title}`}
+                        accessibilityLabel={`Abrir equipo ${group.title}`}
                         activeOpacity={0.7}
                         onPress={() => router.push(`/group/${group.id}` as never)}
                         className="min-h-[72px] flex-row items-center rounded-xl border border-border bg-surface px-4 py-3"
