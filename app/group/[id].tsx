@@ -15,9 +15,11 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MatchCard } from '@/components/rondo/MatchCard';
-import { Badge, InfoCell, PlayerRow } from '@/components/match/MatchDetailParts';
+import { Badge, InfoCell, PlayerRow, ProfileAvatar } from '@/components/match/MatchDetailParts';
+import { TeamEditModal, type TeamEditValues } from '@/components/team/TeamEditModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/hooks/use-theme';
+import { uploadAvatar } from '@/lib/avatarUpload';
 import { buildSeriesInviteUrl } from '@/lib/seriesInvite';
 import { supabase } from '@/lib/supabase';
 import { getErrorMessage, logSupabaseError } from '@/lib/supabaseErrors';
@@ -43,7 +45,10 @@ export default function GroupDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [savingGroup, setSavingGroup] = useState(false);
+  const [editVisible, setEditVisible] = useState(false);
+  const [savingTeam, setSavingTeam] = useState(false);
+  const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
+  const [deletingTeam, setDeletingTeam] = useState(false);
 
   const loadGroup = useCallback(async (refresh = false) => {
     if (!id) {
@@ -62,6 +67,7 @@ export default function GroupDetailScreen() {
           .from('match_series')
           .select('*, venue:venues(canonical_name,address,city)')
           .eq('id', id)
+          .is('deleted_at', null)
           .single(),
         supabase
           .from('series_members')
@@ -111,45 +117,109 @@ export default function GroupDetailScreen() {
     }
   };
 
-  const toggleGroup = async () => {
-    if (!group || !isOrganizer) return;
-    setSavingGroup(true);
+  const saveTeam = async (values: TeamEditValues) => {
+    if (!group || !isOrganizer || !user?.id) return;
+    setSavingTeam(true);
     try {
-      const { error: updateError } = await supabase
-        .from('match_series')
-        .update({ is_active: !group.is_active })
-        .eq('id', group.id);
+      const avatarUrl = values.avatarAsset
+        ? await uploadAvatar({
+          asset: values.avatarAsset,
+          ownerId: user.id,
+          folder: `teams/${group.id}`,
+        })
+        : values.avatarUrl;
+      const { error: updateError } = await supabase.rpc('update_team_details', {
+        p_team_id: group.id,
+        p_title: values.title,
+        p_city: values.city,
+        p_price_per_player: values.pricePerPlayer,
+        p_avatar_url: avatarUrl,
+      });
       if (updateError) throw updateError;
-      setGroup({ ...group, is_active: !group.is_active });
+      setGroup({
+        ...group,
+        title: values.title,
+        city: values.city,
+        price_per_player: values.pricePerPlayer,
+        avatar_url: avatarUrl,
+      });
+      setEditVisible(false);
+      Alert.alert('Equipo actualizado', 'Todo listo para la próxima pachanga.');
     } catch (updateError) {
-      Alert.alert('No se pudo guardar', updateError instanceof Error ? updateError.message : 'Prueba de nuevo.');
+      logSupabaseError('update team details', updateError);
+      Alert.alert('No se pudo guardar', getErrorMessage(updateError, 'Revisa los datos y prueba de nuevo.'));
     } finally {
-      setSavingGroup(false);
+      setSavingTeam(false);
     }
   };
 
   const removeMember = (member: SeriesMember) => {
     if (!isOrganizer) return;
     const name = member.user?.full_name || member.user?.username || 'este jugador';
-    Alert.alert('Quitar del equipo', `¿Quitamos a ${name} de la plantilla?`, [
+    Alert.alert('Expulsar jugador', `${name} saldrá de la plantilla y perderá sus reservas pendientes en futuros partidos privados. Las plazas que ya confirmó se mantienen.`, [
       { text: 'Cancelar', style: 'cancel' },
       {
-        text: 'Quitar',
+        text: 'Expulsar',
         style: 'destructive',
         onPress: async () => {
+          setRemovingMemberId(member.id);
           try {
-            const { error: removeError } = await supabase
-              .from('series_members')
-              .update({ status: 'removed' })
-              .eq('id', member.id);
+            const { error: removeError } = await supabase.rpc('remove_team_member', {
+              p_team_id: group.id,
+              p_user_id: member.user_id,
+            });
             if (removeError) throw removeError;
             setMembers(current => current.filter(item => item.id !== member.id));
+            Alert.alert('Jugador expulsado', `${name} ya no forma parte de la plantilla.`);
           } catch (removeError) {
-            Alert.alert('No se pudo quitar', removeError instanceof Error ? removeError.message : 'Prueba de nuevo.');
+            logSupabaseError('remove team member', removeError);
+            Alert.alert('No se pudo expulsar', getErrorMessage(removeError, 'Prueba de nuevo.'));
+          } finally {
+            setRemovingMemberId(null);
           }
         },
       },
     ]);
+  };
+
+  const deleteTeam = () => {
+    if (!group || !isOrganizer) return;
+    if (matches.length > 0) {
+      Alert.alert(
+        'Aún hay pachangas pendientes',
+        'Cancela o finaliza los partidos futuros antes de eliminar el equipo.',
+      );
+      return;
+    }
+
+    Alert.alert(
+      'Eliminar equipo',
+      `${group.title} desaparecerá de Rondo y el enlace dejará de funcionar. El historial de partidos se conservará.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar equipo',
+          style: 'destructive',
+          onPress: async () => {
+            setDeletingTeam(true);
+            try {
+              const { error: deleteError } = await supabase.rpc('delete_team', {
+                p_team_id: group.id,
+              });
+              if (deleteError) throw deleteError;
+              Alert.alert('Equipo eliminado', 'El vestuario conserva el historial de sus pachangas.', [
+                { text: 'Aceptar', onPress: () => router.replace('/(tabs)/mymatches') },
+              ]);
+            } catch (deleteError) {
+              logSupabaseError('delete team', deleteError);
+              Alert.alert('No se pudo eliminar', getErrorMessage(deleteError, 'Prueba de nuevo.'));
+            } finally {
+              setDeletingTeam(false);
+            }
+          },
+        },
+      ],
+    );
   };
 
   if (loading && !group) {
@@ -228,20 +298,33 @@ export default function GroupDetailScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={s.titleBlock}>
-          <Text style={s.titleText}>{group.title}</Text>
-          <View style={s.badgeRow}>
-            <Badge
-              label="Equipo"
-              color={c.brand}
-              bg={c.brandSoft}
-              border="rgba(34,197,94,0.3)"
-            />
-            <Badge
-              label={group.is_active ? 'Activo' : 'Pausado'}
-              color={group.is_active ? c.brand : c.textDim}
-              bg={group.is_active ? c.brandSoft : c.inputBg}
-              border={group.is_active ? 'rgba(34,197,94,0.3)' : c.border}
-            />
+          <View style={s.identityRow}>
+            <Pressable
+              accessibilityRole={isOrganizer ? 'button' : undefined}
+              accessibilityLabel={isOrganizer ? 'Editar foto del equipo' : undefined}
+              disabled={!isOrganizer}
+              onPress={() => setEditVisible(true)}
+              style={({ pressed }) => [s.teamAvatar, pressed && isOrganizer && s.pressed]}
+            >
+              <ProfileAvatar name={group.title} avatarUrl={group.avatar_url} size={76} textSize={23} />
+              {isOrganizer && (
+                <View style={s.cameraBadge}>
+                  <Ionicons name="camera" size={14} color={c.brandInk} />
+                </View>
+              )}
+            </Pressable>
+            <View style={s.identityCopy}>
+              <Badge
+                label="Equipo"
+                color={c.brand}
+                bg={c.brandSoft}
+                border="rgba(34,197,94,0.3)"
+              />
+              <Text style={s.titleText}>{group.title}</Text>
+              <Text style={s.teamMeta}>
+                {cityLabel} · {group.price_per_player > 0 ? `${group.price_per_player} € habituales` : 'Sin precio habitual'}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -267,12 +350,7 @@ export default function GroupDetailScreen() {
               accessibilityRole="button"
               accessibilityLabel="Crear el partido de esta semana"
               onPress={() => router.push({ pathname: '/(tabs)/create', params: { teamId: group.id } } as never)}
-              disabled={!group.is_active}
-              style={({ pressed }) => [
-                s.primaryButton,
-                !group.is_active && s.disabled,
-                pressed && group.is_active && s.pressed,
-              ]}
+              style={({ pressed }) => [s.primaryButton, pressed && s.pressed]}
             >
               <Ionicons name="add" size={20} color={c.brandInk} />
               <Text style={s.primaryButtonText}>Crear partido</Text>
@@ -298,7 +376,7 @@ export default function GroupDetailScreen() {
           )}
         </View>
 
-        <View style={[s.section, s.lastSection]}>
+        <View style={s.section}>
           <Text style={s.sectionLabel}>Plantilla ({members.length})</Text>
           {members.length === 0 ? (
             <View style={s.emptyCard}>
@@ -316,11 +394,16 @@ export default function GroupDetailScreen() {
                 rightContent={isOrganizer && member.user_id !== user?.id ? (
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`Quitar a ${name}`}
+                    accessibilityLabel={`Expulsar a ${name}`}
                     onPress={() => removeMember(member)}
-                    style={({ pressed }) => [s.removeButton, pressed && s.pressed]}
+                    disabled={removingMemberId !== null}
+                    style={({ pressed }) => [s.removeButton, pressed && s.pressed, removingMemberId !== null && s.disabled]}
                   >
-                    <Ionicons name="person-remove-outline" size={20} color={c.danger} />
+                    {removingMemberId === member.id ? (
+                      <ActivityIndicator color={c.danger} />
+                    ) : (
+                      <Text style={s.removeButtonText}>Expulsar</Text>
+                    )}
                   </Pressable>
                 ) : undefined}
               />
@@ -329,31 +412,79 @@ export default function GroupDetailScreen() {
         </View>
 
         {isOrganizer && (
-          <View style={s.organizerBlock}>
-            <View style={s.organizerPanel}>
-              <Text style={s.organizerTitle}>Panel del organizador</Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={group.is_active ? 'Pausar equipo' : 'Volver a activar el equipo'}
-                onPress={() => void toggleGroup()}
-                disabled={savingGroup}
-                style={({ pressed }) => [
-                  s.toggleButton,
-                  { borderColor: group.is_active ? c.danger : c.brand },
-                  savingGroup && s.disabled,
-                  pressed && !savingGroup && s.pressed,
-                ]}
-              >
-                {savingGroup ? <ActivityIndicator color={c.text} /> : (
-                  <Text style={[s.toggleButtonText, { color: group.is_active ? c.danger : c.brand }]}>
-                    {group.is_active ? 'Pausar equipo' : 'Volver a activar'}
-                  </Text>
-                )}
-              </Pressable>
+          <>
+            <View style={s.section}>
+              <Text style={s.sectionLabel}>Gestión del equipo</Text>
+              <View style={s.managementCard}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Editar equipo"
+                  onPress={() => setEditVisible(true)}
+                  style={({ pressed }) => [s.managementRow, pressed && s.pressed]}
+                >
+                  <View style={s.managementIcon}>
+                    <Ionicons name="create-outline" size={20} color={c.brand} />
+                  </View>
+                  <View style={s.managementCopy}>
+                    <Text style={s.managementTitle}>Editar equipo</Text>
+                    <Text style={s.managementSubtitle}>Foto, nombre, ciudad y precio habitual</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={c.textDim} />
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Compartir invitación del equipo"
+                  onPress={() => void shareInvite()}
+                  style={({ pressed }) => [s.managementRow, s.managementRowLast, pressed && s.pressed]}
+                >
+                  <View style={s.managementIcon}>
+                    <Ionicons name="share-social-outline" size={20} color={c.brand} />
+                  </View>
+                  <View style={s.managementCopy}>
+                    <Text style={s.managementTitle}>Compartir invitación</Text>
+                    <Text style={s.managementSubtitle}>Suma jugadores a la plantilla</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={c.textDim} />
+                </Pressable>
+              </View>
             </View>
-          </View>
+
+            <View style={[s.section, s.lastSection]}>
+              <Text style={s.sectionLabel}>Zona peligrosa</Text>
+              <View style={s.dangerCard}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Eliminar equipo"
+                  onPress={deleteTeam}
+                  disabled={deletingTeam}
+                  style={({ pressed }) => [s.managementRow, s.managementRowLast, (pressed || deletingTeam) && s.pressed]}
+                >
+                  <View style={[s.managementIcon, s.dangerIcon]}>
+                    <Ionicons name="trash-outline" size={20} color={c.danger} />
+                  </View>
+                  <View style={s.managementCopy}>
+                    <Text style={[s.managementTitle, { color: c.danger }]}>Eliminar equipo</Text>
+                    <Text style={s.managementSubtitle}>Disponible cuando no haya partidos futuros</Text>
+                  </View>
+                  {deletingTeam ? (
+                    <ActivityIndicator color={c.danger} />
+                  ) : (
+                    <Ionicons name="chevron-forward" size={18} color={c.danger} />
+                  )}
+                </Pressable>
+              </View>
+            </View>
+          </>
         )}
       </ScrollView>
+
+      <TeamEditModal
+        visible={editVisible}
+        team={group}
+        saving={savingTeam}
+        onClose={() => setEditVisible(false)}
+        onSave={(values) => void saveTeam(values)}
+      />
     </View>
   );
 }
@@ -416,20 +547,46 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
     borderBottomWidth: 1,
     borderBottomColor: c.border,
   },
-  titleText: {
-    fontFamily: 'Archivo_900Black',
-    fontSize: 30,
-    fontWeight: '900',
-    color: c.text,
-    lineHeight: 34,
-    letterSpacing: -0.3,
-    marginBottom: 10,
-  },
-  badgeRow: {
+  identityRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    flexWrap: 'wrap',
+    gap: 16,
+  },
+  teamAvatar: {
+    position: 'relative',
+  },
+  cameraBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: c.brand,
+    borderWidth: 2,
+    borderColor: c.bg,
+  },
+  identityCopy: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'flex-start',
+  },
+  titleText: {
+    fontFamily: 'Archivo_900Black',
+    fontSize: 26,
+    fontWeight: '900',
+    color: c.text,
+    lineHeight: 30,
+    letterSpacing: -0.3,
+    marginTop: 8,
+  },
+  teamMeta: {
+    color: c.textDim,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 4,
   },
   infoSection: {
     padding: 16,
@@ -545,36 +702,61 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
     alignItems: 'center',
     justifyContent: 'center',
   },
-  organizerBlock: {
-    paddingHorizontal: 16,
-    paddingTop: 14,
+  removeButtonText: {
+    color: c.danger,
+    fontSize: 12,
+    fontWeight: '800',
   },
-  organizerPanel: {
-    backgroundColor: c.bgElev,
-    borderRadius: 16,
-    padding: 16,
-    gap: 12,
+  managementCard: {
+    overflow: 'hidden',
+    backgroundColor: c.bgSurface,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: c.border,
   },
-  organizerTitle: {
-    fontFamily: 'JetBrainsMono_700Bold',
-    fontSize: 11,
-    color: c.brand,
-    textAlign: 'center',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
+  managementRow: {
+    minHeight: 72,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: c.border,
   },
-  toggleButton: {
-    minHeight: 48,
-    width: '100%',
+  managementRowLast: {
+    borderBottomWidth: 0,
+  },
+  managementIcon: {
+    width: 40,
+    height: 40,
     borderRadius: 12,
-    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: c.brandSoft,
   },
-  toggleButtonText: {
+  managementCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  managementTitle: {
+    color: c.text,
     fontSize: 14,
     fontWeight: '800',
+  },
+  managementSubtitle: {
+    color: c.textDim,
+    fontSize: 12,
+    lineHeight: 18,
+    marginTop: 2,
+  },
+  dangerCard: {
+    overflow: 'hidden',
+    backgroundColor: c.bgSurface,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: `${c.danger}40`,
+  },
+  dangerIcon: {
+    backgroundColor: `${c.danger}18`,
   },
 });

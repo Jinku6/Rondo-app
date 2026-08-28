@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
 import { ScreenTitle } from '@/components/ui/ScreenTitle';
 import { StatCard } from '@/components/ui/StatCard';
+import { ProfileAvatar } from '@/components/match/MatchDetailParts';
 import { useTheme } from '@/hooks/use-theme';
 import { getErrorMessage, logSupabaseError } from '@/lib/supabaseErrors';
 
@@ -19,7 +20,7 @@ type MyGroup = {
   organizer_id: string;
   title: string;
   city: string | null;
-  is_active: boolean;
+  avatar_url: string | null;
 };
 
 const ACTIVE_STATUSES = ['open', 'full'];
@@ -73,7 +74,8 @@ export default function MyMatchesScreen() {
           .order('date_time', { ascending: true }),
         supabase
           .from('match_series')
-          .select('id,organizer_id,title,city,is_active')
+          .select('id,organizer_id,title,city,avatar_url')
+          .is('deleted_at', null)
           .order('created_at', { ascending: false }),
       ]);
 
@@ -344,13 +346,11 @@ export default function MyMatchesScreen() {
                         onPress={() => router.push(`/group/${group.id}` as never)}
                         className="min-h-[72px] flex-row items-center rounded-xl border border-border bg-surface px-4 py-3"
                       >
-                        <View className="h-11 w-11 items-center justify-center rounded-full bg-brand/10">
-                          <Ionicons name="people-outline" size={22} color={colors.brand} />
-                        </View>
+                        <ProfileAvatar name={group.title} avatarUrl={group.avatar_url} size={44} textSize={14} />
                         <View className="ml-3 flex-1 min-w-0">
                           <Text className="font-display text-[15px] font-extrabold text-ink" numberOfLines={1}>{group.title}</Text>
                           <Text className="font-body text-xs text-ink-dim mt-1" numberOfLines={1}>
-                            {group.city || 'Sin ciudad definida'} · {group.is_active ? 'Activo' : 'Pausado'}
+                            {group.city || 'Sin ciudad definida'}
                           </Text>
                         </View>
                         <View className={`ml-3 rounded-full border px-2 py-1 ${organizesGroup ? 'border-warning/30 bg-warning/10' : 'border-brand/30 bg-brand/10'}`}>

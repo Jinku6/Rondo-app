@@ -39,7 +39,6 @@ type CreationMode = 'match' | 'series';
 type OrganizerSeries = {
   id: string;
   title: string;
-  is_active: boolean;
   city: string | null;
   price_per_player: number;
   venue: { canonical_name: string }[];
@@ -154,6 +153,7 @@ export default function CreateMatchScreen() {
           .eq('id', teamId)
           .eq('organizer_id', user.id)
           .eq('is_active', true)
+          .is('deleted_at', null)
           .single();
         if (error) throw error;
         if (!active) return;
@@ -193,8 +193,9 @@ export default function CreateMatchScreen() {
       try {
         const { data, error } = await supabase
           .from('match_series')
-          .select('id,title,is_active,city,price_per_player,venue:venues(canonical_name)')
+          .select('id,title,city,price_per_player,venue:venues(canonical_name)')
           .eq('organizer_id', user.id)
+          .is('deleted_at', null)
           .order('created_at', { ascending: false });
         if (error) throw error;
         if (active) setMyGroups((data ?? []) as OrganizerSeries[]);
@@ -564,7 +565,7 @@ export default function CreateMatchScreen() {
                     <View className="flex-1">
                       <Text className="text-ink font-body font-bold text-sm">{group.title}</Text>
                       <Text className="text-ink-muted font-body text-xs mt-0.5">
-                        {group.city ?? group.venue?.[0]?.canonical_name ?? 'Sin ciudad definida'} · {group.is_active ? 'Activo' : 'En pausa'}
+                        {group.city ?? group.venue?.[0]?.canonical_name ?? 'Sin ciudad definida'}
                       </Text>
                     </View>
                     <Ionicons name="chevron-forward" size={19} color={colors.textDim} />

@@ -21,6 +21,8 @@ export interface MatchSeries {
   auto_publish_if_short: boolean;
   invite_code: string;
   is_active: boolean;
+  avatar_url: string | null;
+  deleted_at: string | null;
   created_at: string;
   venue?: SeriesVenue | null;
 }
