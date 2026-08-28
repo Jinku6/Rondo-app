@@ -7,9 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import { PendingReviewsAlert } from '@/components/PendingReviewsAlert';
-import { decode } from 'base64-arraybuffer';
 import { calculateAge, isSafeUrl } from '@/lib/utils';
 import { Colors } from '@/constants/theme';
 import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
@@ -17,6 +15,7 @@ import { getErrorMessage, logSupabaseError } from '@/lib/supabaseErrors';
 import { containsProfanity } from '@/lib/profanityFilter';
 import { ScreenTitle } from '@/components/ui/ScreenTitle';
 import { useTheme } from '@/hooks/use-theme';
+import { pickSquareAvatar, uploadAvatar, type AvatarAsset } from '@/lib/avatarUpload';
 import {
   formatMemberSince,
   getAttitudeEmoji,
@@ -29,13 +28,6 @@ import {
 const c = Colors;
 
 const MIN_PASSWORD_LENGTH = 6;
-const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
-const AVATAR_MIME_EXTENSIONS: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-};
-
 const showAlert = (title: string, message: string, onOk?: () => void) => {
   if (Platform.OS === 'web') {
     window.alert(`${title}: ${message}`);
@@ -183,37 +175,20 @@ export default function ProfileScreen() {
 
   const pickImage = async () => {
     try {
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'], allowsEditing: true, aspect: [1, 1], quality: 0.5, base64: true,
-      });
-      if (!result.canceled && result.assets?.[0]) {
-        await uploadAvatar(result.assets[0]);
-      }
+      const asset = await pickSquareAvatar();
+      if (asset) await uploadProfileAvatar(asset);
     } catch (error) {
       logSupabaseError('profile pick image error', error);
       showAlert('Error', getErrorMessage(error, 'No se pudo seleccionar la imagen.'));
     }
   };
 
-  const uploadAvatar = async (asset: ImagePicker.ImagePickerAsset) => {
+  const uploadProfileAvatar = async (asset: AvatarAsset) => {
     setUploading(true);
     try {
-      const mimeType = asset.mimeType ?? '';
-      const fileExt = AVATAR_MIME_EXTENSIONS[mimeType];
-
-      if (!asset.base64) throw new Error('No se pudo leer la imagen seleccionada.');
-      if (!fileExt) throw new Error('Formato no permitido. Usa JPG, PNG o WebP.');
-      if (typeof asset.fileSize === 'number' && asset.fileSize > MAX_AVATAR_BYTES) {
-        throw new Error('La imagen debe pesar menos de 2 MB.');
-      }
-
-      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
-      const { error } = await supabase.storage.from('avatars').upload(
-        fileName, decode(asset.base64), { cacheControl: '3600', upsert: true, contentType: mimeType },
-      );
+      const avatarUrl = await uploadAvatar({ asset, ownerId: user.id });
+      const { error } = await supabase.from('users').update({ avatar_url: avatarUrl }).eq('id', user.id);
       if (error) throw error;
-      const { data: publicData } = supabase.storage.from('avatars').getPublicUrl(fileName);
-      await supabase.from('users').update({ avatar_url: publicData.publicUrl }).eq('id', user.id);
       await refreshProfile();
       showAlert('Éxito', 'Foto de perfil actualizada');
     } catch (error) {
