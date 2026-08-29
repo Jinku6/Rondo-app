@@ -129,6 +129,7 @@ export default function CreateMatchScreen() {
   const [loading, setLoading] = useState(false);
   const [creationMode, setCreationMode] = useState<CreationMode>('match');
   const [seriesCity, setSeriesCity] = useState('');
+  const [seriesDescription, setSeriesDescription] = useState('');
   const [myGroups, setMyGroups] = useState<OrganizerSeries[]>([]);
   const [groupsLoading, setGroupsLoading] = useState(false);
   const [groupsError, setGroupsError] = useState<string | null>(null);
@@ -306,6 +307,7 @@ export default function CreateMatchScreen() {
 
   async function handleCreateSeries() {
     const normalizedCity = seriesCity.trim();
+    const normalizedDescription = seriesDescription.trim();
 
     if (!user) {
       Alert.alert('Error', 'No estás autenticado');
@@ -323,8 +325,12 @@ export default function CreateMatchScreen() {
       Alert.alert('Precio no válido', 'Indica un precio igual o mayor que cero.');
       return;
     }
-    if (containsProfanity(title) || containsProfanity(normalizedCity)) {
-      Alert.alert('Vocabulario no permitido', 'Por favor, utiliza palabras respetuosas en el nombre y la ciudad.');
+    if (normalizedDescription.length > 300) {
+      Alert.alert('Revisa la descripción', 'No puede superar los 300 caracteres.');
+      return;
+    }
+    if (containsProfanity(title) || containsProfanity(normalizedCity) || containsProfanity(normalizedDescription)) {
+      Alert.alert('Vocabulario no permitido', 'Por favor, utiliza palabras respetuosas en los datos del equipo.');
       return;
     }
 
@@ -336,6 +342,7 @@ export default function CreateMatchScreen() {
           organizer_id: user.id,
           title: title.trim(),
           city: normalizedCity || null,
+          description: normalizedDescription || null,
           automation_mode: 'manual',
           price_per_player: Number(price),
         })
@@ -642,7 +649,7 @@ export default function CreateMatchScreen() {
                 <Text className="text-[10px] text-ink-muted mt-2 font-body">El campo se decide en cada pachanga.</Text>
               </View>
             )}
-            {creationMode === 'match' && <View>
+            {creationMode === 'match' ? <View>
               <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Descripción</Text>
               <TextInput
                 className="bg-input/5 border border-border rounded-md-r px-4 py-3 text-ink font-body text-[15px] min-h-[80px]"
@@ -655,6 +662,22 @@ export default function CreateMatchScreen() {
                 numberOfLines={3}
                 style={{ textAlignVertical: 'top' }}
               />
+            </View> : <View>
+              <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">Descripción</Text>
+              <TextInput
+                accessibilityLabel="Descripción opcional del equipo"
+                className="bg-input/5 border border-border rounded-md-r px-4 py-3 text-ink font-body text-[15px] min-h-[96px]"
+                placeholder="Quiénes sois y qué ambiente hay en el vestuario"
+                placeholderTextColor={colors.textMuted}
+                keyboardAppearance="dark"
+                value={seriesDescription}
+                onChangeText={setSeriesDescription}
+                maxLength={300}
+                multiline
+                numberOfLines={4}
+                style={{ textAlignVertical: 'top' }}
+              />
+              <Text className="text-[10px] text-ink-muted mt-2 font-body text-right">{seriesDescription.length}/300</Text>
             </View>}
           </View>
         </View>

@@ -24,6 +24,7 @@ import type { MatchSeries } from '@/types/series';
 export type TeamEditValues = {
   title: string;
   city: string | null;
+  description: string | null;
   pricePerPlayer: number;
   avatarUrl: string | null;
   avatarAsset: AvatarAsset | null;
@@ -42,6 +43,7 @@ export function TeamEditModal({ visible, team, saving, onClose, onSave }: Props)
   const s = createStyles(c);
   const [title, setTitle] = useState(team.title);
   const [city, setCity] = useState(team.city ?? '');
+  const [description, setDescription] = useState(team.description ?? '');
   const [price, setPrice] = useState(String(team.price_per_player));
   const [avatarAsset, setAvatarAsset] = useState<AvatarAsset | null>(null);
 
@@ -49,6 +51,7 @@ export function TeamEditModal({ visible, team, saving, onClose, onSave }: Props)
     if (!visible) return;
     setTitle(team.title);
     setCity(team.city ?? '');
+    setDescription(team.description ?? '');
     setPrice(String(team.price_per_player));
     setAvatarAsset(null);
   }, [team, visible]);
@@ -65,6 +68,7 @@ export function TeamEditModal({ visible, team, saving, onClose, onSave }: Props)
   const submit = () => {
     const normalizedTitle = title.trim();
     const normalizedCity = city.trim();
+    const normalizedDescription = description.trim();
     const parsedPrice = Number(price.replace(',', '.'));
 
     if (normalizedTitle.length < 3 || normalizedTitle.length > 100) {
@@ -79,14 +83,19 @@ export function TeamEditModal({ visible, team, saving, onClose, onSave }: Props)
       Alert.alert('Revisa el precio', 'Debe estar entre 0 y 10.000 €.');
       return;
     }
-    if (containsProfanity(normalizedTitle) || containsProfanity(normalizedCity)) {
-      Alert.alert('Vocabulario no permitido', 'Usa palabras respetuosas en el nombre y la ciudad.');
+    if (normalizedDescription.length > 300) {
+      Alert.alert('Revisa la descripción', 'No puede superar los 300 caracteres.');
+      return;
+    }
+    if (containsProfanity(normalizedTitle) || containsProfanity(normalizedCity) || containsProfanity(normalizedDescription)) {
+      Alert.alert('Vocabulario no permitido', 'Usa palabras respetuosas en los datos del equipo.');
       return;
     }
 
     onSave({
       title: normalizedTitle,
       city: normalizedCity || null,
+      description: normalizedDescription || null,
       pricePerPlayer: parsedPrice,
       avatarUrl: team.avatar_url,
       avatarAsset,
@@ -178,6 +187,23 @@ export function TeamEditModal({ visible, team, saving, onClose, onSave }: Props)
             </View>
 
             <View style={s.field}>
+              <Text style={s.label}>Descripción</Text>
+              <TextInput
+                accessibilityLabel="Descripción del equipo"
+                value={description}
+                onChangeText={setDescription}
+                editable={!saving}
+                maxLength={300}
+                multiline
+                numberOfLines={4}
+                placeholder="Quiénes sois y qué ambiente hay en el vestuario"
+                placeholderTextColor={c.textMuted}
+                style={[s.input, s.descriptionInput]}
+              />
+              <Text style={s.characterCount}>{description.length}/300</Text>
+            </View>
+
+            <View style={s.field}>
               <Text style={s.label}>Precio habitual por jugador (€)</Text>
               <TextInput
                 accessibilityLabel="Precio habitual por jugador"
@@ -202,7 +228,10 @@ export function TeamEditModal({ visible, team, saving, onClose, onSave }: Props)
               {saving ? (
                 <ActivityIndicator color={c.brandInk} />
               ) : (
-                <Text style={s.saveButtonText}>Guardar cambios</Text>
+                <View style={s.saveButtonContent}>
+                  <Ionicons name="checkmark-circle-outline" size={19} color={c.brandInk} />
+                  <Text style={s.saveButtonText}>Guardar cambios</Text>
+                </View>
               )}
             </Pressable>
           </ScrollView>
@@ -281,6 +310,18 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
     fontSize: 15,
     paddingHorizontal: 15,
   },
+  descriptionInput: {
+    minHeight: 96,
+    paddingTop: 14,
+    paddingBottom: 14,
+    textAlignVertical: 'top',
+  },
+  characterCount: {
+    color: c.textMuted,
+    fontSize: 11,
+    marginTop: 6,
+    textAlign: 'right',
+  },
   hint: { color: c.textMuted, fontSize: 11, marginTop: 6 },
   saveButton: {
     minHeight: 52,
@@ -289,6 +330,16 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 4,
+    shadowColor: c.brandGlow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 1,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  saveButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   saveButtonText: {
     color: c.brandInk,

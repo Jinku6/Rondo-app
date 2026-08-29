@@ -7,6 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ProfileOverview } from '@/components/profile/ProfileOverview';
+import { ProfileAvatar } from '@/components/match/MatchDetailParts';
 import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
 import { ScreenTitle } from '@/components/ui/ScreenTitle';
 import { useTheme } from '@/hooks/use-theme';
@@ -14,7 +15,9 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { PUBLIC_USER_SELECT } from '@/lib/supabase/selects';
 import { firstParam, isValidUUID } from '@/lib/utils';
+import { logSupabaseError } from '@/lib/supabaseErrors';
 import { UserProfile } from '@/types/database';
+import type { PublicUserTeam } from '@/types/series';
 
 export default function UserProfileScreen() {
   const { colors: c } = useTheme();
@@ -25,6 +28,7 @@ export default function UserProfileScreen() {
   const { user } = useAuth();
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [teams, setTeams] = useState<PublicUserTeam[]>([]);
   const [loading, setLoading] = useState(true);
 
   const isOwnProfile = user?.id === id;
@@ -39,16 +43,25 @@ export default function UserProfileScreen() {
       }
 
       try {
-        const { data, error } = await supabase
-          .from('users')
-          .select(PUBLIC_USER_SELECT)
-          .eq('id', id)
-          .single();
+        const [profileResult, teamsResult] = await Promise.all([
+          supabase
+            .from('users')
+            .select(PUBLIC_USER_SELECT)
+            .eq('id', id)
+            .single(),
+          supabase.rpc('get_public_user_teams', { p_user_id: id }),
+        ]);
 
-        if (error) throw error;
-        if (active && data) setProfile({ ...data, birthday: null } as UserProfile);
+        if (profileResult.error) throw profileResult.error;
+        if (teamsResult.error) {
+          logSupabaseError('fetch public user teams', teamsResult.error);
+        }
+        if (active && profileResult.data) {
+          setProfile({ ...profileResult.data, birthday: null } as UserProfile);
+          setTeams((teamsResult.data ?? []) as PublicUserTeam[]);
+        }
       } catch (error) {
-        if (__DEV__) console.warn('fetch user profile error:', error);
+        logSupabaseError('fetch user profile', error);
       } finally {
         if (active) setLoading(false);
       }
@@ -111,6 +124,56 @@ export default function UserProfileScreen() {
         </View>
 
         <ProfileOverview profile={profile} />
+
+        {teams.length > 0 && (
+          <View style={{ marginTop: 20, marginBottom: 10 }}>
+            <Text style={{
+              color: c.textDim,
+              fontFamily: 'JetBrainsMono_500Medium',
+              fontSize: 10,
+              fontWeight: '700',
+              letterSpacing: 1.5,
+              textTransform: 'uppercase',
+              marginBottom: 10,
+            }}>
+              Equipos
+            </Text>
+            <View style={{ gap: 10 }}>
+              {teams.map(team => (
+                <TouchableOpacity
+                  key={team.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Abrir equipo ${team.title}`}
+                  activeOpacity={0.72}
+                  onPress={() => router.push(`/group/${team.id}` as never)}
+                  style={{
+                    minHeight: 68,
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    paddingHorizontal: 14,
+                    borderRadius: 14,
+                    borderWidth: 1,
+                    borderColor: c.border,
+                    backgroundColor: c.bgSurface,
+                  }}
+                >
+                  <ProfileAvatar name={team.title} avatarUrl={team.avatar_url} size={44} textSize={14} />
+                  <View style={{ flex: 1, minWidth: 0, marginLeft: 12 }}>
+                    <Text style={{ color: c.text, fontSize: 15, fontWeight: '800' }} numberOfLines={1}>
+                      {team.title}
+                    </Text>
+                    {!!team.city && (
+                      <Text style={{ color: c.textDim, fontSize: 12, marginTop: 3 }} numberOfLines={1}>
+                        {team.city}
+                      </Text>
+                    )}
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={c.brand} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+        )}
 
         {isOwnProfile && (
           <TouchableOpacity

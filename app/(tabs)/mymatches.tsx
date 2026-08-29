@@ -355,7 +355,7 @@ export default function MyMatchesScreen() {
                         </View>
                         <View className={`ml-3 rounded-full border px-2 py-1 ${organizesGroup ? 'border-warning/30 bg-warning/10' : 'border-brand/30 bg-brand/10'}`}>
                           <Text className={`font-mono text-[9px] font-bold uppercase tracking-wider ${organizesGroup ? 'text-warning' : 'text-brand'}`}>
-                            {organizesGroup ? 'Organizo' : 'Plantilla'}
+                            {organizesGroup ? 'Capitán' : 'Plantilla'}
                           </Text>
                         </View>
                         <Ionicons name="chevron-forward" size={18} color={colors.textDim} style={{ marginLeft: 6 }} />

@@ -14,8 +14,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { Badge, InfoCell, ProfileAvatar } from '@/components/match/MatchDetailParts';
 import { MatchCard } from '@/components/rondo/MatchCard';
-import { Badge, InfoCell, PlayerRow, ProfileAvatar } from '@/components/match/MatchDetailParts';
 import { TeamEditModal, type TeamEditValues } from '@/components/team/TeamEditModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/hooks/use-theme';
@@ -23,12 +23,23 @@ import { uploadAvatar } from '@/lib/avatarUpload';
 import { buildSeriesInviteUrl } from '@/lib/seriesInvite';
 import { supabase } from '@/lib/supabase';
 import { getErrorMessage, logSupabaseError } from '@/lib/supabaseErrors';
-import { PUBLIC_USER_SELECT } from '@/lib/supabase/selects';
-import type { MatchSeries, SeriesMatch, SeriesMember } from '@/types/series';
+import type {
+  MatchSeries,
+  PublicTeamDetails,
+  PublicTeamRosterMember,
+  SeriesMatch,
+} from '@/types/series';
 
 type MatchWithCardJoins = SeriesMatch & {
   participants?: { status: string }[];
   organizer?: { full_name?: string; username?: string } | null;
+};
+
+const POSITION_LABELS: Record<string, string> = {
+  portero: 'Portero',
+  defensa: 'Defensa',
+  mediocentro: 'Mediocentro',
+  delantero: 'Delantero',
 };
 
 export default function GroupDetailScreen() {
@@ -39,8 +50,8 @@ export default function GroupDetailScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const s = createStyles(c);
-  const [group, setGroup] = useState<MatchSeries | null>(null);
-  const [members, setMembers] = useState<SeriesMember[]>([]);
+  const [publicTeam, setPublicTeam] = useState<PublicTeamDetails | null>(null);
+  const [privateTeam, setPrivateTeam] = useState<MatchSeries | null>(null);
   const [matches, setMatches] = useState<MatchWithCardJoins[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -62,37 +73,36 @@ export default function GroupDetailScreen() {
     setError(null);
 
     try {
-      const [groupResult, membersResult, matchesResult] = await Promise.all([
+      const [publicResult, privateResult, matchesResult] = await Promise.all([
+        supabase.rpc('get_public_team', { p_team_id: id }),
         supabase
           .from('match_series')
           .select('*, venue:venues(canonical_name,address,city)')
           .eq('id', id)
           .is('deleted_at', null)
-          .single(),
-        supabase
-          .from('series_members')
-          .select(`*, user:users!series_members_user_id_fkey(${PUBLIC_USER_SELECT})`)
-          .eq('series_id', id)
-          .eq('status', 'active')
-          .order('created_at', { ascending: true }),
+          .maybeSingle(),
         supabase
           .from('matches')
-          .select(`*, organizer:users(id,full_name,username), participants:match_participants(status)`)
+          .select('*, organizer:users(id,full_name,username), participants:match_participants(status)')
           .eq('series_id', id)
           .in('status', ['open', 'full'])
           .gte('date_time', new Date().toISOString())
           .order('date_time', { ascending: true }),
       ]);
 
-      if (groupResult.error) throw groupResult.error;
-      if (membersResult.error) throw membersResult.error;
+      if (publicResult.error) throw publicResult.error;
+      if (privateResult.error) throw privateResult.error;
       if (matchesResult.error) throw matchesResult.error;
 
-      setGroup(groupResult.data as MatchSeries);
-      setMembers((membersResult.data ?? []) as SeriesMember[]);
+      const nextPublicTeam = publicResult.data as unknown as PublicTeamDetails;
+      setPublicTeam({
+        ...nextPublicTeam,
+        completed_matches: Number(nextPublicTeam.completed_matches) || 0,
+      });
+      setPrivateTeam(privateResult.data as MatchSeries | null);
       setMatches((matchesResult.data ?? []) as MatchWithCardJoins[]);
     } catch (loadError) {
-      logSupabaseError('load recurring group', loadError);
+      logSupabaseError('load public team', loadError);
       setError(getErrorMessage(loadError, 'No hemos podido cargar el equipo.'));
     } finally {
       setLoading(false);
@@ -104,13 +114,14 @@ export default function GroupDetailScreen() {
     void loadGroup();
   }, [loadGroup]);
 
-  const isOrganizer = !!group && group.organizer_id === user?.id;
+  const isCaptain = !!publicTeam && publicTeam.organizer_id === user?.id;
+  const canManage = isCaptain && !!privateTeam;
 
   const shareInvite = async () => {
-    if (!group) return;
+    if (!privateTeam || !canManage) return;
     try {
       await Share.share({
-        message: `Te queremos en ${group.title}. Entra al equipo de Rondo: ${buildSeriesInviteUrl(group.invite_code)}`,
+        message: `Te queremos en ${privateTeam.title}. Entra al equipo de Rondo: ${buildSeriesInviteUrl(privateTeam.invite_code)}`,
       });
     } catch (shareError) {
       Alert.alert('No se pudo compartir', shareError instanceof Error ? shareError.message : 'Prueba de nuevo.');
@@ -118,33 +129,43 @@ export default function GroupDetailScreen() {
   };
 
   const saveTeam = async (values: TeamEditValues) => {
-    if (!group || !isOrganizer || !user?.id) return;
+    if (!privateTeam || !publicTeam || !canManage || !user?.id) return;
     setSavingTeam(true);
     try {
       const avatarUrl = values.avatarAsset
         ? await uploadAvatar({
           asset: values.avatarAsset,
           ownerId: user.id,
-          folder: `teams/${group.id}`,
+          folder: `teams/${privateTeam.id}`,
         })
         : values.avatarUrl;
       const { error: updateError } = await supabase.rpc('update_team_details', {
-        p_team_id: group.id,
+        p_team_id: privateTeam.id,
         p_title: values.title,
         p_city: values.city,
         p_price_per_player: values.pricePerPlayer,
         p_avatar_url: avatarUrl,
+        p_description: values.description,
       });
       if (updateError) throw updateError;
-      setGroup({
-        ...group,
+
+      setPrivateTeam({
+        ...privateTeam,
         title: values.title,
         city: values.city,
+        description: values.description,
         price_per_player: values.pricePerPlayer,
         avatar_url: avatarUrl,
       });
+      setPublicTeam({
+        ...publicTeam,
+        title: values.title,
+        city: values.city,
+        description: values.description,
+        avatar_url: avatarUrl,
+      });
       setEditVisible(false);
-      Alert.alert('Equipo actualizado', 'Todo listo para la próxima pachanga.');
+      Alert.alert('Equipo actualizado', 'Todo listo para el próximo partido.');
     } catch (updateError) {
       logSupabaseError('update team details', updateError);
       Alert.alert('No se pudo guardar', getErrorMessage(updateError, 'Revisa los datos y prueba de nuevo.'));
@@ -153,40 +174,46 @@ export default function GroupDetailScreen() {
     }
   };
 
-  const removeMember = (member: SeriesMember) => {
-    if (!isOrganizer) return;
-    const name = member.user?.full_name || member.user?.username || 'este jugador';
-    Alert.alert('Expulsar jugador', `${name} saldrá de la plantilla y perderá sus reservas pendientes en futuros partidos privados. Las plazas que ya confirmó se mantienen.`, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: 'Expulsar',
-        style: 'destructive',
-        onPress: async () => {
-          setRemovingMemberId(member.id);
-          try {
-            const { error: removeError } = await supabase.rpc('remove_team_member', {
-              p_team_id: group.id,
-              p_user_id: member.user_id,
-            });
-            if (removeError) throw removeError;
-            setMembers(current => current.filter(item => item.id !== member.id));
-            Alert.alert('Jugador expulsado', `${name} ya no forma parte de la plantilla.`);
-          } catch (removeError) {
-            logSupabaseError('remove team member', removeError);
-            Alert.alert('No se pudo expulsar', getErrorMessage(removeError, 'Prueba de nuevo.'));
-          } finally {
-            setRemovingMemberId(null);
-          }
+  const removeMember = (member: PublicTeamRosterMember) => {
+    if (!privateTeam || !canManage || member.is_captain) return;
+    const name = member.full_name || member.username || 'este jugador';
+    Alert.alert(
+      'Expulsar jugador',
+      `${name} saldrá de la plantilla y perderá sus reservas pendientes en futuros partidos privados. Las plazas que ya confirmó se mantienen.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Expulsar',
+          style: 'destructive',
+          onPress: async () => {
+            setRemovingMemberId(member.id);
+            try {
+              const { error: removeError } = await supabase.rpc('remove_team_member', {
+                p_team_id: privateTeam.id,
+                p_user_id: member.id,
+              });
+              if (removeError) throw removeError;
+              setPublicTeam(current => current
+                ? { ...current, roster: current.roster.filter(item => item.id !== member.id) }
+                : current);
+              Alert.alert('Jugador expulsado', `${name} ya no forma parte de la plantilla.`);
+            } catch (removeError) {
+              logSupabaseError('remove team member', removeError);
+              Alert.alert('No se pudo expulsar', getErrorMessage(removeError, 'Prueba de nuevo.'));
+            } finally {
+              setRemovingMemberId(null);
+            }
+          },
         },
-      },
-    ]);
+      ],
+    );
   };
 
   const deleteTeam = () => {
-    if (!group || !isOrganizer) return;
+    if (!privateTeam || !canManage) return;
     if (matches.length > 0) {
       Alert.alert(
-        'Aún hay pachangas pendientes',
+        'Aún hay partidos pendientes',
         'Cancela o finaliza los partidos futuros antes de eliminar el equipo.',
       );
       return;
@@ -194,7 +221,7 @@ export default function GroupDetailScreen() {
 
     Alert.alert(
       'Eliminar equipo',
-      `${group.title} desaparecerá de Rondo y el enlace dejará de funcionar. El historial de partidos se conservará.`,
+      `${privateTeam.title} desaparecerá de Rondo y el enlace dejará de funcionar. El historial de partidos se conservará.`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -204,10 +231,10 @@ export default function GroupDetailScreen() {
             setDeletingTeam(true);
             try {
               const { error: deleteError } = await supabase.rpc('delete_team', {
-                p_team_id: group.id,
+                p_team_id: privateTeam.id,
               });
               if (deleteError) throw deleteError;
-              Alert.alert('Equipo eliminado', 'El vestuario conserva el historial de sus pachangas.', [
+              Alert.alert('Equipo eliminado', 'El vestuario conserva el historial de sus partidos.', [
                 { text: 'Aceptar', onPress: () => router.replace('/(tabs)/mymatches') },
               ]);
             } catch (deleteError) {
@@ -222,7 +249,7 @@ export default function GroupDetailScreen() {
     );
   };
 
-  if (loading && !group) {
+  if (loading && !publicTeam) {
     return (
       <View style={s.loadingRoot}>
         <Stack.Screen options={{ headerShown: false }} />
@@ -231,7 +258,7 @@ export default function GroupDetailScreen() {
     );
   }
 
-  if (error || !group) {
+  if (error || !publicTeam) {
     return (
       <View style={s.root}>
         <Stack.Screen options={{ headerShown: false }} />
@@ -262,10 +289,16 @@ export default function GroupDetailScreen() {
     );
   }
 
-  const cityLabel = group.city || group.venue?.city || 'Ciudad por definir';
-  const locationCopy = group.venue
-    ? [group.venue.canonical_name, group.venue.address].filter(Boolean).join(', ')
-    : 'El campo se decide en cada pachanga.';
+  const cityLabel = publicTeam.city || privateTeam?.venue?.city || 'Ciudad por definir';
+  const locationCopy = privateTeam?.venue
+    ? [privateTeam.venue.canonical_name, privateTeam.venue.address].filter(Boolean).join(', ')
+    : 'El campo se decide en cada partido.';
+  const metaParts = [cityLabel];
+  if (privateTeam) {
+    metaParts.push(privateTeam.price_per_player > 0
+      ? `${privateTeam.price_per_player} € habituales`
+      : 'Sin precio habitual');
+  }
 
   return (
     <View style={s.root}>
@@ -281,14 +314,16 @@ export default function GroupDetailScreen() {
         >
           <Ionicons name="chevron-back" size={20} color={c.textDim} />
         </Pressable>
-        <Pressable
-          style={({ pressed }) => [s.headerBtn, pressed && s.pressed]}
-          onPress={() => void shareInvite()}
-          accessibilityRole="button"
-          accessibilityLabel="Compartir invitación del equipo"
-        >
-          <Ionicons name="share-outline" size={20} color={c.brand} />
-        </Pressable>
+        {canManage ? (
+          <Pressable
+            style={({ pressed }) => [s.headerBtn, pressed && s.pressed]}
+            onPress={() => void shareInvite()}
+            accessibilityRole="button"
+            accessibilityLabel="Compartir invitación del equipo"
+          >
+            <Ionicons name="share-outline" size={20} color={c.brand} />
+          </Pressable>
+        ) : <View style={s.headerBtn} />}
       </View>
 
       <ScrollView
@@ -300,14 +335,14 @@ export default function GroupDetailScreen() {
         <View style={s.titleBlock}>
           <View style={s.identityRow}>
             <Pressable
-              accessibilityRole={isOrganizer ? 'button' : undefined}
-              accessibilityLabel={isOrganizer ? 'Editar foto del equipo' : undefined}
-              disabled={!isOrganizer}
+              accessibilityRole={canManage ? 'button' : undefined}
+              accessibilityLabel={canManage ? 'Editar foto del equipo' : undefined}
+              disabled={!canManage}
               onPress={() => setEditVisible(true)}
-              style={({ pressed }) => [s.teamAvatar, pressed && isOrganizer && s.pressed]}
+              style={({ pressed }) => [s.teamAvatar, pressed && canManage && s.pressed]}
             >
-              <ProfileAvatar name={group.title} avatarUrl={group.avatar_url} size={76} textSize={23} />
-              {isOrganizer && (
+              <ProfileAvatar name={publicTeam.title} avatarUrl={publicTeam.avatar_url} size={76} textSize={23} />
+              {canManage && (
                 <View style={s.cameraBadge}>
                   <Ionicons name="camera" size={14} color={c.brandInk} />
                 </View>
@@ -315,17 +350,16 @@ export default function GroupDetailScreen() {
             </Pressable>
             <View style={s.identityCopy}>
               <Badge
-                label="Equipo"
+                label={isCaptain ? 'Equipo · Capitán' : 'Equipo'}
                 color={c.brand}
                 bg={c.brandSoft}
                 border="rgba(34,197,94,0.3)"
               />
-              <Text style={s.titleText}>{group.title}</Text>
-              <Text style={s.teamMeta}>
-                {cityLabel} · {group.price_per_player > 0 ? `${group.price_per_player} € habituales` : 'Sin precio habitual'}
-              </Text>
+              <Text style={s.titleText}>{publicTeam.title}</Text>
+              <Text style={s.teamMeta}>{metaParts.join(' · ')}</Text>
             </View>
           </View>
+          {!!publicTeam.description && <Text style={s.description}>{publicTeam.description}</Text>}
         </View>
 
         <View style={s.infoSection}>
@@ -338,22 +372,27 @@ export default function GroupDetailScreen() {
           </View>
 
           <View style={s.infoRow}>
-            <InfoCell label="Plantilla">
-              <Text style={s.infoCellValue}>{members.length}</Text>
+            <InfoCell label="Plantilla" flex={1}>
+              <Text style={s.infoCellValue}>{publicTeam.roster.length}</Text>
+            </InfoCell>
+            <InfoCell label="Partidos jugados" flex={1}>
+              <Text style={s.infoCellValue}>{publicTeam.completed_matches}</Text>
             </InfoCell>
           </View>
         </View>
 
-        {isOrganizer && (
+        {canManage && (
           <View style={s.ctaBlock}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Crear el partido de esta semana"
-              onPress={() => router.push({ pathname: '/(tabs)/create', params: { teamId: group.id } } as never)}
+              accessibilityLabel="Crear un partido del equipo"
+              onPress={() => router.push({ pathname: '/(tabs)/create', params: { teamId: publicTeam.id } } as never)}
               style={({ pressed }) => [s.primaryButton, pressed && s.pressed]}
             >
-              <Ionicons name="add" size={20} color={c.brandInk} />
-              <Text style={s.primaryButtonText}>Crear partido</Text>
+              <View style={s.primaryButtonContent}>
+                <Ionicons name="add-circle-outline" size={20} color={c.brandInk} />
+                <Text style={s.primaryButtonText}>Crear partido</Text>
+              </View>
             </Pressable>
           </View>
         )}
@@ -362,9 +401,11 @@ export default function GroupDetailScreen() {
           <Text style={s.sectionLabel}>Próximos partidos ({matches.length})</Text>
           {matches.length === 0 ? (
             <View style={s.emptyCard}>
-              <Text style={s.emptyTitle}>Aún no hay pachanga preparada</Text>
+              <Text style={s.emptyTitle}>Aún no hay partido preparado</Text>
               <Text style={s.emptyCopy}>
-                {isOrganizer ? 'Cuando sepáis el día, crea el partido y todos quedarán pendientes de confirmar.' : 'El capitán publicará aquí el próximo partido.'}
+                {isCaptain
+                  ? 'Cuando sepáis el día, crea el partido y todos quedarán pendientes de confirmar.'
+                  : 'El capitán publicará aquí el próximo partido visible para ti.'}
               </Text>
             </View>
           ) : (
@@ -377,41 +418,66 @@ export default function GroupDetailScreen() {
         </View>
 
         <View style={s.section}>
-          <Text style={s.sectionLabel}>Plantilla ({members.length})</Text>
-          {members.length === 0 ? (
-            <View style={s.emptyCard}>
-              <Text style={s.emptyTitle}>Comparte el enlace con el vestuario</Text>
-              <Text style={s.emptyCopy}>Cada jugador que entre aparecerá aquí.</Text>
-            </View>
-          ) : members.map((member, index) => {
-            const name = member.user?.full_name || member.user?.username || 'Jugador de Rondo';
-            return (
-              <PlayerRow
-                key={member.id}
-                user={member.user}
-                onPress={member.user_id ? () => router.push(`/user/${member.user_id}` as never) : undefined}
-                isLast={index === members.length - 1}
-                rightContent={isOrganizer && member.user_id !== user?.id ? (
-                  <Pressable
-                    accessibilityRole="button"
-                    accessibilityLabel={`Expulsar a ${name}`}
-                    onPress={() => removeMember(member)}
-                    disabled={removingMemberId !== null}
-                    style={({ pressed }) => [s.removeButton, pressed && s.pressed, removingMemberId !== null && s.disabled]}
-                  >
-                    {removingMemberId === member.id ? (
-                      <ActivityIndicator color={c.danger} />
-                    ) : (
-                      <Text style={s.removeButtonText}>Expulsar</Text>
-                    )}
-                  </Pressable>
-                ) : undefined}
-              />
-            );
-          })}
+          <Text style={s.sectionLabel}>Plantilla ({publicTeam.roster.length})</Text>
+          <View style={s.rosterCard}>
+            {publicTeam.roster.map((member, index) => {
+              const name = member.full_name || member.username || 'Jugador de Rondo';
+              const position = member.preferred_position ? POSITION_LABELS[member.preferred_position] : null;
+              return (
+                <Pressable
+                  key={member.id}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Ver perfil de ${name}`}
+                  onPress={() => router.push(`/user/${member.id}` as never)}
+                  style={({ pressed }) => [
+                    s.rosterRow,
+                    index === publicTeam.roster.length - 1 && s.rosterRowLast,
+                    pressed && s.pressed,
+                  ]}
+                >
+                  <View style={s.rosterIdentity}>
+                    <ProfileAvatar name={name} avatarUrl={member.avatar_url} size={38} textSize={13} />
+                    <View style={s.rosterCopy}>
+                      <Text style={s.rosterName} numberOfLines={1}>{name}</Text>
+                      {!!position && <Text style={s.rosterPosition}>{position}</Text>}
+                    </View>
+                  </View>
+                  {member.is_captain ? (
+                    <View style={s.captainBadge}>
+                      <Ionicons name="shield-checkmark-outline" size={14} color={c.warning} />
+                      <Text style={s.captainBadgeText}>Capitán</Text>
+                    </View>
+                  ) : canManage ? (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel={`Expulsar a ${name}`}
+                      onPress={(event) => {
+                        event.stopPropagation();
+                        removeMember(member);
+                      }}
+                      disabled={removingMemberId !== null}
+                      style={({ pressed }) => [
+                        s.removeButton,
+                        pressed && s.pressed,
+                        removingMemberId !== null && s.disabled,
+                      ]}
+                    >
+                      {removingMemberId === member.id ? (
+                        <ActivityIndicator color={c.danger} />
+                      ) : (
+                        <Text style={s.removeButtonText}>Expulsar</Text>
+                      )}
+                    </Pressable>
+                  ) : (
+                    <Ionicons name="chevron-forward" size={16} color={c.textDim} />
+                  )}
+                </Pressable>
+              );
+            })}
+          </View>
         </View>
 
-        {isOrganizer && (
+        {canManage && (
           <>
             <View style={s.section}>
               <Text style={s.sectionLabel}>Gestión del equipo</Text>
@@ -420,31 +486,29 @@ export default function GroupDetailScreen() {
                   accessibilityRole="button"
                   accessibilityLabel="Editar equipo"
                   onPress={() => setEditVisible(true)}
-                  style={({ pressed }) => [s.managementRow, pressed && s.pressed]}
+                  style={({ pressed }) => [s.actionPressable, pressed && s.pressed]}
                 >
-                  <View style={s.managementIcon}>
-                    <Ionicons name="create-outline" size={20} color={c.brand} />
+                  <View style={s.actionRowContent}>
+                    <View style={s.managementCopy}>
+                      <Text style={s.managementTitle}>Editar equipo</Text>
+                      <Text style={s.managementSubtitle}>Foto, nombre, ciudad, descripción y precio</Text>
+                    </View>
+                    <Ionicons name="create-outline" size={22} color={c.brand} />
                   </View>
-                  <View style={s.managementCopy}>
-                    <Text style={s.managementTitle}>Editar equipo</Text>
-                    <Text style={s.managementSubtitle}>Foto, nombre, ciudad y precio habitual</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color={c.textDim} />
                 </Pressable>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Compartir invitación del equipo"
                   onPress={() => void shareInvite()}
-                  style={({ pressed }) => [s.managementRow, s.managementRowLast, pressed && s.pressed]}
+                  style={({ pressed }) => [s.actionPressable, s.actionPressableLast, pressed && s.pressed]}
                 >
-                  <View style={s.managementIcon}>
-                    <Ionicons name="share-social-outline" size={20} color={c.brand} />
+                  <View style={s.actionRowContent}>
+                    <View style={s.managementCopy}>
+                      <Text style={s.managementTitle}>Compartir invitación</Text>
+                      <Text style={s.managementSubtitle}>Suma jugadores a la plantilla</Text>
+                    </View>
+                    <Ionicons name="share-social-outline" size={22} color={c.brand} />
                   </View>
-                  <View style={s.managementCopy}>
-                    <Text style={s.managementTitle}>Compartir invitación</Text>
-                    <Text style={s.managementSubtitle}>Suma jugadores a la plantilla</Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color={c.textDim} />
                 </Pressable>
               </View>
             </View>
@@ -457,20 +521,19 @@ export default function GroupDetailScreen() {
                   accessibilityLabel="Eliminar equipo"
                   onPress={deleteTeam}
                   disabled={deletingTeam}
-                  style={({ pressed }) => [s.managementRow, s.managementRowLast, (pressed || deletingTeam) && s.pressed]}
+                  style={({ pressed }) => [s.actionPressable, s.actionPressableLast, (pressed || deletingTeam) && s.pressed]}
                 >
-                  <View style={[s.managementIcon, s.dangerIcon]}>
-                    <Ionicons name="trash-outline" size={20} color={c.danger} />
+                  <View style={s.actionRowContent}>
+                    <View style={s.managementCopy}>
+                      <Text style={[s.managementTitle, { color: c.danger }]}>Eliminar equipo</Text>
+                      <Text style={s.managementSubtitle}>Disponible cuando no haya partidos futuros</Text>
+                    </View>
+                    {deletingTeam ? (
+                      <ActivityIndicator color={c.danger} />
+                    ) : (
+                      <Ionicons name="trash-outline" size={22} color={c.danger} />
+                    )}
                   </View>
-                  <View style={s.managementCopy}>
-                    <Text style={[s.managementTitle, { color: c.danger }]}>Eliminar equipo</Text>
-                    <Text style={s.managementSubtitle}>Disponible cuando no haya partidos futuros</Text>
-                  </View>
-                  {deletingTeam ? (
-                    <ActivityIndicator color={c.danger} />
-                  ) : (
-                    <Ionicons name="chevron-forward" size={18} color={c.danger} />
-                  )}
                 </Pressable>
               </View>
             </View>
@@ -478,28 +541,22 @@ export default function GroupDetailScreen() {
         )}
       </ScrollView>
 
-      <TeamEditModal
-        visible={editVisible}
-        team={group}
-        saving={savingTeam}
-        onClose={() => setEditVisible(false)}
-        onSave={(values) => void saveTeam(values)}
-      />
+      {privateTeam && canManage && (
+        <TeamEditModal
+          visible={editVisible}
+          team={privateTeam}
+          saving={savingTeam}
+          onClose={() => setEditVisible(false)}
+          onSave={(values) => void saveTeam(values)}
+        />
+      )}
     </View>
   );
 }
 
 const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: c.bg,
-  },
-  loadingRoot: {
-    flex: 1,
-    backgroundColor: c.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  root: { flex: 1, backgroundColor: c.bg },
+  loadingRoot: { flex: 1, backgroundColor: c.bg, alignItems: 'center', justifyContent: 'center' },
   header: {
     minHeight: 56,
     flexDirection: 'row',
@@ -509,52 +566,16 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
     borderBottomWidth: 1,
     borderBottomColor: c.border,
   },
-  headerBtn: {
-    width: 48,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  pressed: {
-    opacity: 0.65,
-  },
-  disabled: {
-    opacity: 0.45,
-  },
-  scroll: {
-    flex: 1,
-  },
-  errorContent: {
-    flex: 1,
-    paddingHorizontal: 24,
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-  },
-  errorTitle: {
-    color: c.text,
-    fontFamily: 'Archivo_900Black',
-    fontSize: 24,
-    fontWeight: '900',
-    marginTop: 20,
-  },
-  errorCopy: {
-    color: c.textDim,
-    lineHeight: 22,
-    marginTop: 8,
-  },
-  titleBlock: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: c.border,
-  },
-  identityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  teamAvatar: {
-    position: 'relative',
-  },
+  headerBtn: { width: 48, height: 48, alignItems: 'center', justifyContent: 'center' },
+  pressed: { opacity: 0.65 },
+  disabled: { opacity: 0.45 },
+  scroll: { flex: 1 },
+  errorContent: { flex: 1, paddingHorizontal: 24, alignItems: 'flex-start', justifyContent: 'center' },
+  errorTitle: { color: c.text, fontFamily: 'Archivo_900Black', fontSize: 24, fontWeight: '900', marginTop: 20 },
+  errorCopy: { color: c.textDim, lineHeight: 22, marginTop: 8 },
+  titleBlock: { padding: 16, borderBottomWidth: 1, borderBottomColor: c.border },
+  identityRow: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  teamAvatar: { position: 'relative' },
   cameraBadge: {
     position: 'absolute',
     right: -2,
@@ -568,11 +589,7 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
     borderWidth: 2,
     borderColor: c.bg,
   },
-  identityCopy: {
-    flex: 1,
-    minWidth: 0,
-    alignItems: 'flex-start',
-  },
+  identityCopy: { flex: 1, minWidth: 0, alignItems: 'flex-start' },
   titleText: {
     fontFamily: 'Archivo_900Black',
     fontSize: 26,
@@ -582,18 +599,9 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
     letterSpacing: -0.3,
     marginTop: 8,
   },
-  teamMeta: {
-    color: c.textDim,
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 4,
-  },
-  infoSection: {
-    padding: 16,
-    gap: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: c.border,
-  },
+  teamMeta: { color: c.textDim, fontSize: 12, lineHeight: 18, marginTop: 4 },
+  description: { color: c.textDim, fontSize: 14, lineHeight: 21, marginTop: 16 },
+  infoSection: { padding: 16, gap: 10, borderBottomWidth: 1, borderBottomColor: c.border },
   locationCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -604,28 +612,11 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
     borderRadius: 14,
     padding: 14,
   },
-  locationIcon: {
-    marginTop: 1,
-  },
-  locationBody: {
-    flex: 1,
-    minWidth: 0,
-  },
-  locationName: {
-    color: c.text,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  locationCopy: {
-    color: c.textDim,
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 3,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
+  locationIcon: { marginTop: 1 },
+  locationBody: { flex: 1, minWidth: 0 },
+  locationName: { color: c.text, fontSize: 14, fontWeight: '700' },
+  locationCopy: { color: c.textDim, fontSize: 12, lineHeight: 18, marginTop: 3 },
+  infoRow: { flexDirection: 'row', gap: 10 },
   infoCellValue: {
     fontFamily: 'Archivo_900Black',
     fontSize: 18,
@@ -633,22 +624,21 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
     color: c.brand,
     textAlign: 'center',
   },
-  ctaBlock: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: c.border,
-  },
+  ctaBlock: { paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: c.border },
   primaryButton: {
     minHeight: 52,
     width: '100%',
     borderRadius: 14,
     backgroundColor: c.brand,
-    flexDirection: 'row',
-    gap: 8,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: c.brandGlow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 1,
+    shadowRadius: 24,
+    elevation: 8,
   },
+  primaryButtonContent: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   primaryButtonText: {
     color: c.brandInk,
     fontFamily: 'Archivo_900Black',
@@ -657,14 +647,8 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  section: {
-    padding: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: c.border,
-  },
-  lastSection: {
-    borderBottomWidth: 0,
-  },
+  section: { padding: 16, borderBottomWidth: 1, borderBottomColor: c.border },
+  lastSection: { borderBottomWidth: 0 },
   sectionLabel: {
     fontFamily: 'JetBrainsMono_500Medium',
     fontSize: 9,
@@ -682,31 +666,54 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
     borderColor: c.borderStrong,
     backgroundColor: c.bgSurface,
   },
-  emptyTitle: {
-    color: c.text,
-    fontSize: 14,
-    fontWeight: '800',
+  emptyTitle: { color: c.text, fontSize: 14, fontWeight: '800' },
+  emptyCopy: { color: c.textDim, fontSize: 13, lineHeight: 20, marginTop: 6 },
+  cardList: { gap: 12 },
+  rosterCard: {
+    overflow: 'hidden',
+    backgroundColor: c.bgSurface,
+    borderWidth: 1,
+    borderColor: c.border,
+    borderRadius: 14,
   },
-  emptyCopy: {
-    color: c.textDim,
-    fontSize: 13,
-    lineHeight: 20,
-    marginTop: 6,
-  },
-  cardList: {
+  rosterRow: {
+    minHeight: 64,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 12,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: c.border,
   },
+  rosterRowLast: { borderBottomWidth: 0 },
+  rosterIdentity: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  rosterCopy: { flex: 1, minWidth: 0 },
+  rosterName: { color: c.text, fontSize: 14, fontWeight: '800' },
+  rosterPosition: { color: c.textDim, fontSize: 11, marginTop: 3 },
+  captainBadge: {
+    minHeight: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 9,
+    borderRadius: 9,
+    borderWidth: 1,
+    borderColor: `${c.warning}50`,
+    backgroundColor: `${c.warning}15`,
+  },
+  captainBadgeText: { color: c.warning, fontSize: 11, fontWeight: '800' },
   removeButton: {
-    minWidth: 48,
+    minWidth: 64,
     minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: `${c.danger}60`,
+    borderRadius: 9,
+    paddingHorizontal: 10,
   },
-  removeButtonText: {
-    color: c.danger,
-    fontSize: 12,
-    fontWeight: '800',
-  },
+  removeButtonText: { color: c.danger, fontSize: 11, fontWeight: '800' },
   managementCard: {
     overflow: 'hidden',
     backgroundColor: c.bgSurface,
@@ -714,49 +721,25 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
     borderWidth: 1,
     borderColor: c.border,
   },
-  managementRow: {
-    minHeight: 72,
+  actionPressable: { borderBottomWidth: 1, borderBottomColor: c.border },
+  actionPressableLast: { borderBottomWidth: 0 },
+  actionRowContent: {
+    minHeight: 68,
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: c.border,
+    justifyContent: 'space-between',
+    gap: 16,
+    paddingHorizontal: 16,
   },
-  managementRowLast: {
-    borderBottomWidth: 0,
-  },
-  managementIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: c.brandSoft,
-  },
-  managementCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  managementTitle: {
-    color: c.text,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  managementSubtitle: {
-    color: c.textDim,
-    fontSize: 12,
-    lineHeight: 18,
-    marginTop: 2,
-  },
+  managementCopy: { flex: 1, minWidth: 0 },
+  managementTitle: { color: c.text, fontSize: 15, fontWeight: '800' },
+  managementSubtitle: { color: c.textDim, fontSize: 12, lineHeight: 18, marginTop: 3 },
   dangerCard: {
     overflow: 'hidden',
-    backgroundColor: c.bgSurface,
+    backgroundColor: `${c.danger}0D`,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: `${c.danger}40`,
-  },
-  dangerIcon: {
-    backgroundColor: `${c.danger}18`,
+    borderColor: `${c.danger}45`,
   },
 });
