@@ -142,38 +142,40 @@ export default function MatchDetailScreen() {
     }
   };
 
+  const publishTeamMatch = async (requiresApproval: boolean) => {
+    if (!match?.series_id) return;
+    setActionLoading(true);
+    try {
+      const { data, error } = await supabase.rpc('publish_team_match', {
+        p_match_id: match.id,
+        p_requires_approval: requiresApproval,
+      });
+      if (error) throw error;
+      await fetchMatchDetails();
+      Alert.alert(
+        'Partido público',
+        `Ya funciona como cualquier partido de Rondo. Quedan ${Number(data)} plazas libres.`,
+      );
+    } catch (error) {
+      Alert.alert(
+        'No se pudieron publicar las plazas',
+        error instanceof Error ? error.message : 'Inténtalo de nuevo en unos segundos.',
+      );
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
   const handlePublishTeamMatch = () => {
     if (!match?.series_id) return;
 
     Alert.alert(
-      'Publicar plazas libres',
-      'Los miembros que sigan pendientes o hayan dicho que no perderán su reserva. Después, cualquiera en Rondo podrá pedir plaza y este cambio no se puede deshacer.',
+      '¿Cómo entran los agentes libres?',
+      'Los pendientes y quienes dijeron que no perderán su reserva. Publicar es irreversible: después todos seguirán el mismo proceso para apuntarse.',
       [
         { text: 'Ahora no', style: 'cancel' },
-        {
-          text: 'Publicar plazas',
-          onPress: async () => {
-            setActionLoading(true);
-            try {
-              const { data, error } = await supabase.rpc('publish_team_match', {
-                p_match_id: match.id,
-              });
-              if (error) throw error;
-              await fetchMatchDetails();
-              Alert.alert(
-                'Partido público',
-                `Ya funciona como cualquier partido de Rondo. Quedan ${Number(data)} plazas libres.`,
-              );
-            } catch (error) {
-              Alert.alert(
-                'No se pudieron publicar las plazas',
-                error instanceof Error ? error.message : 'Inténtalo de nuevo en unos segundos.',
-              );
-            } finally {
-              setActionLoading(false);
-            }
-          },
-        },
+        { text: 'Entrada directa', onPress: () => void publishTeamMatch(false) },
+        { text: 'Revisar solicitudes', onPress: () => void publishTeamMatch(true) },
       ],
     );
   };

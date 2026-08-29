@@ -1,4 +1,5 @@
 import type { Match, RequestedPositions, UserProfile } from '@/types/database';
+import type { TeamRecurrenceFrequency, TeamRecurrenceWeek } from '@/lib/teamRecurrence';
 
 export interface SeriesVenue {
   canonical_name: string;
@@ -67,7 +68,22 @@ export interface SeriesMember {
 
 export type SeriesMatch = Match & {
   series_id: string;
+  recurrence_id?: string | null;
   is_private: boolean;
   recruiting_public: boolean;
   confirmation_deadline: string | null;
 };
+
+export interface TeamMatchRecurrence {
+  id: string;
+  series_id: string;
+  frequency: TeamRecurrenceFrequency;
+  day_of_week: number;
+  week_of_month: TeamRecurrenceWeek | null;
+  start_time: string;
+  timezone: 'Europe/Madrid';
+  first_match_id: string | null;
+  is_active: boolean;
+  cancelled_at: string | null;
+  created_at: string;
+}

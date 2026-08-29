@@ -14,7 +14,14 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Badge, InfoCell, PlayerRow, ProfileAvatar } from '@/components/match/MatchDetailParts';
+import {
+  Badge,
+  formatDate,
+  formatTime,
+  InfoCell,
+  PlayerRow,
+  ProfileAvatar,
+} from '@/components/match/MatchDetailParts';
 import { MatchCard } from '@/components/rondo/MatchCard';
 import { TeamEditModal, type TeamEditValues } from '@/components/team/TeamEditModal';
 import { useAuth } from '@/contexts/AuthContext';
@@ -23,11 +30,13 @@ import { uploadAvatar } from '@/lib/avatarUpload';
 import { buildSeriesInviteUrl } from '@/lib/seriesInvite';
 import { supabase } from '@/lib/supabase';
 import { getErrorMessage, logSupabaseError } from '@/lib/supabaseErrors';
+import { buildRecurrenceSummary } from '@/lib/teamRecurrence';
 import type {
   MatchSeries,
   PublicTeamDetails,
   PublicTeamRosterMember,
   SeriesMatch,
+  TeamMatchRecurrence,
 } from '@/types/series';
 
 type MatchWithCardJoins = SeriesMatch & {
@@ -46,6 +55,7 @@ export default function GroupDetailScreen() {
   const [publicTeam, setPublicTeam] = useState<PublicTeamDetails | null>(null);
   const [privateTeam, setPrivateTeam] = useState<MatchSeries | null>(null);
   const [matches, setMatches] = useState<MatchWithCardJoins[]>([]);
+  const [recurrences, setRecurrences] = useState<TeamMatchRecurrence[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,6 +63,7 @@ export default function GroupDetailScreen() {
   const [savingTeam, setSavingTeam] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
   const [deletingTeam, setDeletingTeam] = useState(false);
+  const [cancellingRecurrenceId, setCancellingRecurrenceId] = useState<string | null>(null);
 
   const loadGroup = useCallback(async (refresh = false) => {
     if (!id) {
@@ -66,7 +77,7 @@ export default function GroupDetailScreen() {
     setError(null);
 
     try {
-      const [publicResult, privateResult, matchesResult] = await Promise.all([
+      const [publicResult, privateResult, matchesResult, recurrencesResult] = await Promise.all([
         supabase.rpc('get_public_team', { p_team_id: id }),
         supabase
           .from('match_series')
@@ -81,11 +92,18 @@ export default function GroupDetailScreen() {
           .in('status', ['open', 'full'])
           .gte('date_time', new Date().toISOString())
           .order('date_time', { ascending: true }),
+        supabase
+          .from('team_match_recurrences')
+          .select('id,series_id,frequency,day_of_week,week_of_month,start_time,timezone,first_match_id,is_active,cancelled_at,created_at')
+          .eq('series_id', id)
+          .eq('is_active', true)
+          .order('created_at', { ascending: true }),
       ]);
 
       if (publicResult.error) throw publicResult.error;
       if (privateResult.error) throw privateResult.error;
       if (matchesResult.error) throw matchesResult.error;
+      if (recurrencesResult.error) throw recurrencesResult.error;
 
       const nextPublicTeam = publicResult.data as unknown as PublicTeamDetails;
       setPublicTeam({
@@ -94,6 +112,7 @@ export default function GroupDetailScreen() {
       });
       setPrivateTeam(privateResult.data as MatchSeries | null);
       setMatches((matchesResult.data ?? []) as MatchWithCardJoins[]);
+      setRecurrences((recurrencesResult.data ?? []) as TeamMatchRecurrence[]);
     } catch (loadError) {
       logSupabaseError('load public team', loadError);
       setError(getErrorMessage(loadError, 'No hemos podido cargar el equipo.'));
@@ -195,6 +214,42 @@ export default function GroupDetailScreen() {
               Alert.alert('No se pudo expulsar', getErrorMessage(removeError, 'Prueba de nuevo.'));
             } finally {
               setRemovingMemberId(null);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const cancelRecurrence = (recurrence: TeamMatchRecurrence) => {
+    if (!canManage) return;
+    const nextMatch = matches.find(match => match.recurrence_id === recurrence.id);
+    const currentMatchCopy = nextMatch
+      ? `El partido del ${formatDate(nextMatch.date_time)} a las ${formatTime(nextMatch.date_time)} sigue en pie.`
+      : 'Los partidos que ya están creados siguen en pie.';
+
+    Alert.alert(
+      'Anular recurrencia',
+      `${currentMatchCopy} No se generarán los siguientes partidos de esta recurrencia.`,
+      [
+        { text: 'Mantener recurrencia', style: 'cancel' },
+        {
+          text: 'Anular recurrencia',
+          style: 'destructive',
+          onPress: async () => {
+            setCancellingRecurrenceId(recurrence.id);
+            try {
+              const { error: cancelError } = await supabase.rpc('cancel_team_match_recurrence', {
+                p_recurrence_id: recurrence.id,
+              });
+              if (cancelError) throw cancelError;
+              setRecurrences(current => current.filter(item => item.id !== recurrence.id));
+              Alert.alert('Recurrencia anulada', 'El partido que ya estaba preparado sigue en pie. No crearemos el siguiente.');
+            } catch (cancelError) {
+              logSupabaseError('cancel team match recurrence', cancelError);
+              Alert.alert('No se pudo anular', getErrorMessage(cancelError, 'Prueba de nuevo en unos segundos.'));
+            } finally {
+              setCancellingRecurrenceId(null);
             }
           },
         },
@@ -383,7 +438,7 @@ export default function GroupDetailScreen() {
               style={({ pressed }) => [s.primaryButton, pressed && s.pressed]}
             >
               <View style={s.primaryButtonContent}>
-                <Ionicons name="add-circle-outline" size={20} color={c.brandInk} />
+                <Ionicons name="add-circle-outline" size={20} color={c.brand} />
                 <Text style={s.primaryButtonText}>Crear partido</Text>
               </View>
             </Pressable>
@@ -457,6 +512,59 @@ export default function GroupDetailScreen() {
             );
           })}
         </View>
+
+        {recurrences.length > 0 && (
+          <View style={s.section}>
+            <Text style={s.sectionLabel}>Partidos recurrentes ({recurrences.length})</Text>
+            <View style={s.recurrenceList}>
+              {recurrences.map(recurrence => {
+                const nextMatch = matches.find(match => match.recurrence_id === recurrence.id);
+                const summary = buildRecurrenceSummary(
+                  recurrence.frequency,
+                  recurrence.day_of_week,
+                  recurrence.week_of_month ?? 1,
+                  recurrence.start_time.slice(0, 5),
+                );
+                return (
+                  <View key={recurrence.id} style={s.recurrenceCard}>
+                    <View style={s.recurrenceHeader}>
+                      <View style={s.recurrenceIcon}>
+                        <Ionicons name="calendar-outline" size={20} color={c.brand} />
+                      </View>
+                      <View style={s.recurrenceCopy}>
+                        <Text style={s.recurrenceTitle}>{nextMatch?.title ?? publicTeam.title}</Text>
+                        {!!summary && <Text style={s.recurrenceSchedule}>{summary}</Text>}
+                        <Text style={s.recurrenceNext}>
+                          {nextMatch
+                            ? `Próximo: ${formatDate(nextMatch.date_time)} · ${formatTime(nextMatch.date_time)}`
+                            : 'El siguiente partido aún no está preparado'}
+                        </Text>
+                      </View>
+                    </View>
+                    {canManage && (
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityLabel="Anular recurrencia"
+                        disabled={cancellingRecurrenceId !== null}
+                        onPress={() => cancelRecurrence(recurrence)}
+                        style={({ pressed }) => [
+                          s.cancelRecurrenceButton,
+                          (pressed || cancellingRecurrenceId !== null) && s.pressed,
+                        ]}
+                      >
+                        {cancellingRecurrenceId === recurrence.id ? (
+                          <ActivityIndicator color={c.danger} />
+                        ) : (
+                          <Text style={s.cancelRecurrenceText}>Anular recurrencia</Text>
+                        )}
+                      </Pressable>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
 
         {canManage && (
           <>
@@ -610,7 +718,9 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
     minHeight: 52,
     width: '100%',
     borderRadius: 14,
-    backgroundColor: c.brand,
+    backgroundColor: c.brandSoft,
+    borderWidth: 2,
+    borderColor: c.brand,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: c.brandGlow,
@@ -621,7 +731,7 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
   },
   primaryButtonContent: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   primaryButtonText: {
-    color: c.brandInk,
+    color: c.brand,
     fontFamily: 'Archivo_900Black',
     fontSize: 15,
     fontWeight: '900',
@@ -650,6 +760,36 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
   emptyTitle: { color: c.text, fontSize: 14, fontWeight: '800' },
   emptyCopy: { color: c.textDim, fontSize: 13, lineHeight: 20, marginTop: 6 },
   cardList: { gap: 12 },
+  recurrenceList: { gap: 10 },
+  recurrenceCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: `${c.brand}35`,
+    backgroundColor: c.bgSurface,
+    padding: 14,
+  },
+  recurrenceHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  recurrenceIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: c.brandSoft,
+  },
+  recurrenceCopy: { flex: 1, minWidth: 0 },
+  recurrenceTitle: { color: c.text, fontSize: 15, fontWeight: '800' },
+  recurrenceSchedule: { color: c.textDim, fontSize: 12, lineHeight: 18, marginTop: 4 },
+  recurrenceNext: { color: c.brand, fontSize: 12, fontWeight: '700', marginTop: 7 },
+  cancelRecurrenceButton: {
+    minHeight: 48,
+    marginTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: c.border,
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  cancelRecurrenceText: { color: c.danger, fontSize: 12, fontWeight: '800' },
   captainBadge: {
     minHeight: 32,
     flexDirection: 'row',
