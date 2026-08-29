@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 const root = path.resolve(__dirname, '../..');
 const read = (relativePath: string) => fs.readFileSync(path.join(root, relativePath), 'utf8');
 const migration = read('supabase/migrations/20260829224147_team_match_recurrences_phase2.sql');
+const cronMigration = read('supabase/migrations/20260829230149_schedule_team_match_recurrences.sql');
 const sqlTests = read('supabase/tests/team_match_recurrences_phase2.sql');
 
 describe('team match recurrences security', () => {
@@ -32,5 +33,12 @@ describe('team match recurrences security', () => {
     expect(sqlTests).toContain("2026-03-29 21:00:00 Europe/Madrid");
     expect(sqlTests).toContain("2026-10-25 21:00:00 Europe/Madrid");
     expect(sqlTests).toMatch(/AT TIME ZONE 'Europe\/Madrid'/i);
+  });
+
+  it('schedules one daily internal generation job', () => {
+    expect(cronMigration).toMatch(/jobname = 'generate-team-match-recurrences'/i);
+    expect(cronMigration).toMatch(/cron\.unschedule\(v_existing_job_id\)/i);
+    expect(cronMigration).toContain("'15 3 * * *'");
+    expect(cronMigration).toContain("'SELECT private.generate_team_match_recurrences();'");
   });
 });
