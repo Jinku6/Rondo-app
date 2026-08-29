@@ -18,6 +18,17 @@ import { ColorSwatch } from '@/components/ui/ColorSwatch';
 import { TEAM_COLOR_OPTIONS } from '@/constants/teamColors';
 import { useTheme } from '@/hooks/use-theme';
 import { getErrorMessage, logSupabaseError } from '@/lib/supabaseErrors';
+import {
+  alignMonthlyDate,
+  alignWeeklyDate,
+  buildRecurrenceSummary,
+  getDateWeekday,
+  getWeekOfMonth,
+  RECURRENCE_MONTH_WEEKS,
+  RECURRENCE_WEEKDAYS,
+  type TeamRecurrenceFrequency,
+  type TeamRecurrenceWeek,
+} from '@/lib/teamRecurrence';
 
 const CreateMatchSchema = z.object({
   title: z.string().min(3, 'El título debe tener al menos 3 caracteres'),
@@ -126,6 +137,10 @@ export default function CreateMatchScreen() {
 
   const [price, setPrice] = useState('0');
   const [requiresApproval, setRequiresApproval] = useState(false);
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [recurrenceFrequency, setRecurrenceFrequency] = useState<TeamRecurrenceFrequency>('weekly');
+  const [recurrenceDay, setRecurrenceDay] = useState(1);
+  const [recurrenceWeek, setRecurrenceWeek] = useState<TeamRecurrenceWeek>(1);
   const [loading, setLoading] = useState(false);
   const [creationMode, setCreationMode] = useState<CreationMode>('match');
   const [seriesCity, setSeriesCity] = useState('');
@@ -213,6 +228,32 @@ export default function CreateMatchScreen() {
       active = false;
     };
   }, [creationMode, user?.id]);
+
+  useEffect(() => {
+    if (!teamContext || !isRecurring || !dateText) return;
+    const alignedDate = recurrenceFrequency === 'weekly'
+      ? alignWeeklyDate(dateText, recurrenceDay)
+      : alignMonthlyDate(dateText, recurrenceDay, recurrenceWeek);
+    if (alignedDate !== dateText) setDateText(alignedDate);
+  }, [dateText, isRecurring, recurrenceDay, recurrenceFrequency, recurrenceWeek, teamContext]);
+
+  const handleRecurringChange = (enabled: boolean) => {
+    if (enabled) {
+      const selectedWeekday = getDateWeekday(dateText);
+      const selectedWeek = getWeekOfMonth(dateText);
+      if (selectedWeekday !== null) setRecurrenceDay(selectedWeekday);
+      if (selectedWeek !== null) setRecurrenceWeek(selectedWeek);
+    }
+    setIsRecurring(enabled);
+  };
+
+  const handleFrequencyChange = (frequency: TeamRecurrenceFrequency) => {
+    if (frequency === 'monthly') {
+      const selectedWeek = getWeekOfMonth(dateText);
+      if (selectedWeek !== null) setRecurrenceWeek(selectedWeek);
+    }
+    setRecurrenceFrequency(frequency);
+  };
 
   const handleDateChangeText = (text: string) => {
     let cleaned = text.replace(/[^0-9]/g, '');
@@ -392,6 +433,16 @@ export default function CreateMatchScreen() {
       Alert.alert('Error', 'La fecha u hora tienen un formato incorrecto. Usa DD/MM/YYYY y HH:MM.');
       return;
     }
+    if (teamContext && isRecurring) {
+      const alignedDate = recurrenceFrequency === 'weekly'
+        ? alignWeeklyDate(dateText, recurrenceDay)
+        : alignMonthlyDate(dateText, recurrenceDay, recurrenceWeek);
+      if (alignedDate !== dateText) {
+        setDateText(alignedDate);
+        Alert.alert('Fecha ajustada', 'Hemos movido el primer partido al día de la recurrencia. Revisa la fecha y vuelve a crear el partido.');
+        return;
+      }
+    }
     if (!user) {
       Alert.alert('Error', 'No estás autenticado');
       return;
@@ -423,7 +474,6 @@ export default function CreateMatchScreen() {
         p_team_a_color: teamAColor,
         p_team_b_color: teamBColor,
         p_price_per_player: parseFloat(price) || 0,
-        p_requires_approval: requiresApproval,
         p_venue_id: venueId,
         p_location_name_snapshot: location,
         p_address_snapshot: locationAddressSnapshot,
@@ -433,7 +483,15 @@ export default function CreateMatchScreen() {
       };
 
       const result = teamContext
-        ? await supabase.rpc('create_team_match', { p_team_id: teamContext.id, ...matchPayload })
+        ? await supabase.rpc('create_team_match', {
+          p_team_id: teamContext.id,
+          ...matchPayload,
+          p_recurrence_frequency: isRecurring ? recurrenceFrequency : null,
+          p_recurrence_day_of_week: isRecurring ? recurrenceDay : null,
+          p_recurrence_week_of_month: isRecurring && recurrenceFrequency === 'monthly'
+            ? recurrenceWeek
+            : null,
+        })
         : await supabase
           .from('matches')
           .insert({
@@ -466,7 +524,9 @@ export default function CreateMatchScreen() {
       const matchId = typeof data === 'string' ? data : data?.id;
       if (!matchId) throw new Error('No se recibió el partido creado.');
       Alert.alert('¡Listo!', teamContext
-        ? 'La plantilla ya puede confirmar. El partido sigue privado hasta que publiques las plazas libres.'
+        ? isRecurring
+          ? 'El primer partido está listo y la plantilla ya puede confirmar. Prepararemos el siguiente cuando pase este.'
+          : 'La plantilla ya puede confirmar. El partido sigue privado hasta que publiques las plazas libres.'
         : 'El partido ya está publicado en Rondo.', [
         { text: 'Ver partido', onPress: () => router.push(`/match/${matchId}`) },
         { text: 'Ir al inicio', onPress: () => router.push('/(tabs)') },
@@ -474,9 +534,11 @@ export default function CreateMatchScreen() {
       setTitle(''); setLocation(''); setLocationLat(null); setLocationLng(null); setLocationCity(null);
       setVenueId(null); setLocationAddressSnapshot(null); setLocationQualityStatus('confirmed');
       setDescription(''); setLevel('medio'); setDateText(''); setTimeText('');
+      setIsRecurring(false); setRecurrenceFrequency('weekly'); setRecurrenceDay(1); setRecurrenceWeek(1);
       setPositions({ portero: 0, defensa: 0, mediocentro: 0, delantero: 0, cualquiera: 0 });
     } catch (e) {
-      Alert.alert('Error al crear el partido', e instanceof Error ? e.message : String(e));
+      logSupabaseError('create match', e);
+      Alert.alert('Error al crear el partido', getErrorMessage(e, 'Revisa los datos y prueba de nuevo.'));
     } finally {
       setLoading(false);
     }
@@ -490,6 +552,12 @@ export default function CreateMatchScreen() {
   };
 
   const totalPlayers = Object.values(positions).reduce((a, b) => a + b, 0);
+  const recurrenceSummary = buildRecurrenceSummary(
+    recurrenceFrequency,
+    recurrenceDay,
+    recurrenceWeek,
+    timeText,
+  );
 
   return (
     <View className="flex-1 bg-bg">
@@ -889,21 +957,135 @@ export default function CreateMatchScreen() {
             </Text>
           </View>
           
-          {creationMode === 'match' && (
-          <View className="flex-row justify-between items-center py-1">
-            <View className="flex-1 mr-4">
-              <Text className="text-ink font-body font-semibold text-sm">Requiere aprobación</Text>
-              <Text className="text-ink-muted text-[11px] mt-1 font-body">Revisa quién se une a tu partido</Text>
+          {creationMode === 'match' && (teamId ? (
+            <View className="border-t border-border pt-5">
+              <View className="flex-row justify-between items-center">
+                <View className="flex-1 mr-4">
+                  <Text className="text-ink font-body font-semibold text-sm">Crear partido recurrente</Text>
+                  <Text className="text-ink-muted text-[11px] mt-1 font-body">
+                    Rondo preparará el siguiente cuando pase el actual
+                  </Text>
+                </View>
+                <Switch
+                  accessibilityLabel="Crear partido recurrente"
+                  value={isRecurring}
+                  onValueChange={handleRecurringChange}
+                  trackColor={{ false: '#3f3f46', true: '#22C55E' }}
+                  thumbColor="#FFFFFF"
+                  ios_backgroundColor="#3f3f46"
+                />
+              </View>
+
+              {isRecurring && (
+                <View className="mt-5 gap-5">
+                  <View>
+                    <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">
+                      Frecuencia
+                    </Text>
+                    <View className="flex-row gap-2">
+                      {([
+                        { value: 'weekly', label: 'Semanal' },
+                        { value: 'monthly', label: 'Mensual' },
+                      ] as const).map(option => {
+                        const selected = recurrenceFrequency === option.value;
+                        return (
+                          <TouchableOpacity
+                            key={option.value}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected }}
+                            onPress={() => handleFrequencyChange(option.value)}
+                            className={`flex-1 min-h-12 rounded-md-r border items-center justify-center ${
+                              selected ? 'bg-brand-soft border-brand' : 'bg-input/5 border-border'
+                            }`}
+                          >
+                            <Text className={`font-body font-bold text-sm ${selected ? 'text-brand' : 'text-ink-dim'}`}>
+                              {option.label}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+
+                  <View>
+                    <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">
+                      Día de la semana
+                    </Text>
+                    <View className="flex-row gap-1">
+                      {RECURRENCE_WEEKDAYS.map(option => {
+                        const selected = recurrenceDay === option.value;
+                        return (
+                          <TouchableOpacity
+                            key={option.value}
+                            accessibilityRole="button"
+                            accessibilityLabel={option.label}
+                            accessibilityState={{ selected }}
+                            onPress={() => setRecurrenceDay(option.value)}
+                            className={`flex-1 min-h-12 rounded-md-r border items-center justify-center ${
+                              selected ? 'bg-brand-soft border-brand' : 'bg-input/5 border-border'
+                            }`}
+                          >
+                            <Text className={`font-mono font-bold text-[10px] ${selected ? 'text-brand' : 'text-ink-dim'}`}>
+                              {option.shortLabel}
+                            </Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+
+                  {recurrenceFrequency === 'monthly' && (
+                    <View>
+                      <Text className="text-ink-dim font-body font-semibold text-[11px] uppercase tracking-wider mb-2">
+                        Semana del mes
+                      </Text>
+                      <View className="flex-row gap-2">
+                        {RECURRENCE_MONTH_WEEKS.map(option => {
+                          const selected = recurrenceWeek === option.value;
+                          return (
+                            <TouchableOpacity
+                              key={option.value}
+                              accessibilityRole="button"
+                              accessibilityLabel={option.shortLabel}
+                              accessibilityState={{ selected }}
+                              onPress={() => setRecurrenceWeek(option.value)}
+                              className={`flex-1 min-h-12 rounded-md-r border items-center justify-center ${
+                                selected ? 'bg-brand-soft border-brand' : 'bg-input/5 border-border'
+                              }`}
+                            >
+                              <Text className={`font-body font-bold text-xs ${selected ? 'text-brand' : 'text-ink-dim'}`}>
+                                {option.shortLabel}
+                              </Text>
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </View>
+                    </View>
+                  )}
+
+                  <View className="bg-brand-soft border border-brand/30 rounded-md-r px-4 py-3">
+                    <Text className="text-brand font-body font-semibold text-xs leading-5">
+                      {recurrenceSummary ?? 'Elige la hora del partido para ver el calendario completo.'}
+                    </Text>
+                  </View>
+                </View>
+              )}
             </View>
-            <Switch
-              value={requiresApproval}
-              onValueChange={setRequiresApproval}
-              trackColor={{ false: '#3f3f46', true: '#22C55E' }}
-              thumbColor="#FFFFFF"
-              ios_backgroundColor="#3f3f46"
-            />
-          </View>
-          )}
+          ) : (
+            <View className="flex-row justify-between items-center py-1">
+              <View className="flex-1 mr-4">
+                <Text className="text-ink font-body font-semibold text-sm">Requiere aprobación</Text>
+                <Text className="text-ink-muted text-[11px] mt-1 font-body">Revisa quién se une a tu partido</Text>
+              </View>
+              <Switch
+                value={requiresApproval}
+                onValueChange={setRequiresApproval}
+                trackColor={{ false: '#3f3f46', true: '#22C55E' }}
+                thumbColor="#FFFFFF"
+                ios_backgroundColor="#3f3f46"
+              />
+            </View>
+          ))}
         </View>
 
         {/* Actions */}
@@ -925,12 +1107,12 @@ export default function CreateMatchScreen() {
               shadowRadius: 14,
               elevation: 8,
             }}
-            className={`flex-[2] bg-brand rounded-xl-r py-4 items-center justify-center ${loading || (!!teamId && !teamContext) ? 'opacity-70' : ''}`}
+            className={`flex-[2] min-w-0 min-h-14 bg-brand rounded-xl-r px-3 items-center justify-center ${loading || (!!teamId && !teamContext) ? 'opacity-70' : ''}`}
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text className="font-display text-[15px] font-black text-white uppercase tracking-[1px]">
+              <Text className="font-display text-[15px] font-black text-white uppercase tracking-[1px] text-center">
                 {teamContext ? 'Crear partido privado' : creationMode === 'match' ? 'Publicar Partido' : 'Crear Equipo'}
               </Text>
             )}
