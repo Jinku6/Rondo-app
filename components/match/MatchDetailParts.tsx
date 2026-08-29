@@ -232,7 +232,7 @@ export function PlayerRow({
   isLast = false,
 }: {
   participant?: MatchParticipant;
-  user?: UserProfile | null;
+  user?: Pick<UserProfile, 'full_name' | 'avatar_url' | 'preferred_position'> | null;
   onPress?: () => void;
   rightContent?: ReactNode;
   isLast?: boolean;

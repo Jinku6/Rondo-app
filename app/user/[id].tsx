@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ProfileOverview } from '@/components/profile/ProfileOverview';
-import { ProfileAvatar } from '@/components/match/MatchDetailParts';
+import { ProfileTeams } from '@/components/profile/ProfileTeams';
 import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
 import { ScreenTitle } from '@/components/ui/ScreenTitle';
 import { useTheme } from '@/hooks/use-theme';
@@ -125,55 +125,10 @@ export default function UserProfileScreen() {
 
         <ProfileOverview profile={profile} />
 
-        {teams.length > 0 && (
-          <View style={{ marginTop: 20, marginBottom: 10 }}>
-            <Text style={{
-              color: c.textDim,
-              fontFamily: 'JetBrainsMono_500Medium',
-              fontSize: 10,
-              fontWeight: '700',
-              letterSpacing: 1.5,
-              textTransform: 'uppercase',
-              marginBottom: 10,
-            }}>
-              Equipos
-            </Text>
-            <View style={{ gap: 10 }}>
-              {teams.map(team => (
-                <TouchableOpacity
-                  key={team.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Abrir equipo ${team.title}`}
-                  activeOpacity={0.72}
-                  onPress={() => router.push(`/group/${team.id}` as never)}
-                  style={{
-                    minHeight: 68,
-                    flexDirection: 'row',
-                    alignItems: 'center',
-                    paddingHorizontal: 14,
-                    borderRadius: 14,
-                    borderWidth: 1,
-                    borderColor: c.border,
-                    backgroundColor: c.bgSurface,
-                  }}
-                >
-                  <ProfileAvatar name={team.title} avatarUrl={team.avatar_url} size={44} textSize={14} />
-                  <View style={{ flex: 1, minWidth: 0, marginLeft: 12 }}>
-                    <Text style={{ color: c.text, fontSize: 15, fontWeight: '800' }} numberOfLines={1}>
-                      {team.title}
-                    </Text>
-                    {!!team.city && (
-                      <Text style={{ color: c.textDim, fontSize: 12, marginTop: 3 }} numberOfLines={1}>
-                        {team.city}
-                      </Text>
-                    )}
-                  </View>
-                  <Ionicons name="chevron-forward" size={18} color={c.brand} />
-                </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-        )}
+        <ProfileTeams
+          teams={teams}
+          onTeamPress={teamId => router.push(`/group/${teamId}` as never)}
+        />
 
         {isOwnProfile && (
           <TouchableOpacity

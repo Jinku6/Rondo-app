@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Badge, InfoCell, ProfileAvatar } from '@/components/match/MatchDetailParts';
+import { Badge, InfoCell, PlayerRow, ProfileAvatar } from '@/components/match/MatchDetailParts';
 import { MatchCard } from '@/components/rondo/MatchCard';
 import { TeamEditModal, type TeamEditValues } from '@/components/team/TeamEditModal';
 import { useAuth } from '@/contexts/AuthContext';
@@ -33,13 +33,6 @@ import type {
 type MatchWithCardJoins = SeriesMatch & {
   participants?: { status: string }[];
   organizer?: { full_name?: string; username?: string } | null;
-};
-
-const POSITION_LABELS: Record<string, string> = {
-  portero: 'Portero',
-  defensa: 'Defensa',
-  mediocentro: 'Mediocentro',
-  delantero: 'Delantero',
 };
 
 export default function GroupDetailScreen() {
@@ -419,30 +412,19 @@ export default function GroupDetailScreen() {
 
         <View style={s.section}>
           <Text style={s.sectionLabel}>Plantilla ({publicTeam.roster.length})</Text>
-          <View style={s.rosterCard}>
-            {publicTeam.roster.map((member, index) => {
-              const name = member.full_name || member.username || 'Jugador de Rondo';
-              const position = member.preferred_position ? POSITION_LABELS[member.preferred_position] : null;
-              return (
-                <Pressable
-                  key={member.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Ver perfil de ${name}`}
-                  onPress={() => router.push(`/user/${member.id}` as never)}
-                  style={({ pressed }) => [
-                    s.rosterRow,
-                    index === publicTeam.roster.length - 1 && s.rosterRowLast,
-                    pressed && s.pressed,
-                  ]}
-                >
-                  <View style={s.rosterIdentity}>
-                    <ProfileAvatar name={name} avatarUrl={member.avatar_url} size={38} textSize={13} />
-                    <View style={s.rosterCopy}>
-                      <Text style={s.rosterName} numberOfLines={1}>{name}</Text>
-                      {!!position && <Text style={s.rosterPosition}>{position}</Text>}
-                    </View>
-                  </View>
-                  {member.is_captain ? (
+          {publicTeam.roster.map((member, index) => {
+            const name = member.full_name || member.username || 'Jugador de Rondo';
+            return (
+              <PlayerRow
+                key={member.id}
+                user={{
+                  full_name: name,
+                  avatar_url: member.avatar_url,
+                  preferred_position: member.preferred_position,
+                }}
+                onPress={() => router.push(`/user/${member.id}` as never)}
+                isLast={index === publicTeam.roster.length - 1}
+                rightContent={member.is_captain ? (
                     <View style={s.captainBadge}>
                       <Ionicons name="shield-checkmark-outline" size={14} color={c.warning} />
                       <Text style={s.captainBadgeText}>Capitán</Text>
@@ -471,10 +453,9 @@ export default function GroupDetailScreen() {
                   ) : (
                     <Ionicons name="chevron-forward" size={16} color={c.textDim} />
                   )}
-                </Pressable>
-              );
-            })}
-          </View>
+              />
+            );
+          })}
         </View>
 
         {canManage && (
@@ -669,28 +650,6 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
   emptyTitle: { color: c.text, fontSize: 14, fontWeight: '800' },
   emptyCopy: { color: c.textDim, fontSize: 13, lineHeight: 20, marginTop: 6 },
   cardList: { gap: 12 },
-  rosterCard: {
-    overflow: 'hidden',
-    backgroundColor: c.bgSurface,
-    borderWidth: 1,
-    borderColor: c.border,
-    borderRadius: 14,
-  },
-  rosterRow: {
-    minHeight: 64,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    paddingHorizontal: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: c.border,
-  },
-  rosterRowLast: { borderBottomWidth: 0 },
-  rosterIdentity: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  rosterCopy: { flex: 1, minWidth: 0 },
-  rosterName: { color: c.text, fontSize: 14, fontWeight: '800' },
-  rosterPosition: { color: c.textDim, fontSize: 11, marginTop: 3 },
   captainBadge: {
     minHeight: 32,
     flexDirection: 'row',

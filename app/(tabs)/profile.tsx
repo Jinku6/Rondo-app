@@ -4,11 +4,14 @@ import {
   ActivityIndicator, Alert, Platform, Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { PendingReviewsAlert } from '@/components/PendingReviewsAlert';
-import { calculateAge, isSafeUrl } from '@/lib/utils';
+import { ProfileOverview } from '@/components/profile/ProfileOverview';
+import { ProfileTeams } from '@/components/profile/ProfileTeams';
+import { isSafeUrl } from '@/lib/utils';
 import { Colors } from '@/constants/theme';
 import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
 import { getErrorMessage, logSupabaseError } from '@/lib/supabaseErrors';
@@ -17,13 +20,10 @@ import { ScreenTitle } from '@/components/ui/ScreenTitle';
 import { useTheme } from '@/hooks/use-theme';
 import { pickSquareAvatar, uploadAvatar, type AvatarAsset } from '@/lib/avatarUpload';
 import {
-  formatMemberSince,
-  getAttitudeEmoji,
-  getReliabilityInfo,
   POSITION_EMOJIS,
-  POSITION_LABELS,
   POSITIONS,
 } from '@/components/profile/profileDisplay';
+import type { PublicUserTeam } from '@/types/series';
 
 const c = Colors;
 
@@ -61,8 +61,10 @@ export default function ProfileScreen() {
   const { colors: c } = useTheme();
   const { user, profile, refreshProfile, signOut } = useAuth();
   const insets = useSafeAreaInsets();
+  const router = useRouter();
 
   const [isEditing, setIsEditing] = useState(false);
+  const [teams, setTeams] = useState<PublicUserTeam[]>([]);
 
   const [fullName, setFullName] = useState('');
   const [username, setUsername] = useState('');
@@ -104,6 +106,28 @@ export default function ProfileScreen() {
   React.useEffect(() => {
     fetchPhone();
   }, [fetchPhone]);
+
+  useFocusEffect(useCallback(() => {
+    let active = true;
+
+    const fetchTeams = async () => {
+      if (!user?.id) {
+        if (active) setTeams([]);
+        return;
+      }
+
+      try {
+        const { data, error } = await supabase.rpc('get_public_user_teams', { p_user_id: user.id });
+        if (error) throw error;
+        if (active) setTeams((data ?? []) as PublicUserTeam[]);
+      } catch (error) {
+        logSupabaseError('profile fetch teams error', error);
+      }
+    };
+
+    void fetchTeams();
+    return () => { active = false; };
+  }, [user?.id]));
 
   React.useEffect(() => {
     return () => {
@@ -298,12 +322,7 @@ export default function ProfileScreen() {
     }
   };
 
-  const age = calculateAge(profile.birthday);
-
-  // ── View mode ────────────────────────────────────────────────────────────
   if (!isEditing) {
-    const reliability = getReliabilityInfo(profile.reliability_score);
-
     return (
       <View style={{ flex: 1, backgroundColor: c.bg }}>
         <ScrollView
@@ -319,248 +338,25 @@ export default function ProfileScreen() {
             Perfil
           </Text>
           <View style={{ marginBottom: 20 }}>
-            <ScreenTitle>
-              Mi Perfil
-            </ScreenTitle>
-          </View>
-          {/* ── Identity ───────────────────────────────────────────── */}
-          <View style={{ alignItems: 'center', paddingVertical: 24 }}>
-            <View style={{ position: 'relative' }}>
-              {isSafeUrl(profile.avatar_url) ? (
-                <Image
-                  source={{ uri: profile.avatar_url! }}
-                  style={{
-                    width: 132,
-                    height: 132,
-                    borderRadius: 66,
-                    borderWidth: 3,
-                    borderColor: c.brand,
-                    marginBottom: 16,
-                  }}
-                />
-              ) : (
-                <View style={{
-                  width: 132,
-                  height: 132,
-                  borderRadius: 66,
-                  backgroundColor: c.brandSoft,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  borderWidth: 3,
-                  borderColor: c.brand,
-                  marginBottom: 16,
-                }}>
-                  <Text style={{ fontSize: 52, color: c.brand, fontWeight: '800' }}>
-                    {profile.full_name?.charAt(0)?.toUpperCase() || '?'}
-                  </Text>
-                </View>
-              )}
-              <TouchableOpacity
-                style={{
-                  position: 'absolute', bottom: 16, right: 0,
-                  backgroundColor: c.brand, width: 38, height: 38,
-                  borderRadius: 12, alignItems: 'center', justifyContent: 'center',
-                  borderWidth: 2, borderColor: c.bgElev
-                }}
-                onPress={pickImage}
-                disabled={uploading}
-              >
-                {uploading ? <ActivityIndicator size="small" color="#fff" /> : <Ionicons name="camera" size={18} color="#fff" />}
-              </TouchableOpacity>
-            </View>
-
-            <Text style={{
-              fontFamily: 'Archivo_900Black',
-              fontSize: 34,
-              fontWeight: '900',
-              color: c.text,
-              letterSpacing: -0.4,
-              marginBottom: 4,
-              textAlign: 'center',
-            }}>
-              {profile.full_name}
-            </Text>
-
-            <Text style={{ fontSize: 14, color: c.textDim, marginBottom: 4 }}>
-              @{profile.username}
-            </Text>
-
-            <Text style={{ fontSize: 12, color: c.textMuted }}>
-              Jugador desde {formatMemberSince(profile.created_at)}
-            </Text>
+            <ScreenTitle>Mi Perfil</ScreenTitle>
           </View>
 
-          {/* ── Quick Stats Row ────────────────────────────────────── */}
-          <View style={{
-            flexDirection: 'row',
-            backgroundColor: c.bgElev,
-            borderRadius: 20,
-            borderWidth: 1,
-            borderColor: c.border,
-            marginBottom: 14,
-            overflow: 'hidden',
-          }}>
-            {/* Años */}
-            <View style={{ flex: 1, alignItems: 'center', paddingVertical: 18 }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: c.textDim, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 }}>
-                Edad
-              </Text>
-              <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 22, fontWeight: '900', color: c.text }}>
-                {age !== null ? age : '—'}
-              </Text>
-            </View>
-
-            {/* Divider */}
-            <View style={{ width: 1, backgroundColor: c.border, marginVertical: 14 }} />
-
-            {/* Posición */}
-            <View style={{ flex: 1, alignItems: 'center', paddingVertical: 18 }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: c.textDim, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 }}>
-                Posición
-              </Text>
-              <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 15, fontWeight: '900', color: c.text, textAlign: 'center' }}>
-                {profile.preferred_position
-                  ? POSITION_LABELS[profile.preferred_position] ?? profile.preferred_position
-                  : '—'}
-              </Text>
-            </View>
-
-            {/* Divider */}
-            <View style={{ width: 1, backgroundColor: c.border, marginVertical: 14 }} />
-
-            {/* Fiabilidad */}
-            <View style={{ flex: 1, alignItems: 'center', paddingVertical: 18, paddingHorizontal: 4 }}>
-              <Text style={{ fontSize: 11, fontWeight: '700', color: c.textDim, letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 6 }}>
-                Fiabilidad
-              </Text>
-              {profile.matches_played >= 3 ? (
-                <>
-                  <Text style={{ fontSize: 18, marginBottom: 2 }}>{reliability.icon}</Text>
-                  <Text style={{ fontSize: 11, fontWeight: '800', color: reliability.color, textAlign: 'center', lineHeight: 14 }}>
-                    {reliability.label}
-                  </Text>
-                </>
-              ) : (
-                <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 15, fontWeight: '900', color: c.textMuted }}>—</Text>
-              )}
-            </View>
-          </View>
-
-          {/* ── Sobre mí ───────────────────────────────────────────── */}
-          <View style={{
-            backgroundColor: c.bgElev,
-            borderRadius: 20,
-            borderWidth: 1,
-            borderColor: c.border,
-            padding: 18,
-            marginBottom: 14,
-          }}>
-            <Text style={{
-              fontSize: 10,
-              fontWeight: '700',
-              color: c.textDim,
-              letterSpacing: 2,
-              textTransform: 'uppercase',
-              marginBottom: 10,
-            }}>
-              Sobre mí
-            </Text>
-            <Text style={{ fontSize: 14, color: profile.bio ? c.textDim : c.textMuted, lineHeight: 22, fontStyle: profile.bio ? 'normal' : 'italic' }}>
-              {profile.bio ?? 'Sin descripción todavía.'}
-            </Text>
-          </View>
-
-          {/* ── Estadísticas ───────────────────────────────────────── */}
-          <Text style={{
-            fontSize: 10,
-            fontWeight: '700',
-            color: c.textDim,
-            letterSpacing: 2,
-            textTransform: 'uppercase',
-            marginBottom: 10,
-          }}>
-            Estadísticas
-          </Text>
-
-          {profile.matches_played < 3 ? (
-            <View style={{
-              backgroundColor: c.brandSoft,
-              borderRadius: 20,
-              borderWidth: 1,
-              borderColor: c.brand + '33',
-              padding: 20,
-              alignItems: 'center',
-              marginBottom: 14,
-            }}>
-              <Text style={{ fontSize: 36, marginBottom: 8 }}>🌱</Text>
-              <Text style={{ fontSize: 15, fontWeight: '800', color: c.brand, marginBottom: 4 }}>Jugador en crecimiento</Text>
-              <Text style={{ fontSize: 13, color: c.textDim, textAlign: 'center', lineHeight: 20 }}>
-                Las estadísticas se desbloquean al completar 3 partidos valorados ({profile.matches_played}/3).
-              </Text>
-            </View>
-          ) : (
-            <View style={{ flexDirection: 'row', gap: 10, marginBottom: 14 }}>
-              {/* Partidos */}
-              <View style={{
-                flex: 1,
-                backgroundColor: c.bgElev,
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: c.border,
-                padding: 16,
-                alignItems: 'center',
-              }}>
-                <Ionicons name="football-outline" size={22} color={c.textMuted} style={{ marginBottom: 8 }} />
-                <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 26, fontWeight: '900', color: c.text, marginBottom: 2 }}>
-                  {profile.matches_played}
-                </Text>
-                <Text style={{ fontSize: 10, fontWeight: '700', color: c.textMuted, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center' }}>
-                  Partidos
-                </Text>
-              </View>
-
-              {/* Actitud */}
-              <View style={{
-                flex: 1,
-                backgroundColor: c.bgElev,
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: c.border,
-                padding: 16,
-                alignItems: 'center',
-              }}>
-                <Text style={{ fontSize: 28, marginBottom: 6 }}>
-                  {getAttitudeEmoji(profile.average_attitude)}
-                </Text>
-                <Text style={{ fontSize: 10, fontWeight: '700', color: c.textMuted, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center' }}>
-                  Actitud
-                </Text>
-              </View>
-
-              {/* Nivel */}
-              <View style={{
-                flex: 1,
-                backgroundColor: c.bgElev,
-                borderRadius: 16,
-                borderWidth: 1,
-                borderColor: c.border,
-                padding: 16,
-                alignItems: 'center',
-              }}>
-                <Ionicons name="speedometer-outline" size={22} color={c.warning} style={{ marginBottom: 8 }} />
-                <Text style={{ fontFamily: 'Archivo_900Black', fontSize: 26, fontWeight: '900', color: c.warning, marginBottom: 2 }}>
-                  {profile.average_level > 0 ? profile.average_level.toFixed(1) : '—'}
-                </Text>
-                <Text style={{ fontSize: 10, fontWeight: '700', color: c.textMuted, letterSpacing: 1, textTransform: 'uppercase', textAlign: 'center' }}>
-                  Nivel
-                </Text>
-              </View>
-            </View>
-          )}
+          <ProfileOverview
+            profile={profile}
+            uploading={uploading}
+            onPickImage={() => void pickImage()}
+          />
+          <ProfileTeams
+            teams={teams}
+            onTeamPress={teamId => router.push(`/group/${teamId}` as never)}
+          />
 
           <PendingReviewsAlert />
 
           <TouchableOpacity
+            accessibilityRole="button"
+            accessibilityLabel="Editar mi perfil"
+            activeOpacity={0.75}
             onPress={startEditing}
             style={{
               backgroundColor: 'rgba(255,255,255,0.05)',
@@ -576,18 +372,20 @@ export default function ProfileScreen() {
             <Text style={{ color: c.text, fontWeight: '700' }}>Editar perfil</Text>
           </TouchableOpacity>
 
-          {/* Sign out */}
           <TouchableOpacity
-            onPress={signOut}
-            style={{ 
-              backgroundColor: 'rgba(239,68,68,0.08)', 
-              borderWidth: 1, 
-              borderColor: 'rgba(239,68,68,0.25)', 
-              borderRadius: 16, 
-              paddingVertical: 14, 
-              alignItems: 'center', 
+            accessibilityRole="button"
+            accessibilityLabel="Cerrar sesión"
+            activeOpacity={0.75}
+            onPress={() => void signOut()}
+            style={{
+              backgroundColor: 'rgba(239,68,68,0.08)',
+              borderWidth: 1,
+              borderColor: 'rgba(239,68,68,0.25)',
+              borderRadius: 16,
+              paddingVertical: 14,
+              alignItems: 'center',
               marginTop: 10,
-              marginBottom: 8 
+              marginBottom: 8,
             }}
           >
             <Text style={{ color: c.danger, fontWeight: '700' }}>Cerrar sesión</Text>
@@ -597,7 +395,6 @@ export default function ProfileScreen() {
     );
   }
 
-  // ── Edit mode ────────────────────────────────────────────────────────────
   const lbl = {
     fontSize: 11, fontWeight: '600' as const, color: c.textDim,
     marginBottom: 6, letterSpacing: 0.5, textTransform: 'uppercase' as const,
