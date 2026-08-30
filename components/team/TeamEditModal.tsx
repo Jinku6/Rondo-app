@@ -228,10 +228,7 @@ export function TeamEditModal({ visible, team, saving, onClose, onSave }: Props)
               {saving ? (
                 <ActivityIndicator color={c.brandInk} />
               ) : (
-                <View style={s.saveButtonContent}>
-                  <Ionicons name="checkmark-circle-outline" size={19} color={c.brandInk} />
-                  <Text style={s.saveButtonText}>Guardar cambios</Text>
-                </View>
+                <Text style={s.saveButtonText}>Guardar cambios</Text>
               )}
             </Pressable>
           </ScrollView>
@@ -325,29 +322,26 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
   hint: { color: c.textMuted, fontSize: 11, marginTop: 6 },
   saveButton: {
     width: '100%',
-    minHeight: 52,
-    borderRadius: 14,
+    minHeight: 56,
+    borderRadius: 26,
     backgroundColor: c.brand,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 4,
-    shadowColor: c.brandGlow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 1,
-    shadowRadius: 24,
+    paddingHorizontal: 12,
+    shadowColor: c.brand,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.32,
+    shadowRadius: 14,
     elevation: 8,
-  },
-  saveButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
   },
   saveButtonText: {
     color: c.brandInk,
     fontFamily: 'Archivo_900Black',
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '900',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
+    textAlign: 'center',
   },
 });

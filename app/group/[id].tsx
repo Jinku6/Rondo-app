@@ -453,10 +453,7 @@ export default function GroupDetailScreen() {
               onPress={() => router.push({ pathname: '/(tabs)/create', params: { teamId: publicTeam.id } } as never)}
               style={({ pressed }) => [s.primaryButton, pressed && s.pressed]}
             >
-              <View style={s.primaryButtonContent}>
-                <Ionicons name="add-circle-outline" size={20} color={c.brandInk} />
-                <Text style={s.primaryButtonText}>Crear partido</Text>
-              </View>
+              <Text style={s.primaryButtonText}>Crear partido</Text>
             </Pressable>
           </View>
         )}
@@ -579,14 +576,16 @@ export default function GroupDetailScreen() {
                             )}
                             style={({ pressed }) => [s.recurrencePrimaryAction, pressed && s.pressed]}
                           >
-                            <Ionicons
-                              name={canManage ? 'create-outline' : 'football-outline'}
-                              size={18}
-                              color={c.brandInk}
-                            />
-                            <Text style={s.recurrencePrimaryActionText}>
-                              {canManage ? 'Editar partido' : 'Ver partido'}
-                            </Text>
+                            <View style={s.recurrenceActionContent}>
+                              <Ionicons
+                                name={canManage ? 'create-outline' : 'football-outline'}
+                                size={18}
+                                color={c.brandInk}
+                              />
+                              <Text style={s.recurrencePrimaryActionText}>
+                                {canManage ? 'Editar partido' : 'Ver partido'}
+                              </Text>
+                            </View>
                           </Pressable>
                         )}
                         {canManage && (
@@ -603,10 +602,10 @@ export default function GroupDetailScreen() {
                             {cancellingRecurrenceId === recurrence.id ? (
                               <ActivityIndicator color={c.danger} />
                             ) : (
-                              <>
+                              <View style={s.recurrenceActionContent}>
                                 <Ionicons name="close-circle-outline" size={17} color={c.danger} />
                                 <Text style={s.cancelRecurrenceText}>Anular recurrencia</Text>
-                              </>
+                              </View>
                             )}
                           </Pressable>
                         )}
@@ -768,26 +767,27 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
   },
   ctaBlock: { paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: c.border },
   primaryButton: {
-    minHeight: 52,
+    minHeight: 56,
     width: '100%',
-    borderRadius: 14,
+    borderRadius: 26,
     backgroundColor: c.brand,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: c.brandGlow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 1,
-    shadowRadius: 24,
+    paddingHorizontal: 12,
+    shadowColor: c.brand,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.32,
+    shadowRadius: 14,
     elevation: 8,
   },
-  primaryButtonContent: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   primaryButtonText: {
     color: c.brandInk,
     fontFamily: 'Archivo_900Black',
-    fontSize: 16,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '900',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
+    textAlign: 'center',
   },
   section: { padding: 16, borderBottomWidth: 1, borderBottomColor: c.border },
   lastSection: { borderBottomWidth: 0 },
@@ -843,13 +843,17 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
   recurrencePrimaryAction: {
     width: '100%',
     minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 26,
+    backgroundColor: c.brand,
+    paddingHorizontal: 14,
+  },
+  recurrenceActionContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    borderRadius: 14,
-    backgroundColor: c.brand,
-    paddingHorizontal: 14,
   },
   recurrencePrimaryActionText: {
     color: c.brandInk,
@@ -862,13 +866,11 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
   cancelRecurrenceButton: {
     width: '100%',
     minHeight: 48,
-    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
     borderWidth: 1,
     borderColor: `${c.danger}33`,
-    borderRadius: 12,
+    borderRadius: 24,
     paddingHorizontal: 10,
   },
   cancelRecurrenceText: { color: c.danger, fontSize: 14, fontWeight: '700' },
