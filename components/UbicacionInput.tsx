@@ -61,11 +61,6 @@ export function UbicacionInput({
   const [manualOpening, setManualOpening] = useState(false);
   const [resolving, setResolving] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  const sessionTokenRef = useRef(`rondo-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-
-  const resetSessionToken = () => {
-    sessionTokenRef.current = `rondo-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  };
 
   const handleChange = useCallback(
     (text: string) => {
@@ -82,7 +77,7 @@ export function UbicacionInput({
       timeoutRef.current = setTimeout(async () => {
         setLoading(true);
         try {
-          const res = await buscarDireccion(text, sessionTokenRef.current);
+          const res = await buscarDireccion(text);
           setResultados(res);
         } catch {
           setResultados([]);
@@ -104,26 +99,19 @@ export function UbicacionInput({
     onSelect(resultado);
   };
 
-  const handleSelect = async (resultado: GeoSuggestion) => {
-    setLoading(true);
-    try {
-      const resolved = await resolverDireccion(resultado, sessionTokenRef.current);
-      if (!resolved) {
-        Alert.alert('No se pudo encontrar la ubicacion', 'Prueba con otra busqueda o crea la ubicacion manualmente.');
-        return;
-      }
-      if (!isValidCoords(resolved.lat, resolved.lng)) {
-        Alert.alert('Ubicacion sin coordenadas', 'Prueba con otra busqueda o crea la ubicacion manualmente.');
-        return;
-      }
-      setResultados([]);
-      setPendingResult(resolved);
-      setManualMode(false);
-    } catch (error) {
-      Alert.alert('No se pudo encontrar la ubicacion', error instanceof Error ? error.message : String(error));
-    } finally {
-      setLoading(false);
+  const handleSelect = (resultado: GeoSuggestion) => {
+    const resolved = resolverDireccion(resultado);
+    if (!resolved) {
+      Alert.alert('No se pudo encontrar la ubicacion', 'Prueba con otra busqueda o crea la ubicacion manualmente.');
+      return;
     }
+    if (!isValidCoords(resolved.lat, resolved.lng)) {
+      Alert.alert('Ubicacion sin coordenadas', 'Prueba con otra busqueda o crea la ubicacion manualmente.');
+      return;
+    }
+    setResultados([]);
+    setPendingResult(resolved);
+    setManualMode(false);
   };
 
   const handleManual = async () => {
@@ -154,7 +142,6 @@ export function UbicacionInput({
       qualityStatus: 'user_adjusted',
     });
     setManualMode(true);
-    resetSessionToken();
     setManualOpening(false);
   };
 
@@ -233,7 +220,6 @@ export function UbicacionInput({
 
       setPendingResult(null);
       setManualMode(false);
-      resetSessionToken();
     } catch (error) {
       Alert.alert('No se pudo confirmar la ubicacion', error instanceof Error ? error.message : String(error));
     } finally {
@@ -245,7 +231,6 @@ export function UbicacionInput({
     onChangeText?.('');
     setResultados([]);
     setSeleccionado(null);
-    resetSessionToken();
   };
 
   return (
@@ -334,7 +319,6 @@ export function UbicacionInput({
           onCancel={() => {
             setPendingResult(null);
             setManualMode(false);
-            resetSessionToken();
           }}
           onConfirm={handleConfirmLocation}
         />

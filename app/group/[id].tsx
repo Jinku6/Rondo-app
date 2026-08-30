@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -22,26 +22,32 @@ import {
   PlayerRow,
   ProfileAvatar,
 } from '@/components/match/MatchDetailParts';
-import { MatchCard } from '@/components/rondo/MatchCard';
+import { MatchCard, type MatchCardData } from '@/components/rondo/MatchCard';
 import { TeamEditModal, type TeamEditValues } from '@/components/team/TeamEditModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/hooks/use-theme';
 import { uploadAvatar } from '@/lib/avatarUpload';
 import { buildSeriesInviteUrl } from '@/lib/seriesInvite';
 import { supabase } from '@/lib/supabase';
+import { MATCH_CARD_SELECT } from '@/lib/supabase/selects';
 import { getErrorMessage, logSupabaseError } from '@/lib/supabaseErrors';
 import { buildRecurrenceSummary } from '@/lib/teamRecurrence';
 import type {
   MatchSeries,
   PublicTeamDetails,
   PublicTeamRosterMember,
+  SeriesVenue,
   SeriesMatch,
   TeamMatchRecurrence,
 } from '@/types/series';
 
-type MatchWithCardJoins = SeriesMatch & {
-  participants?: { status: string }[];
-  organizer?: { full_name?: string; username?: string } | null;
+type GroupMatch = MatchCardData & Pick<SeriesMatch, 'recurrence_id'>;
+
+type TeamManageDetails = Pick<
+  MatchSeries,
+  'id' | 'title' | 'city' | 'price_per_player' | 'invite_code' | 'avatar_url' | 'description'
+> & {
+  venue?: SeriesVenue | null;
 };
 
 export default function GroupDetailScreen() {
@@ -51,10 +57,10 @@ export default function GroupDetailScreen() {
   const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const s = createStyles(c);
+  const s = useMemo(() => createStyles(c), [c]);
   const [publicTeam, setPublicTeam] = useState<PublicTeamDetails | null>(null);
-  const [privateTeam, setPrivateTeam] = useState<MatchSeries | null>(null);
-  const [matches, setMatches] = useState<MatchWithCardJoins[]>([]);
+  const [privateTeam, setPrivateTeam] = useState<TeamManageDetails | null>(null);
+  const [matches, setMatches] = useState<GroupMatch[]>([]);
   const [recurrences, setRecurrences] = useState<TeamMatchRecurrence[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -81,13 +87,13 @@ export default function GroupDetailScreen() {
         supabase.rpc('get_public_team', { p_team_id: id }),
         supabase
           .from('match_series')
-          .select('*, venue:venues(canonical_name,address,city)')
+          .select('id,title,city,price_per_player,invite_code,avatar_url,description,venue:venues(canonical_name,address,city)')
           .eq('id', id)
           .is('deleted_at', null)
           .maybeSingle(),
         supabase
           .from('matches')
-          .select('*, organizer:users(id,full_name,username), participants:match_participants(status)')
+          .select(`${MATCH_CARD_SELECT},recurrence_id`)
           .eq('series_id', id)
           .in('status', ['open', 'full'])
           .gte('date_time', new Date().toISOString())
@@ -110,8 +116,8 @@ export default function GroupDetailScreen() {
         ...nextPublicTeam,
         completed_matches: Number(nextPublicTeam.completed_matches) || 0,
       });
-      setPrivateTeam(privateResult.data as MatchSeries | null);
-      setMatches((matchesResult.data ?? []) as MatchWithCardJoins[]);
+      setPrivateTeam(privateResult.data as TeamManageDetails | null);
+      setMatches((matchesResult.data ?? []) as GroupMatch[]);
       setRecurrences((recurrencesResult.data ?? []) as TeamMatchRecurrence[]);
     } catch (loadError) {
       logSupabaseError('load public team', loadError);
@@ -128,6 +134,16 @@ export default function GroupDetailScreen() {
 
   const isCaptain = !!publicTeam && publicTeam.organizer_id === user?.id;
   const canManage = isCaptain && !!privateTeam;
+  const matchesByRecurrence = useMemo(() => {
+    const matchesById = new Map<string, GroupMatch>();
+    matches.forEach(match => {
+      if (match.recurrence_id) matchesById.set(match.recurrence_id, match);
+    });
+    return matchesById;
+  }, [matches]);
+  const openMatch = useCallback((matchId: string) => {
+    router.push(`/match/${matchId}` as never);
+  }, [router]);
 
   const shareInvite = async () => {
     if (!privateTeam || !canManage) return;
@@ -223,7 +239,7 @@ export default function GroupDetailScreen() {
 
   const cancelRecurrence = (recurrence: TeamMatchRecurrence) => {
     if (!canManage) return;
-    const nextMatch = matches.find(match => match.recurrence_id === recurrence.id);
+    const nextMatch = matchesByRecurrence.get(recurrence.id);
     const currentMatchCopy = nextMatch
       ? `El partido del ${formatDate(nextMatch.date_time)} a las ${formatTime(nextMatch.date_time)} sigue en pie.`
       : 'Los partidos que ya están creados siguen en pie.';
@@ -459,7 +475,7 @@ export default function GroupDetailScreen() {
           ) : (
             <View style={s.cardList}>
               {matches.map(match => (
-                <MatchCard key={match.id} match={match} onPress={() => router.push(`/match/${match.id}` as never)} />
+                <MatchCard key={match.id} match={match} onPress={openMatch} />
               ))}
             </View>
           )}
@@ -518,7 +534,7 @@ export default function GroupDetailScreen() {
             <Text style={s.sectionLabel}>Partidos recurrentes ({recurrences.length})</Text>
             <View style={s.recurrenceList}>
               {recurrences.map(recurrence => {
-                const nextMatch = matches.find(match => match.recurrence_id === recurrence.id);
+                const nextMatch = matchesByRecurrence.get(recurrence.id);
                 const summary = buildRecurrenceSummary(
                   recurrence.frequency,
                   recurrence.day_of_week,

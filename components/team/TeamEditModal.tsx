@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -32,7 +32,7 @@ export type TeamEditValues = {
 
 type Props = {
   visible: boolean;
-  team: MatchSeries;
+  team: Pick<MatchSeries, 'title' | 'city' | 'description' | 'price_per_player' | 'avatar_url'>;
   saving: boolean;
   onClose: () => void;
   onSave: (values: TeamEditValues) => void;
@@ -40,7 +40,7 @@ type Props = {
 
 export function TeamEditModal({ visible, team, saving, onClose, onSave }: Props) {
   const { colors: c } = useTheme();
-  const s = createStyles(c);
+  const s = useMemo(() => createStyles(c), [c]);
   const [title, setTitle] = useState(team.title);
   const [city, setCity] = useState(team.city ?? '');
   const [description, setDescription] = useState(team.description ?? '');

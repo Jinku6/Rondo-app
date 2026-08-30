@@ -90,7 +90,7 @@ export async function buscarDireccionTemporal(
   }));
 }
 
-export async function buscarDireccion(query: string, sessionToken?: string): Promise<GeoSuggestion[]> {
+export async function buscarDireccion(query: string): Promise<GeoSuggestion[]> {
   const trimmed = query.trim().slice(0, MAX_QUERY_LENGTH);
   if (trimmed.length < 3) return [];
 
@@ -114,7 +114,7 @@ export async function buscarDireccion(query: string, sessionToken?: string): Pro
   return venueSuggestions;
 }
 
-export async function resolverDireccion(resultado: GeoSuggestion, sessionToken?: string): Promise<GeoResult | null> {
+export function resolverDireccion(resultado: GeoSuggestion): GeoResult | null {
   if (typeof resultado.lat !== 'number' || typeof resultado.lng !== 'number') return null;
   return {
     ...resultado,

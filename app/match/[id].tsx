@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   ScrollView,
@@ -40,7 +40,7 @@ type SeriesResponse = 'pending' | 'joined' | 'declined';
 
 export default function MatchDetailScreen() {
   const { colors: c } = useTheme();
-  const s = createStyles(c);
+  const s = useMemo(() => createStyles(c), [c]);
   const { id } = useLocalSearchParams();
   const { user } = useAuth();
   const router = useRouter();

@@ -1,4 +1,5 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { ArrowRight, Share2 } from 'lucide-react-native';
 
@@ -81,7 +82,7 @@ export function MatchDetailContent({
   onPlayerChatPress,
 }: Props) {
   const { colors: c } = useTheme();
-  const s = createStyles(c);
+  const s = useMemo(() => createStyles(c), [c]);
   const levelCfg = LEVEL_CONFIG[match.level];
   const statusCfg = STATUS_CONFIG[match.status] ?? STATUS_CONFIG.open;
   const organizer = match.organizer;

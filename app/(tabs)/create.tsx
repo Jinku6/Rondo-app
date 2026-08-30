@@ -16,7 +16,20 @@ import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
 import { ScreenTitle } from '@/components/ui/ScreenTitle';
 import { ColorSwatch } from '@/components/ui/ColorSwatch';
 import { TEAM_COLOR_OPTIONS } from '@/constants/teamColors';
+import {
+  createEmptyRequestedPositions,
+  MATCH_LEVEL_OPTIONS,
+  MATCH_POSITION_OPTIONS,
+} from '@/constants/matchForm';
 import { useTheme } from '@/hooks/use-theme';
+import {
+  formatMatchDate,
+  formatMatchDateInput,
+  formatMatchTime,
+  formatMatchTimeInput,
+  normalizeMatchTimeInput,
+  parseMatchDateTime,
+} from '@/lib/matchDateTime';
 import { getErrorMessage, logSupabaseError } from '@/lib/supabaseErrors';
 import {
   alignMonthlyDate,
@@ -38,12 +51,6 @@ const CreateMatchSchema = z.object({
   totalPlayers: z.number().min(1, 'Debes solicitar al menos 1 jugador en las posiciones'),
   price: z.string().refine((val) => !isNaN(Number(val)) && Number(val) >= 0, 'El precio no es válido'),
 });
-
-const LEVELS = [
-  { key: 'tranquilo',   label: 'Tranquilo',   emoji: '😌', activeBg: 'bg-brand/20', activeBorder: 'border-brand', color: '#22C55E' },
-  { key: 'medio',       label: 'Medio',       emoji: '⚽', activeBg: 'bg-warning/20', activeBorder: 'border-warning', color: '#F59E0B' },
-  { key: 'competitivo', label: 'Competitivo', emoji: '🔥', activeBg: 'bg-danger/20', activeBorder: 'border-danger', color: '#EF4444' },
-];
 
 type CreationMode = 'match' | 'series';
 
@@ -128,9 +135,7 @@ export default function CreateMatchScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
 
-  const [positions, setPositions] = useState({
-    portero: 0, defensa: 0, mediocentro: 0, delantero: 0, cualquiera: 0,
-  });
+  const [positions, setPositions] = useState(createEmptyRequestedPositions);
 
   const [teamAColor, setTeamAColor] = useState('#EF4444');
   const [teamBColor, setTeamBColor] = useState('#3B82F6');
@@ -256,26 +261,16 @@ export default function CreateMatchScreen() {
   };
 
   const handleDateChangeText = (text: string) => {
-    let cleaned = text.replace(/[^0-9]/g, '');
-    let formatted = cleaned;
-    if (cleaned.length > 2) formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2);
-    if (cleaned.length > 4) formatted = cleaned.slice(0, 2) + '/' + cleaned.slice(2, 4) + '/' + cleaned.slice(4, 8);
-    setDateText(formatted);
+    setDateText(formatMatchDateInput(text));
   };
 
   const handleTimeChangeText = (text: string) => {
-    let cleaned = text.replace(/[^0-9]/g, '');
-    let formatted = cleaned;
-    if (cleaned.length > 2) formatted = cleaned.slice(0, 2) + ':' + cleaned.slice(2, 4);
-    setTimeText(formatted);
+    setTimeText(formatMatchTimeInput(text));
   };
 
   const handleTimeBlur = () => {
-    let t = timeText.replace(/[^0-9]/g, '');
-    if (t.length === 0) return;
-    if (t.length <= 2) setTimeText(t.padStart(2, '0') + ':00');
-    else if (t.length === 3) setTimeText(t.slice(0, 1) + ':' + t.slice(1));
-    else setTimeText(t.slice(0, 2) + ':' + t.slice(2, 4));
+    const normalizedTime = normalizeMatchTimeInput(timeText);
+    if (normalizedTime) setTimeText(normalizedTime);
   };
 
   const onDatePickerChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
@@ -287,8 +282,7 @@ export default function CreateMatchScreen() {
       }
       setDateObj(selectedDate);
       if (Platform.OS === 'android') {
-        const d = selectedDate;
-        setDateText(`${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`);
+        setDateText(formatMatchDate(selectedDate));
       }
     }
   };
@@ -302,7 +296,7 @@ export default function CreateMatchScreen() {
     setShowDatePicker(false);
     const d = draftDateObj;
     setDateObj(d);
-    setDateText(`${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`);
+    setDateText(formatMatchDate(d));
   };
 
   const onTimePickerChange = (_event: DateTimePickerEvent, selectedDate?: Date) => {
@@ -314,7 +308,7 @@ export default function CreateMatchScreen() {
       }
       setDateObj(selectedDate);
       if (Platform.OS === 'android') {
-        setTimeText(`${String(selectedDate.getHours()).padStart(2, '0')}:${String(selectedDate.getMinutes()).padStart(2, '0')}`);
+        setTimeText(formatMatchTime(selectedDate));
       }
     }
   };
@@ -327,23 +321,7 @@ export default function CreateMatchScreen() {
   const confirmTimeIOS = () => {
     setShowTimePicker(false);
     setDateObj(draftTimeObj);
-    setTimeText(`${String(draftTimeObj.getHours()).padStart(2, '0')}:${String(draftTimeObj.getMinutes()).padStart(2, '0')}`);
-  };
-
-  const validateAndParseDateTime = () => {
-    if (!dateText || !timeText) return null;
-    const timeForParsing = timeText.includes(':') ? timeText : timeText + ':00';
-    const [day, month, year] = dateText.split('/');
-    const [hours, minutes] = timeForParsing.split(':');
-    if (!day || !month || !year || year.length !== 4) return null;
-    if (!hours || !minutes) return null;
-    const d = parseInt(day), m = parseInt(month), y = parseInt(year);
-    const h = parseInt(hours), min = parseInt(minutes);
-    if (isNaN(d) || isNaN(m) || isNaN(y) || isNaN(h) || isNaN(min)) return null;
-    const dt = new Date(y, m - 1, d, h, min);
-    if (isNaN(dt.getTime())) return null;
-    if (dt.getMonth() !== m - 1 || dt.getDate() !== d) return null;
-    return dt;
+    setTimeText(formatMatchTime(draftTimeObj));
   };
 
   async function handleCreateSeries() {
@@ -424,7 +402,7 @@ export default function CreateMatchScreen() {
         return;
       }
     }
-    const finalDateObj = validateAndParseDateTime();
+    const finalDateObj = parseMatchDateTime(dateText, timeText);
     if (finalDateObj && finalDateObj.getTime() < Date.now()) {
       Alert.alert('Error', 'No puedes establecer una fecha y hora en el pasado.');
       return;
@@ -535,7 +513,7 @@ export default function CreateMatchScreen() {
       setVenueId(null); setLocationAddressSnapshot(null); setLocationQualityStatus('confirmed');
       setDescription(''); setLevel('medio'); setDateText(''); setTimeText('');
       setIsRecurring(false); setRecurrenceFrequency('weekly'); setRecurrenceDay(1); setRecurrenceWeek(1);
-      setPositions({ portero: 0, defensa: 0, mediocentro: 0, delantero: 0, cualquiera: 0 });
+      setPositions(createEmptyRequestedPositions());
     } catch (e) {
       logSupabaseError('create match', e);
       Alert.alert('Error al crear el partido', getErrorMessage(e, 'Revisa los datos y prueba de nuevo.'));
@@ -756,12 +734,12 @@ export default function CreateMatchScreen() {
         <View className="bg-bg-elev border border-border p-5 rounded-lg-r mb-4">
           <SectionHeader num={2} title="Nivel" />
           <View className="flex-row gap-2">
-            {LEVELS.map(l => {
+            {MATCH_LEVEL_OPTIONS.map(l => {
               const isActive = level === l.key;
               return (
                 <TouchableOpacity
                   key={l.key}
-                  onPress={() => setLevel(l.key as MatchLevel)}
+                  onPress={() => setLevel(l.key)}
                   className={`flex-1 py-3.5 rounded-md-r items-center border-2 ${
                     isActive ? `${l.activeBg} ${l.activeBorder}` : 'bg-input/5 border-transparent'
                   }`}
@@ -865,13 +843,7 @@ export default function CreateMatchScreen() {
           <View className="bg-bg-elev border border-border p-5 rounded-lg-r mb-4">
             <SectionHeader num={4} title="Posiciones" />
             <View>
-            {[
-              { key: 'portero',     label: 'Portero',          emoji: '🧤' },
-              { key: 'defensa',     label: 'Defensa',          emoji: '🛡️' },
-              { key: 'mediocentro', label: 'Mediocentro',      emoji: '⚙️' },
-              { key: 'delantero',   label: 'Delantero',        emoji: '⚡' },
-              { key: 'cualquiera',  label: 'Cualquiera',       emoji: '⚽' },
-            ].map((pos) => (
+            {MATCH_POSITION_OPTIONS.map((pos) => (
               <View key={pos.key} className="flex-row justify-between items-center py-3 border-b border-border last:border-b-0">
                 <View className="flex-row items-center gap-3">
                   <Text className="text-xl">{pos.emoji}</Text>
@@ -879,16 +851,16 @@ export default function CreateMatchScreen() {
                 </View>
                 <View className="flex-row items-center gap-2">
                   <TouchableOpacity
-                    onPress={() => updatePosition(pos.key as PositionKey, -1)}
+                    onPress={() => updatePosition(pos.key, -1)}
                     className="w-9 h-9 rounded-md-r bg-input/5 items-center justify-center border border-border"
                   >
                     <Ionicons name="remove" size={18} color={colors.textDim} />
                   </TouchableOpacity>
                   <Text className="w-8 text-center font-body font-bold text-lg text-ink">
-                    {positions[pos.key as PositionKey]}
+                    {positions[pos.key]}
                   </Text>
                   <TouchableOpacity
-                    onPress={() => updatePosition(pos.key as PositionKey, 1)}
+                    onPress={() => updatePosition(pos.key, 1)}
                     className="w-9 h-9 rounded-md-r bg-brand-soft items-center justify-center border border-brand/30"
                   >
                     <Ionicons name="add" size={18} color="#22C55E" />

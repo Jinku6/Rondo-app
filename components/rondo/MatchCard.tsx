@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -6,17 +6,22 @@ import { Fonts, Radius } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import type { Match } from '@/types/database';
 
+export type MatchCardData = Pick<
+  Match,
+  'id' | 'title' | 'location' | 'date_time' | 'requested_positions' | 'level' | 'price_per_player'
+> & {
+  participants?: { status: string }[];
+  organizer?: { full_name?: string; username?: string } | null;
+};
+
 interface MatchCardProps {
-  match: Match & {
-    participants?: { status: string }[];
-    organizer?: { full_name?: string; username?: string } | null;
-  };
-  onPress: () => void;
+  match: MatchCardData;
+  onPress: (matchId: string) => void;
 }
 
 const DOW_ES = ['DOM', 'LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB'];
 
-export const MatchCard: React.FC<MatchCardProps> = ({ match, onPress }) => {
+export const MatchCard = memo(function MatchCard({ match, onPress }: MatchCardProps) {
   const { colors: c } = useTheme();
   const d = new Date(match.date_time);
   const dow = DOW_ES[d.getDay()];
@@ -43,7 +48,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({ match, onPress }) => {
 
   return (
     <TouchableOpacity
-      onPress={onPress}
+      onPress={() => onPress(match.id)}
       activeOpacity={0.85}
       style={{
         flexDirection: 'row',
@@ -144,4 +149,4 @@ export const MatchCard: React.FC<MatchCardProps> = ({ match, onPress }) => {
       </View>
     </TouchableOpacity>
   );
-};
+});
