@@ -527,37 +527,74 @@ export default function GroupDetailScreen() {
                 );
                 return (
                   <View key={recurrence.id} style={s.recurrenceCard}>
-                    <View style={s.recurrenceHeader}>
-                      <View style={s.recurrenceIcon}>
-                        <Ionicons name="calendar-outline" size={20} color={c.brand} />
+                    <Pressable
+                      accessibilityRole={nextMatch ? 'button' : undefined}
+                      accessibilityLabel={nextMatch ? `Ver partido ${nextMatch.title}` : undefined}
+                      disabled={!nextMatch}
+                      onPress={() => nextMatch && router.push(`/match/${nextMatch.id}` as never)}
+                      style={({ pressed }) => [s.recurrenceHeaderPressable, pressed && s.pressed]}
+                    >
+                      <View style={s.recurrenceHeader}>
+                        <View style={s.recurrenceIcon}>
+                          <Ionicons name="calendar-outline" size={20} color={c.brand} />
+                        </View>
+                        <View style={s.recurrenceCopy}>
+                          <Text style={s.recurrenceTitle}>{nextMatch?.title ?? publicTeam.title}</Text>
+                          {!!summary && <Text style={s.recurrenceSchedule}>{summary}</Text>}
+                          <Text style={s.recurrenceNext}>
+                            {nextMatch
+                              ? `Próximo: ${formatDate(nextMatch.date_time)} · ${formatTime(nextMatch.date_time)}`
+                              : 'El siguiente partido aún no está preparado'}
+                          </Text>
+                        </View>
+                        {!!nextMatch && <Ionicons name="chevron-forward" size={18} color={c.textDim} />}
                       </View>
-                      <View style={s.recurrenceCopy}>
-                        <Text style={s.recurrenceTitle}>{nextMatch?.title ?? publicTeam.title}</Text>
-                        {!!summary && <Text style={s.recurrenceSchedule}>{summary}</Text>}
-                        <Text style={s.recurrenceNext}>
-                          {nextMatch
-                            ? `Próximo: ${formatDate(nextMatch.date_time)} · ${formatTime(nextMatch.date_time)}`
-                            : 'El siguiente partido aún no está preparado'}
-                        </Text>
-                      </View>
-                    </View>
-                    {canManage && (
-                      <Pressable
-                        accessibilityRole="button"
-                        accessibilityLabel="Anular recurrencia"
-                        disabled={cancellingRecurrenceId !== null}
-                        onPress={() => cancelRecurrence(recurrence)}
-                        style={({ pressed }) => [
-                          s.cancelRecurrenceButton,
-                          (pressed || cancellingRecurrenceId !== null) && s.pressed,
-                        ]}
-                      >
-                        {cancellingRecurrenceId === recurrence.id ? (
-                          <ActivityIndicator color={c.danger} />
-                        ) : (
-                          <Text style={s.cancelRecurrenceText}>Anular recurrencia</Text>
+                    </Pressable>
+                    {(nextMatch || canManage) && (
+                      <View style={s.recurrenceActions}>
+                        {!!nextMatch && (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel={canManage ? 'Editar próximo partido' : 'Ver próximo partido'}
+                            onPress={() => router.push(
+                              canManage
+                                ? `/match/edit/${nextMatch.id}` as never
+                                : `/match/${nextMatch.id}` as never,
+                            )}
+                            style={({ pressed }) => [s.recurrencePrimaryAction, pressed && s.pressed]}
+                          >
+                            <Ionicons
+                              name={canManage ? 'create-outline' : 'football-outline'}
+                              size={17}
+                              color={c.brand}
+                            />
+                            <Text style={s.recurrencePrimaryActionText}>
+                              {canManage ? 'Editar partido' : 'Ver partido'}
+                            </Text>
+                          </Pressable>
                         )}
-                      </Pressable>
+                        {canManage && (
+                          <Pressable
+                            accessibilityRole="button"
+                            accessibilityLabel="Anular recurrencia"
+                            disabled={cancellingRecurrenceId !== null}
+                            onPress={() => cancelRecurrence(recurrence)}
+                            style={({ pressed }) => [
+                              s.cancelRecurrenceButton,
+                              (pressed || cancellingRecurrenceId !== null) && s.pressed,
+                            ]}
+                          >
+                            {cancellingRecurrenceId === recurrence.id ? (
+                              <ActivityIndicator color={c.danger} />
+                            ) : (
+                              <>
+                                <Ionicons name="close-circle-outline" size={17} color={c.danger} />
+                                <Text style={s.cancelRecurrenceText}>Anular recurrencia</Text>
+                              </>
+                            )}
+                          </Pressable>
+                        )}
+                      </View>
                     )}
                   </View>
                 );
@@ -768,6 +805,7 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
     backgroundColor: c.bgSurface,
     padding: 14,
   },
+  recurrenceHeaderPressable: { borderRadius: 10 },
   recurrenceHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   recurrenceIcon: {
     width: 40,
@@ -781,13 +819,39 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
   recurrenceTitle: { color: c.text, fontSize: 15, fontWeight: '800' },
   recurrenceSchedule: { color: c.textDim, fontSize: 12, lineHeight: 18, marginTop: 4 },
   recurrenceNext: { color: c.brand, fontSize: 12, fontWeight: '700', marginTop: 7 },
-  cancelRecurrenceButton: {
-    minHeight: 48,
-    marginTop: 12,
+  recurrenceActions: {
+    gap: 8,
+    marginTop: 14,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: c.border,
+  },
+  recurrencePrimaryAction: {
+    width: '100%',
+    minHeight: 48,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: `${c.brand}65`,
+    borderRadius: 10,
+    backgroundColor: c.brandSoft,
+    paddingHorizontal: 10,
+  },
+  recurrencePrimaryActionText: { color: c.brand, fontSize: 12, fontWeight: '800' },
+  cancelRecurrenceButton: {
+    width: '100%',
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderWidth: 1,
+    borderColor: `${c.danger}55`,
+    borderRadius: 10,
+    backgroundColor: `${c.danger}0D`,
+    paddingHorizontal: 10,
   },
   cancelRecurrenceText: { color: c.danger, fontSize: 12, fontWeight: '800' },
   captainBadge: {
