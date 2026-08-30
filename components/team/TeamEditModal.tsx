@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Image,
   KeyboardAvoidingView,
@@ -16,6 +15,7 @@ import {
 } from 'react-native';
 
 import { pickSquareAvatar, type AvatarAsset } from '@/lib/avatarUpload';
+import { PrimaryActionButton } from '@/components/rondo/PrimaryActionButton';
 import { containsProfanity } from '@/lib/profanityFilter';
 import { isSafeUrl } from '@/lib/utils';
 import { useTheme } from '@/hooks/use-theme';
@@ -218,19 +218,14 @@ export function TeamEditModal({ visible, team, saving, onClose, onSave }: Props)
               <Text style={s.hint}>Podrás cambiarlo en cada pachanga.</Text>
             </View>
 
-            <Pressable
-              accessibilityRole="button"
+            <PrimaryActionButton
               accessibilityLabel="Guardar cambios del equipo"
+              label="Guardar cambios"
               disabled={saving}
               onPress={submit}
-              style={({ pressed }) => [s.saveButton, (saving || pressed) && s.pressed]}
-            >
-              {saving ? (
-                <ActivityIndicator color={c.brandInk} />
-              ) : (
-                <Text style={s.saveButtonText}>Guardar cambios</Text>
-              )}
-            </Pressable>
+              loading={saving}
+              style={s.saveButtonSpacing}
+            />
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
@@ -320,28 +315,5 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
     textAlign: 'right',
   },
   hint: { color: c.textMuted, fontSize: 11, marginTop: 6 },
-  saveButton: {
-    width: '100%',
-    minHeight: 56,
-    borderRadius: 26,
-    backgroundColor: c.brand,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 4,
-    paddingHorizontal: 12,
-    shadowColor: c.brand,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.32,
-    shadowRadius: 14,
-    elevation: 8,
-  },
-  saveButtonText: {
-    color: c.brandInk,
-    fontFamily: 'Archivo_900Black',
-    fontSize: 15,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    textAlign: 'center',
-  },
+  saveButtonSpacing: { marginTop: 4 },
 });

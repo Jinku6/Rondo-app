@@ -13,6 +13,7 @@ import { UbicacionInput } from '@/components/UbicacionInput';
 import type { GeoResult } from '@/lib/geocoding';
 import { isValidHexColor } from '@/lib/utils';
 import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
+import { PrimaryActionButton } from '@/components/rondo/PrimaryActionButton';
 import { ScreenTitle } from '@/components/ui/ScreenTitle';
 import { ColorSwatch } from '@/components/ui/ColorSwatch';
 import { TEAM_COLOR_OPTIONS } from '@/constants/teamColors';
@@ -1069,26 +1070,14 @@ export default function CreateMatchScreen() {
           >
             <Text className="text-ink-dim font-display font-bold text-[15px]">Cancelar</Text>
           </TouchableOpacity>
-          <TouchableOpacity
+          <PrimaryActionButton
+            accessibilityLabel={teamContext ? 'Crear partido privado' : creationMode === 'match' ? 'Publicar partido' : 'Crear equipo'}
+            label={teamContext ? 'Crear partido privado' : creationMode === 'match' ? 'Publicar Partido' : 'Crear Equipo'}
             onPress={handleCreate}
             disabled={loading || (!!teamId && !teamContext)}
-            style={{
-              shadowColor: '#22C55E',
-              shadowOffset: { width: 0, height: 4 },
-              shadowOpacity: 0.32,
-              shadowRadius: 14,
-              elevation: 8,
-            }}
-            className={`flex-[2] min-w-0 min-h-14 bg-brand rounded-xl-r px-3 items-center justify-center ${loading || (!!teamId && !teamContext) ? 'opacity-70' : ''}`}
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text className="font-display text-[15px] font-black text-white uppercase tracking-[1px] text-center">
-                {teamContext ? 'Crear partido privado' : creationMode === 'match' ? 'Publicar Partido' : 'Crear Equipo'}
-              </Text>
-            )}
-          </TouchableOpacity>
+            loading={loading}
+            style={{ flex: 2, minWidth: 0 }}
+          />
         </View>
       </ScrollView>
     </View>

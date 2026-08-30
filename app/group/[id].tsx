@@ -23,6 +23,7 @@ import {
   ProfileAvatar,
 } from '@/components/match/MatchDetailParts';
 import { MatchCard, type MatchCardData } from '@/components/rondo/MatchCard';
+import { PrimaryActionButton } from '@/components/rondo/PrimaryActionButton';
 import { TeamEditModal, type TeamEditValues } from '@/components/team/TeamEditModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/hooks/use-theme';
@@ -341,13 +342,11 @@ export default function GroupDetailScreen() {
           <Ionicons name="alert-circle-outline" size={48} color={c.danger} />
           <Text style={s.errorTitle}>No carga el equipo</Text>
           <Text style={s.errorCopy}>{error}</Text>
-          <Pressable
-            accessibilityRole="button"
+          <PrimaryActionButton
+            accessibilityLabel="Volver a cargar el equipo"
+            label="Probar otra vez"
             onPress={() => void loadGroup()}
-            style={({ pressed }) => [s.primaryButton, pressed && s.pressed]}
-          >
-            <Text style={s.primaryButtonText}>Probar otra vez</Text>
-          </Pressable>
+          />
         </View>
       </View>
     );
@@ -447,14 +446,11 @@ export default function GroupDetailScreen() {
 
         {canManage && (
           <View style={s.ctaBlock}>
-            <Pressable
-              accessibilityRole="button"
+            <PrimaryActionButton
               accessibilityLabel="Crear un partido del equipo"
+              label="Crear partido"
               onPress={() => router.push({ pathname: '/(tabs)/create', params: { teamId: publicTeam.id } } as never)}
-              style={({ pressed }) => [s.primaryButton, pressed && s.pressed]}
-            >
-              <Text style={s.primaryButtonText}>Crear partido</Text>
-            </Pressable>
+            />
           </View>
         )}
 
@@ -766,29 +762,6 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
     textAlign: 'center',
   },
   ctaBlock: { paddingVertical: 14, paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: c.border },
-  primaryButton: {
-    minHeight: 56,
-    width: '100%',
-    borderRadius: 26,
-    backgroundColor: c.brand,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-    shadowColor: c.brand,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.32,
-    shadowRadius: 14,
-    elevation: 8,
-  },
-  primaryButtonText: {
-    color: c.brandInk,
-    fontFamily: 'Archivo_900Black',
-    fontSize: 15,
-    fontWeight: '900',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-    textAlign: 'center',
-  },
   section: { padding: 16, borderBottomWidth: 1, borderBottomColor: c.border },
   lastSection: { borderBottomWidth: 0 },
   sectionLabel: {
