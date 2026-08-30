@@ -324,6 +324,7 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
   },
   hint: { color: c.textMuted, fontSize: 11, marginTop: 6 },
   saveButton: {
+    width: '100%',
     minHeight: 52,
     borderRadius: 14,
     backgroundColor: c.brand,
@@ -344,8 +345,8 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
   saveButtonText: {
     color: c.brandInk,
     fontFamily: 'Archivo_900Black',
-    fontSize: 15,
-    fontWeight: '900',
+    fontSize: 16,
+    fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },

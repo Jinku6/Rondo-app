@@ -454,7 +454,7 @@ export default function GroupDetailScreen() {
               style={({ pressed }) => [s.primaryButton, pressed && s.pressed]}
             >
               <View style={s.primaryButtonContent}>
-                <Ionicons name="add-circle-outline" size={20} color={c.brand} />
+                <Ionicons name="add-circle-outline" size={20} color={c.brandInk} />
                 <Text style={s.primaryButtonText}>Crear partido</Text>
               </View>
             </Pressable>
@@ -581,8 +581,8 @@ export default function GroupDetailScreen() {
                           >
                             <Ionicons
                               name={canManage ? 'create-outline' : 'football-outline'}
-                              size={17}
-                              color={c.brand}
+                              size={18}
+                              color={c.brandInk}
                             />
                             <Text style={s.recurrencePrimaryActionText}>
                               {canManage ? 'Editar partido' : 'Ver partido'}
@@ -771,9 +771,7 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
     minHeight: 52,
     width: '100%',
     borderRadius: 14,
-    backgroundColor: c.brandSoft,
-    borderWidth: 2,
-    borderColor: c.brand,
+    backgroundColor: c.brand,
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: c.brandGlow,
@@ -784,10 +782,10 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
   },
   primaryButtonContent: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   primaryButtonText: {
-    color: c.brand,
+    color: c.brandInk,
     fontFamily: 'Archivo_900Black',
-    fontSize: 15,
-    fontWeight: '900',
+    fontSize: 16,
+    fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -844,18 +842,23 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
   },
   recurrencePrimaryAction: {
     width: '100%',
-    minHeight: 48,
+    minHeight: 52,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderColor: `${c.brand}65`,
-    borderRadius: 10,
-    backgroundColor: c.brandSoft,
-    paddingHorizontal: 10,
+    gap: 8,
+    borderRadius: 14,
+    backgroundColor: c.brand,
+    paddingHorizontal: 14,
   },
-  recurrencePrimaryActionText: { color: c.brand, fontSize: 12, fontWeight: '800' },
+  recurrencePrimaryActionText: {
+    color: c.brandInk,
+    fontFamily: 'Archivo_900Black',
+    fontSize: 14,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+    textTransform: 'uppercase',
+  },
   cancelRecurrenceButton: {
     width: '100%',
     minHeight: 48,
@@ -864,12 +867,11 @@ const createStyles = (c: ReturnType<typeof useTheme>['colors']) => StyleSheet.cr
     justifyContent: 'center',
     gap: 6,
     borderWidth: 1,
-    borderColor: `${c.danger}55`,
-    borderRadius: 10,
-    backgroundColor: `${c.danger}0D`,
+    borderColor: `${c.danger}33`,
+    borderRadius: 12,
     paddingHorizontal: 10,
   },
-  cancelRecurrenceText: { color: c.danger, fontSize: 12, fontWeight: '800' },
+  cancelRecurrenceText: { color: c.danger, fontSize: 14, fontWeight: '700' },
   captainBadge: {
     minHeight: 32,
     flexDirection: 'row',
