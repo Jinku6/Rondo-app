@@ -9,8 +9,8 @@ La funcionalidad queda lista para validacion en dispositivo cuando el capitan fo
 1. Ampliar `PushType` con `team_match_created`, `team_attendance_reminder`, `team_match_published` y `team_publish_prompt`.
 2. Cargar en `send-push` el contexto de equipo necesario: `series_id`, privacidad, publicacion y nombre del equipo.
 3. Distinguir una reserva privada `pending` de una solicitud publica: la primera avisa al propio miembro y la segunda conserva el aviso actual al capitan.
-4. Ampliar la eliminacion de participantes para avisar solo a antiguos `pending` cuando el partido ya haya quedado publico.
-5. Mantener bajas y expulsiones fuera de ese caso mediante el estado final del partido.
+4. Ampliar la insercion de `notifications` para procesar el marcador interno `team_match_published` y avisar al usuario de la fila.
+5. Mantener las eliminaciones de participantes sin cambios, evitando confundir bajas, expulsiones o solicitudes retiradas con una publicacion.
 6. Aplicar el copy de plantilla completa solo a partidos de equipo y mantener intacto el copy publico.
 7. Anadir pruebas de contrato para destinatarios, copys, rutas y claves de deduplicacion.
 
@@ -34,8 +34,10 @@ Verificacion: ejecutar la prueba nueva, `npx expo lint` y `npx tsc --noEmit`.
 3. Revocar la ejecucion directa de la funcion a roles de cliente.
 4. Sanear de forma idempotente los equipos activos existentes.
 5. Sanear partidos futuros, privados y no publicados que no tengan participacion del capitan, insertandolo como `pending`.
-6. No tocar equipos eliminados ni partidos publicos, pasados, cancelados o completados.
-7. Anadir pruebas de contrato para trigger, seguridad, saneamiento y compatibilidad con `get_public_team`.
+6. Sustituir `publish_team_match(uuid)` para insertar, antes de liberar reservas, un marcador `notifications.type = 'team_match_published'` con `read = true` por cada miembro `pending`.
+7. Mantener el overload `publish_team_match(uuid, boolean)` delegando en la funcion corregida.
+8. No tocar equipos eliminados ni partidos publicos, pasados, cancelados o completados.
+9. Anadir pruebas de contrato para trigger, seguridad, saneamiento, publicacion idempotente y compatibilidad con `get_public_team`.
 
 Verificacion: revisar el SQL completo, ejecutar tests y confirmar con consultas de solo lectura que el SQL propuesto cubre exactamente los dos invariantes observados.
 

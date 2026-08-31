@@ -113,13 +113,17 @@ Clave de deduplicación: partido, participante y tipo `team_attendance_reminder`
 
 ### 3. Partido abierto a Rondo
 
-`publish_team_match` elimina `pending` y `declined` antes de activar `recruiting_public`. El webhook de eliminación ya recibe el estado anterior del participante y se ejecuta de forma asíncrona después del commit. Se ampliará para que:
+Inferir una publicación únicamente desde la eliminación de una participación `pending` produciría falsos positivos: una solicitud pública retirada después de publicar tiene el mismo evento de eliminación. La publicación utilizará por tanto un marcador explícito y durable en la tabla `notifications` existente.
 
-- Solo procese una eliminación cuyo estado anterior fuera `pending`.
-- Compruebe que el partido de equipo quedó con `recruiting_public = true`.
-- Ignore eliminaciones por abandono, expulsión, cancelación u otros motivos.
+Antes de liberar reservas, `publish_team_match` insertará una fila por cada miembro que siga `pending` con:
 
-Los miembros `declined` quedan expresamente excluidos. Un capitán que siga `pending` también cumple la misma regla.
+- `type = 'team_match_published'`.
+- `read = true`, porque funciona como evento interno para push y no como actividad pendiente dentro de la app.
+- La combinación existente `user_id`, `match_id` y `type`, que ya es única e impide duplicados.
+
+El webhook existente de inserción en `notifications` enviará el push después del commit. `send-push` reconocerá el nuevo tipo, cargará el partido ya publicado y usará el destinatario de la fila. No se añade una tabla outbox, otro webhook ni un cron.
+
+`publish_team_match` seleccionará únicamente filas `pending`; los miembros `declined` quedan expresamente excluidos. Un capitán que siga `pending` también cumple la misma regla. Las bajas, expulsiones y retiradas de solicitudes no crean este marcador y nunca se interpretan como publicaciones.
 
 Título: `El partido de [Equipo] está abierto`
 
@@ -195,6 +199,8 @@ Los nuevos tipos internos serán:
 
 `match_full` se reutiliza para el aviso al capitán.
 
+`team_match_published` se añadirá además al tipo de aplicación que representa filas persistidas de `notifications`. Las consultas de actividad seguirán filtrando exclusivamente los dos tipos de valoración, por lo que el marcador leído no crea badges ni tareas pendientes.
+
 Todos los mensajes incluirán `match_id` y `url = /match/[id]`. La aplicación ya procesa esa ruta tanto en segundo plano como al abrirse desde una notificación.
 
 Cada clave de deduplicación identificará de forma estable el tipo, partido y usuario. `sendPushMessages` seguirá considerando terminales los estados `sent` y `skipped`, mientras que un registro `failed` podrá reintentarse.
@@ -209,6 +215,7 @@ Cada clave de deduplicación identificará de forma estable el tipo, partido y u
 - La función del trigger del capitán estará en el esquema privado, tendrá `search_path` fijo y permisos mínimos.
 - La autorización para responder seguirá concentrada en `respond_to_series_match`.
 - La autorización y la decisión de publicar seguirán concentradas en `publish_team_match`.
+- La fila `team_match_published` se insertará dentro de la misma transacción autenticada y privilegiada de `publish_team_match`; el cliente no podrá fabricar destinatarios.
 - El aviso de 24 horas no concede permisos ni ejecuta una publicación.
 
 ## Errores y recuperación
@@ -246,7 +253,7 @@ Cada clave de deduplicación identificará de forma estable el tipo, partido y u
 
 - Partidos públicos, completos, cancelados, completados o pasados quedan excluidos cuando corresponda.
 - Participantes `joined`, `approved`, `declined`, `dropped` o eliminados no reciben el recordatorio de 48 horas.
-- Una baja o expulsión de un `pending` no se interpreta como publicación.
+- Una baja, expulsión o retirada de una solicitud `pending` no crea el marcador y no se interpreta como publicación.
 - Un participante confirmado de un partido privado puede darse de baja con las reglas ordinarias.
 - Los confirmados reciben el recordatorio ordinario de 30 minutos.
 - La finalización automática alcanza al partido privado.
