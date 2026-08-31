@@ -1,0 +1,48 @@
+<style>
+  .rondo-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px;margin-top:24px}
+  .phone{background:#090b0a;border:1px solid #29302c;border-radius:28px;padding:18px;min-height:520px;box-shadow:0 22px 60px rgba(0,0,0,.28)}
+  .eyebrow{font:700 10px/1.2 monospace;letter-spacing:1.8px;text-transform:uppercase;color:#8d9791;margin-bottom:12px}
+  .panel{background:#151917;border:1px solid #29302c;border-radius:18px;padding:16px;margin-top:14px}
+  .row{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px 0;border-bottom:1px solid #29302c}
+  .row:last-child{border-bottom:0}.row b{color:#f5f7f6;font-size:14px}.row span{color:#22c55e;font-size:13px;font-weight:700}
+  .toggle{width:48px;height:28px;background:#22c55e;border-radius:20px;position:relative}.toggle:after{content:'';position:absolute;width:22px;height:22px;right:3px;top:3px;background:white;border-radius:50%}
+  .summary{margin-top:14px;padding:13px;border-radius:12px;background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.28);color:#b9f6cd;font-size:13px;line-height:1.45}
+  .field{margin-top:12px}.field label{display:block;color:#8d9791;font:700 10px/1.2 monospace;letter-spacing:1.3px;text-transform:uppercase;margin-bottom:7px}.select{background:#0e110f;border:1px solid #343b37;border-radius:12px;color:#f5f7f6;padding:13px 14px;display:flex;justify-content:space-between;font-size:14px}
+  .hint{color:#7f8a84;font-size:12px;line-height:1.45;margin-top:12px}
+  .recommended{display:inline-flex;background:#22c55e;color:#07130b;border-radius:999px;padding:5px 9px;font:800 9px/1 monospace;letter-spacing:1px;text-transform:uppercase;margin-bottom:10px}
+</style>
+
+<h2>¿Cómo definimos un partido mensual?</h2>
+<p class="subtitle">La fecha y la hora del primer partido ya están elegidas: jueves 18 de septiembre, 21:00.</p>
+
+<div class="rondo-grid">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image phone">
+      <span class="recommended">Recomendado</span>
+      <div class="eyebrow">Crear partido del equipo</div>
+      <div class="panel">
+        <div class="row"><b>Partido recurrente</b><div class="toggle"></div></div>
+        <div class="field"><label>Frecuencia</label><div class="select">Mensual <span>⌄</span></div></div>
+        <div class="field"><label>Día de la semana</label><div class="select">Jueves <span>⌄</span></div></div>
+        <div class="summary">Se repetirá el <b>tercer jueves de cada mes</b> a las <b>21:00</b>, siguiendo la fecha del primer partido.</div>
+        <div class="hint">Menos controles. Si cambia la fecha inicial, el resumen se actualiza antes de crear.</div>
+      </div>
+    </div>
+    <div class="card-body"><h3>A · Deducirlo de la fecha inicial</h3><p>El 18 es el tercer jueves del mes, así que Rondo utiliza automáticamente ese patrón.</p></div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image phone">
+      <div class="eyebrow">Crear partido del equipo</div>
+      <div class="panel">
+        <div class="row"><b>Partido recurrente</b><div class="toggle"></div></div>
+        <div class="field"><label>Frecuencia</label><div class="select">Mensual <span>⌄</span></div></div>
+        <div class="field"><label>Semana del mes</label><div class="select">Tercera <span>⌄</span></div></div>
+        <div class="field"><label>Día de la semana</label><div class="select">Jueves <span>⌄</span></div></div>
+        <div class="summary">Se repetirá el <b>tercer jueves de cada mes</b> a las <b>21:00</b>.</div>
+        <div class="hint">Más explícito, pero añade otra decisión y permite elegir un patrón distinto a la fecha inicial.</div>
+      </div>
+    </div>
+    <div class="card-body"><h3>B · Elegir la semana explícitamente</h3><p>El capitán selecciona primero, segundo, tercer, cuarto o último jueves.</p></div>
+  </div>
+</div>

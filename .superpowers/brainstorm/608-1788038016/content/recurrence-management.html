@@ -1,0 +1,47 @@
+<style>
+  .gridx{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:22px;margin-top:24px}.phone{background:#090b0a;border:1px solid #29302c;border-radius:28px;padding:18px;min-height:540px;box-shadow:0 22px 60px rgba(0,0,0,.28);position:relative;overflow:hidden}
+  .labelx{font:700 9px/1.2 monospace;letter-spacing:1.5px;text-transform:uppercase;color:#8d9791;margin:0 0 10px}.placeholder{height:76px;border:1px solid #252b28;background:#111412;border-radius:14px;margin-bottom:14px;display:flex;align-items:center;padding:14px;color:#69736d;font-size:12px}
+  .rule{background:#151917;border:1px solid rgba(34,197,94,.28);border-radius:16px;padding:15px;margin-bottom:10px}.top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.top b{color:#f5f7f6;font-size:15px}.badge{font:800 8px/1 monospace;text-transform:uppercase;letter-spacing:1px;color:#5ce487;background:rgba(34,197,94,.12);padding:6px 8px;border-radius:999px}.schedule{color:#64e48d;font-size:13px;font-weight:800;margin-top:8px}.meta{color:#87918b;font-size:11px;line-height:1.5;margin-top:5px}.stop{margin-top:13px;min-height:44px;border-radius:12px;border:1px solid rgba(239,68,68,.35);background:rgba(239,68,68,.07);display:flex;align-items:center;justify-content:center;color:#f87171;font-size:12px;font-weight:800}
+  .scrim{position:absolute;inset:0;background:rgba(0,0,0,.62)}.dialog{position:absolute;left:18px;right:18px;top:145px;background:#171b19;border:1px solid #363d39;border-radius:20px;padding:18px;box-shadow:0 22px 60px rgba(0,0,0,.55)}.dialog h3{color:#fff;font-size:20px;margin:0 0 8px}.dialog p{color:#9aa39e;font-size:13px;line-height:1.55;margin:0}.notice{margin-top:13px;padding:12px;border-radius:12px;border:1px solid rgba(245,158,11,.3);background:rgba(245,158,11,.08);color:#f4ca7c;font-size:12px;line-height:1.5}.buttons{display:grid;gap:9px;margin-top:16px}.danger{min-height:48px;border-radius:13px;background:#ef4444;color:white;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px}.cancel{min-height:44px;display:flex;align-items:center;justify-content:center;color:#aab2ad;font-size:12px;font-weight:700}
+</style>
+
+<h2>Gestión de recurrencias en la ficha del equipo</h2>
+<p class="subtitle">La sección aparece debajo de la plantilla. La plantilla ve el calendario; solo el capitán ve “Anular recurrencia”.</p>
+
+<div class="card" data-choice="management-approved" onclick="toggleSelect(this)">
+  <div class="card-image">
+    <div class="gridx">
+      <div class="phone">
+        <div class="labelx">Plantilla (14)</div>
+        <div class="placeholder">Capitán y jugadores del equipo…</div>
+        <div class="labelx">Partidos recurrentes</div>
+        <div class="rule">
+          <div class="top"><b>Partido del sábado</b><span class="badge">Activa</span></div>
+          <div class="schedule">Cada sábado · 21:00</div>
+          <div class="meta">Próximo partido generado: sábado 13 de septiembre</div>
+          <div class="stop">Anular recurrencia</div>
+        </div>
+        <div class="rule">
+          <div class="top"><b>Tercer tiempo mensual</b><span class="badge">Activa</span></div>
+          <div class="schedule">Tercer jueves de cada mes · 21:00</div>
+          <div class="meta">Próximo partido generado: jueves 18 de septiembre</div>
+          <div class="stop">Anular recurrencia</div>
+        </div>
+        <div class="labelx" style="margin-top:20px">Gestión del equipo</div>
+        <div class="placeholder">Editar equipo · Compartir invitación…</div>
+      </div>
+
+      <div class="phone">
+        <div class="placeholder">Ficha del equipo…</div><div class="placeholder">Plantilla…</div>
+        <div class="scrim"></div>
+        <div class="dialog">
+          <h3>Anular recurrencia</h3>
+          <p>Dejarán de generarse los próximos partidos de “Partido del sábado”.</p>
+          <div class="notice"><b>El partido de este sábado sigue en pie.</b><br>No se cancelará ni se modificará.</div>
+          <div class="buttons"><div class="danger">Anular recurrencia</div><div class="cancel">Seguir con la recurrencia</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="card-body"><h3>Calendario visible, gestión restringida</h3><p>La anulación es definitiva para la regla, pero no altera ninguna instancia ya creada.</p></div>
+</div>

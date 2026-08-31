@@ -1,0 +1,106 @@
+<style>
+  .phones { display:grid; grid-template-columns:repeat(3,minmax(250px,1fr)); gap:20px; align-items:start; }
+  .choice-card { cursor:pointer; border:2px solid #2c333b; border-radius:24px; padding:12px; background:#11161b; transition:.15s; }
+  .choice-card:hover { border-color:#22c55e; }
+  .phone { min-height:600px; border-radius:18px; background:#090d10; color:#f4f7f5; overflow:hidden; font-family:system-ui,sans-serif; }
+  .top { display:flex; justify-content:space-between; padding:16px; border-bottom:1px solid #273038; color:#9aa5ae; }
+  .body { padding:20px 16px 24px; }
+  .eyebrow { color:#22c55e; font-size:10px; font-weight:800; letter-spacing:1.4px; text-transform:uppercase; }
+  .team-title { font-size:26px; line-height:1; font-weight:950; text-transform:uppercase; margin:8px 0; }
+  .meta { color:#9aa5ae; font-size:12px; }
+  .primary { margin-top:18px; background:#22c55e; color:#071008; border-radius:12px; padding:14px; text-align:center; font-weight:900; text-transform:uppercase; }
+  .section-title { margin-top:24px; color:#89959f; font-size:10px; font-weight:800; letter-spacing:1.3px; text-transform:uppercase; }
+  .panel { margin-top:9px; border:1px solid #29323a; border-radius:14px; background:#12181d; overflow:hidden; }
+  .row { min-height:52px; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:0 14px; border-bottom:1px solid #273038; }
+  .row:last-child { border-bottom:0; }
+  .name { font-weight:750; font-size:13px; }
+  .sub { color:#89959f; font-size:11px; margin-top:2px; }
+  .icon { color:#22c55e; font-size:18px; }
+  .danger { color:#ef4444; }
+  .danger-panel { border-color:#6b2830; background:#1a1114; }
+  .chips { display:grid; grid-template-columns:1fr 1fr; gap:9px; margin-top:12px; }
+  .chip { border:1px solid #2b353e; background:#12181d; border-radius:12px; padding:13px 10px; font-size:12px; font-weight:800; text-align:center; }
+  .avatar { width:32px; height:32px; border-radius:50%; background:#26323a; display:grid; place-items:center; margin-right:10px; }
+  .person { display:flex; align-items:center; flex:1; }
+  .kick { border:1px solid #6b2830; color:#ef4444; border-radius:9px; padding:8px 10px; font-size:11px; font-weight:800; }
+  .option-label { margin:14px 4px 5px; font-weight:900; color:#f4f7f5; }
+  .option-copy { margin:0 4px 8px; color:#98a3ac; font-size:13px; line-height:1.45; }
+  @media(max-width:950px){ .phones{grid-template-columns:1fr;} .phone{min-height:auto;} }
+</style>
+
+<h2>¿Cómo debería organizarse la gestión del equipo?</h2>
+<p class="subtitle">Las tres opciones mantienen la estética actual de Rondo. Pulsa la que te resulte más clara.</p>
+
+<div class="phones">
+  <div class="choice-card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="phone">
+      <div class="top"><span>‹</span><span>Compartir</span></div>
+      <div class="body">
+        <div class="eyebrow">Equipo · Organizador</div>
+        <div class="team-title">Los del jueves</div>
+        <div class="meta">Madrid · 5 € habituales · 8 jugadores</div>
+        <div class="primary">＋ Crear partido</div>
+        <div class="section-title">Gestión rápida</div>
+        <div class="panel">
+          <div class="row"><div><div class="name">Editar equipo</div><div class="sub">Nombre, ciudad y precio</div></div><span class="icon">✎</span></div>
+          <div class="row"><div><div class="name">Compartir invitación</div><div class="sub">Suma cracks a la plantilla</div></div><span class="icon">↗</span></div>
+        </div>
+        <div class="section-title">Plantilla</div>
+        <div class="panel">
+          <div class="row"><div class="person"><div class="avatar">JM</div><div><div class="name">Javi Martín</div><div class="sub">Crack fiable</div></div></div><span class="kick">Expulsar</span></div>
+          <div class="row"><div class="person"><div class="avatar">AL</div><div><div class="name">Álex López</div><div class="sub">Delantero</div></div></div><span class="kick">Expulsar</span></div>
+        </div>
+        <div class="section-title">Zona peligrosa</div>
+        <div class="panel danger-panel"><div class="row"><div><div class="name danger">Eliminar equipo</div><div class="sub">Solo si no hay partidos futuros</div></div><span class="danger">⌫</span></div></div>
+      </div>
+    </div>
+    <div class="option-label">A · Gestión integrada — recomendada</div>
+    <p class="option-copy">Todo está en la ficha. Acciones claras, expulsión visible y eliminación separada al final.</p>
+  </div>
+
+  <div class="choice-card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="phone">
+      <div class="top"><span>‹</span><span>•••</span></div>
+      <div class="body">
+        <div class="eyebrow">Equipo</div>
+        <div class="team-title">Los del jueves</div>
+        <div class="meta">Madrid · 5 € habituales · 8 jugadores</div>
+        <div class="primary">＋ Crear partido</div>
+        <div class="section-title">Panel del organizador</div>
+        <div class="chips">
+          <div class="chip">✎ Editar</div><div class="chip">↗ Invitar</div>
+          <div class="chip">♟ Plantilla</div><div class="chip danger">⌫ Eliminar</div>
+        </div>
+        <div class="section-title">Plantilla</div>
+        <div class="panel">
+          <div class="row"><div class="person"><div class="avatar">JM</div><div class="name">Javi Martín</div></div><span class="icon">›</span></div>
+          <div class="row"><div class="person"><div class="avatar">AL</div><div class="name">Álex López</div></div><span class="icon">›</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="option-label">B · Cuadrícula de acciones</div>
+    <p class="option-copy">Más compacta, pero mezcla una acción destructiva con acciones frecuentes y oculta la expulsión tras otra pulsación.</p>
+  </div>
+
+  <div class="choice-card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="phone">
+      <div class="top"><span>‹</span><span>⚙</span></div>
+      <div class="body">
+        <div class="eyebrow">Equipo</div>
+        <div class="team-title">Los del jueves</div>
+        <div class="meta">Madrid · 5 € habituales · 8 jugadores</div>
+        <div class="primary">＋ Crear partido</div>
+        <div class="section-title">Próximos partidos</div>
+        <div class="panel"><div class="row"><div><div class="name">Jueves 20:00</div><div class="sub">Fútbol 7 · privado</div></div><span class="icon">›</span></div></div>
+        <div class="section-title">Plantilla</div>
+        <div class="panel">
+          <div class="row"><div class="person"><div class="avatar">JM</div><div class="name">Javi Martín</div></div></div>
+          <div class="row"><div class="person"><div class="avatar">AL</div><div class="name">Álex López</div></div></div>
+        </div>
+        <div style="margin-top:28px;color:#89959f;font-size:12px;line-height:1.5">Editar, expulsar y eliminar viven en una pantalla independiente accesible desde ⚙.</div>
+      </div>
+    </div>
+    <div class="option-label">C · Gestión en pantalla separada</div>
+    <p class="option-copy">La ficha queda muy limpia, pero obliga a navegar para cualquier cambio pequeño.</p>
+  </div>
+</div>

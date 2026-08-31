@@ -1,0 +1,35 @@
+<style>
+  .stage{display:flex;justify-content:center;margin-top:24px}.phone{width:min(390px,100%);min-height:690px;background:#090b0a;border:1px solid #29302c;border-radius:30px;position:relative;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.35)}
+  .behind{padding:24px 18px;opacity:.38}.behind h3{color:#fff;font-size:23px;margin:8px 0}.behind p{color:#87918b;font-size:13px}.ghost{height:72px;background:#151917;border:1px solid #29302c;border-radius:15px;margin-top:15px}
+  .scrim{position:absolute;inset:0;background:rgba(0,0,0,.58)}.sheet{position:absolute;left:0;right:0;bottom:0;background:#141816;border-top:1px solid #313833;border-radius:24px 24px 0 0;padding:12px 18px 22px}
+  .handle{width:42px;height:4px;border-radius:4px;background:#424a45;margin:0 auto 18px}.title{color:#f7faf8;font-size:22px;font-weight:900;margin:0 0 6px}.copy{color:#9aa39e;font-size:13px;line-height:1.5;margin-bottom:15px}
+  .warning{background:rgba(245,158,11,.09);border:1px solid rgba(245,158,11,.3);border-radius:12px;padding:11px 12px;color:#f5ca79;font-size:12px;line-height:1.45;margin-bottom:15px}
+  .labelx{font:700 9px/1.2 monospace;letter-spacing:1.5px;text-transform:uppercase;color:#8d9791;margin:0 0 9px}
+  .choice{display:flex;align-items:flex-start;gap:12px;border:1px solid #343b37;background:#0e110f;border-radius:14px;padding:13px;margin-bottom:9px}.choice.selected{border:2px solid #22c55e;background:rgba(34,197,94,.08);padding:12px}.radio{width:20px;height:20px;border:2px solid #657069;border-radius:50%;margin-top:1px;flex:none}.selected .radio{border:6px solid #22c55e}.choice b{display:block;color:#f3f6f4;font-size:14px}.choice small{display:block;color:#89938d;font-size:11px;line-height:1.4;margin-top:4px}
+  .publish{min-height:54px;border-radius:14px;background:#22c55e;border:1px solid #4ce17d;color:#06130a;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:900;letter-spacing:.7px;text-transform:uppercase;margin-top:15px;box-shadow:0 9px 25px rgba(34,197,94,.22)}
+  .cancel{text-align:center;color:#9ba49f;font-size:13px;font-weight:700;padding-top:14px}
+</style>
+
+<h2>Decisión de aprobación al publicar</h2>
+<p class="subtitle">La publicación sigue siendo irreversible. La forma de entrada se decide justo antes de abrir las plazas.</p>
+
+<div class="card" data-choice="publish-sheet-approved" onclick="toggleSelect(this)">
+  <div class="card-image stage">
+    <div class="phone">
+      <div class="behind"><div class="labelx">Partido del equipo</div><h3>Borrachos FC · jueves</h3><p>8 confirmados · quedan plazas libres</p><div class="ghost"></div><div class="ghost"></div></div>
+      <div class="scrim"></div>
+      <div class="sheet">
+        <div class="handle"></div>
+        <h3 class="title">Publicar plazas libres</h3>
+        <div class="copy">Elige cómo entrarán los jugadores de fuera del equipo.</div>
+        <div class="warning">Los miembros pendientes perderán su reserva. Después de publicar, el partido funcionará como cualquier otro de Rondo.</div>
+        <div class="labelx">Cómo se unen</div>
+        <div class="choice"><div class="radio"></div><div><b>Entrada directa</b><small>Quien encuentre una plaza libre entra automáticamente.</small></div></div>
+        <div class="choice selected"><div class="radio"></div><div><b>Revisar solicitudes</b><small>El capitán acepta o rechaza a cada jugador.</small></div></div>
+        <div class="publish">Publicar plazas</div>
+        <div class="cancel">Ahora no</div>
+      </div>
+    </div>
+  </div>
+  <div class="card-body"><h3>Una sola hoja de confirmación</h3><p>La elección se guarda en <code>requires_approval</code> justo antes de convertir el partido en público.</p></div>
+</div>

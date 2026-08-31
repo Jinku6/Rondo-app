@@ -49,11 +49,7 @@ Los integrantes y el capitán conservarán el acceso relacionado actual. Los con
 
 El perfil público de un usuario añadirá únicamente una sección «Equipos». Incluirá todos los equipos activos y no eliminados de los que sea capitán o miembro activo.
 
-Cada tarjeta mostrará:
-
-- Foto.
-- Nombre.
-- Ciudad, si existe.
+Se mostratá mediante una card nueva de ancho completo que se ubicará entre la bio y la fila de edad, posición y fiabilidad.
 
 La tarjeta abrirá `/group/[id]`. No mostrará estadísticas personales, códigos de invitación, precio ni información interna del equipo.
 
