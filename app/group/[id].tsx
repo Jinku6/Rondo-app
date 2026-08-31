@@ -70,6 +70,7 @@ export default function GroupDetailScreen() {
   const [savingTeam, setSavingTeam] = useState(false);
   const [removingMemberId, setRemovingMemberId] = useState<string | null>(null);
   const [deletingTeam, setDeletingTeam] = useState(false);
+  const [leavingTeam, setLeavingTeam] = useState(false);
   const [cancellingRecurrenceId, setCancellingRecurrenceId] = useState<string | null>(null);
 
   const loadGroup = useCallback(async (refresh = false) => {
@@ -135,6 +136,9 @@ export default function GroupDetailScreen() {
 
   const isCaptain = !!publicTeam && publicTeam.organizer_id === user?.id;
   const canManage = isCaptain && !!privateTeam;
+  const canLeaveTeam = !!user
+    && !isCaptain
+    && !!publicTeam?.roster.some(member => member.id === user.id);
   const matchesByRecurrence = useMemo(() => {
     const matchesById = new Map<string, GroupMatch>();
     matches.forEach(match => {
@@ -307,6 +311,44 @@ export default function GroupDetailScreen() {
               Alert.alert('No se pudo eliminar', getErrorMessage(deleteError, 'Prueba de nuevo.'));
             } finally {
               setDeletingTeam(false);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const leaveTeam = () => {
+    if (!publicTeam || !user?.id || !canLeaveTeam) return;
+
+    Alert.alert(
+      'Abandonar equipo',
+      `Dejarás la plantilla de ${publicTeam.title}. Tus partidos jugados y las asistencias que ya confirmaste se conservarán. Perderás las plazas pendientes en partidos privados.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Abandonar equipo',
+          style: 'destructive',
+          onPress: async () => {
+            setLeavingTeam(true);
+            try {
+              const { error: leaveError } = await supabase.rpc('leave_team', {
+                p_team_id: publicTeam.id,
+              });
+              if (leaveError) throw leaveError;
+              setPublicTeam(current => current
+                ? { ...current, roster: current.roster.filter(member => member.id !== user.id) }
+                : current);
+              Alert.alert(
+                'Has abandonado el equipo',
+                'Tus partidos jugados y las asistencias que ya confirmaste siguen guardados.',
+                [{ text: 'Aceptar', onPress: () => router.replace('/(tabs)/mymatches') }],
+              );
+            } catch (leaveError) {
+              logSupabaseError('leave team', leaveError);
+              Alert.alert('No pudiste abandonar el equipo', getErrorMessage(leaveError, 'Prueba de nuevo.'));
+            } finally {
+              setLeavingTeam(false);
             }
           },
         },
@@ -617,10 +659,9 @@ export default function GroupDetailScreen() {
         )}
 
         {canManage && (
-          <>
-            <View style={s.section}>
-              <Text style={s.sectionLabel}>Gestión del equipo</Text>
-              <View style={s.managementCard}>
+          <View style={s.section}>
+            <Text style={s.sectionLabel}>Gestión del equipo</Text>
+            <View style={s.managementCard}>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Editar equipo"
@@ -649,34 +690,46 @@ export default function GroupDetailScreen() {
                     <Ionicons name="share-social-outline" size={22} color={c.brand} />
                   </View>
                 </Pressable>
-              </View>
             </View>
+          </View>
+        )}
 
-            <View style={[s.section, s.lastSection]}>
-              <Text style={s.sectionLabel}>Zona peligrosa</Text>
-              <View style={s.dangerCard}>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Eliminar equipo"
-                  onPress={deleteTeam}
-                  disabled={deletingTeam}
-                  style={({ pressed }) => [s.actionPressable, s.actionPressableLast, (pressed || deletingTeam) && s.pressed]}
-                >
-                  <View style={s.actionRowContent}>
-                    <View style={s.managementCopy}>
-                      <Text style={[s.managementTitle, { color: c.danger }]}>Eliminar equipo</Text>
-                      <Text style={s.managementSubtitle}>Disponible cuando no haya partidos futuros</Text>
-                    </View>
-                    {deletingTeam ? (
-                      <ActivityIndicator color={c.danger} />
-                    ) : (
-                      <Ionicons name="trash-outline" size={22} color={c.danger} />
-                    )}
+        {(canManage || canLeaveTeam) && (
+          <View style={[s.section, s.lastSection]}>
+            <Text style={s.sectionLabel}>Zona peligrosa</Text>
+            <View style={s.dangerCard}>
+              <Pressable
+                cssInterop={false}
+                accessibilityRole="button"
+                accessibilityLabel={canManage ? 'Eliminar equipo' : 'Abandonar equipo'}
+                onPress={canManage ? deleteTeam : leaveTeam}
+                disabled={canManage ? deletingTeam : leavingTeam}
+                style={({ pressed }) => [
+                  s.actionPressable,
+                  s.actionPressableLast,
+                  (pressed || deletingTeam || leavingTeam) && s.pressed,
+                ]}
+              >
+                <View style={s.actionRowContent}>
+                  <View style={s.managementCopy}>
+                    <Text style={[s.managementTitle, { color: c.danger }]}>
+                      {canManage ? 'Eliminar equipo' : 'Abandonar equipo'}
+                    </Text>
+                    <Text style={s.managementSubtitle}>
+                      {canManage
+                        ? 'Disponible cuando no haya partidos futuros'
+                        : 'Tus partidos jugados se conservarán'}
+                    </Text>
                   </View>
-                </Pressable>
-              </View>
+                  {(deletingTeam || leavingTeam) ? (
+                    <ActivityIndicator color={c.danger} />
+                  ) : (
+                    <Ionicons name={canManage ? 'trash-outline' : 'exit-outline'} size={22} color={c.danger} />
+                  )}
+                </View>
+              </Pressable>
             </View>
-          </>
+          </View>
         )}
       </ScrollView>
 
