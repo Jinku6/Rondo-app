@@ -563,6 +563,7 @@ export default function GroupDetailScreen() {
                       <View style={s.recurrenceActions}>
                         {!!nextMatch && (
                           <Pressable
+                            cssInterop={false}
                             accessibilityRole="button"
                             accessibilityLabel={canManage ? 'Editar próximo partido' : 'Ver próximo partido'}
                             onPress={() => router.push(
@@ -586,6 +587,7 @@ export default function GroupDetailScreen() {
                         )}
                         {canManage && (
                           <Pressable
+                            cssInterop={false}
                             accessibilityRole="button"
                             accessibilityLabel="Anular recurrencia"
                             disabled={cancellingRecurrenceId !== null}
