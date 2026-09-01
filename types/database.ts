@@ -82,7 +82,10 @@ export interface MatchReview {
   created_at: string;
 }
 
-export type NotificationType = 'pending_organizer_review' | 'pending_player_review';
+export type NotificationType =
+  | 'pending_organizer_review'
+  | 'pending_player_review'
+  | 'team_match_published';
 
 export interface Notification {
   id: string;

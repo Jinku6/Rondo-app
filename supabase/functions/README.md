@@ -17,6 +17,6 @@ Deploy with `supabase functions deploy <name>` after validating `supabase/config
 
 ## Scheduled push types
 
-- `match_reminders`: reminds joined players 30 minutes before a match.
+- `match_reminders`: reminds joined players 30 minutes before a match, pending team members at 48 hours, and captains with open spots at 24 hours.
 - `nearby_digest`: sends the daily nearby-match digest.
 - `review_reminders`: reminds players 24 hours after a pending review notification if they still have not reviewed.

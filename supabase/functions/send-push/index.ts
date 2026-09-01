@@ -13,6 +13,10 @@ type MatchRow = {
   organizer_id: string;
   title: string;
   status?: string;
+  series_id?: string | null;
+  is_private?: boolean;
+  recruiting_public?: boolean;
+  team?: { title: string } | null;
 };
 
 type ParticipantRow = {
@@ -39,6 +43,11 @@ type ChatMessageRow = {
 
 const activeStatuses = ['joined', 'approved'];
 
+const isPrivateTeamMatch = (match: MatchRow) =>
+  !!match.series_id && match.is_private === true && match.recruiting_public === false;
+
+const getTeamTitle = (match: MatchRow) => match.team?.title ?? 'tu equipo';
+
 const getDisplayName = (user?: { full_name?: string | null; username?: string | null } | null) =>
   user?.full_name || user?.username || 'Un jugador';
 
@@ -52,7 +61,7 @@ async function loadMatch(matchId: string) {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from('matches')
-    .select('id, organizer_id, title, status')
+    .select('id, organizer_id, title, status, series_id, is_private, recruiting_public, team:match_series(title)')
     .eq('id', matchId)
     .maybeSingle();
 
@@ -74,8 +83,22 @@ async function loadUser(userId: string) {
 async function handleParticipantInsert(record?: ParticipantRow) {
   if (!record || record.status !== 'pending') return { ignored: true };
 
-  const [match, user] = await Promise.all([loadMatch(record.match_id), loadUser(record.user_id)]);
+  const match = await loadMatch(record.match_id);
   if (!match) return { ignored: true };
+
+  if (isPrivateTeamMatch(match)) {
+    return sendPushMessages([{
+      userId: record.user_id,
+      type: 'team_match_created',
+      title: `Nuevo partido con ${getTeamTitle(match)}`,
+      body: 'Confirma tu asistencia.',
+      matchId: match.id,
+      url: `/match/${match.id}`,
+      dedupeKey: `team_match_created:${match.id}:${record.user_id}`,
+    }]);
+  }
+
+  const user = await loadUser(record.user_id);
 
   return sendPushMessages([{
     userId: match.organizer_id,
@@ -149,11 +172,14 @@ async function handleMatchUpdate(record?: MatchRow, oldRecord?: MatchRow) {
   const messages = [];
 
   if (oldRecord.status === 'open' && record.status === 'full') {
+    const isTeamMatch = !!record.series_id;
     messages.push({
       userId: record.organizer_id,
       type: 'match_full' as const,
-      title: 'Tu partido está completo ✅',
-      body: `${record.title} ya tiene todos los huecos cubiertos. Se acabó perseguir gente.`,
+      title: isTeamMatch ? 'Plantilla completa ✅' : 'Tu partido está completo ✅',
+      body: isTeamMatch
+        ? `¡${record.title} ya tiene a todos los jugadores listos!`
+        : `${record.title} ya tiene todos los huecos cubiertos. Se acabó perseguir gente.`,
       matchId: record.id,
       url: `/match/${record.id}`,
       dedupeKey: `match_full:${record.id}`,
@@ -186,7 +212,24 @@ async function handleMatchUpdate(record?: MatchRow, oldRecord?: MatchRow) {
 }
 
 async function handleNotificationInsert(record?: NotificationRow) {
-  if (!record || !['pending_organizer_review', 'pending_player_review'].includes(record.type)) {
+  if (!record) return { ignored: true };
+
+  if (record.type === 'team_match_published') {
+    const match = await loadMatch(record.match_id);
+    if (!match?.series_id || !match.is_private || !match.recruiting_public) return { ignored: true };
+
+    return sendPushMessages([{
+      userId: record.user_id,
+      type: 'team_match_published',
+      title: `El partido de ${getTeamTitle(match)} está abierto`,
+      body: '¡Aún estás a tiempo de unirte!',
+      matchId: match.id,
+      url: `/match/${match.id}`,
+      dedupeKey: `team_match_published:${match.id}:${record.user_id}`,
+    }]);
+  }
+
+  if (!['pending_organizer_review', 'pending_player_review'].includes(record.type)) {
     return { ignored: true };
   }
 

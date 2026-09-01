@@ -17,6 +17,21 @@ type MatchRow = {
   longitude_snapshot?: number | null;
 };
 
+type MatchParticipantRow = {
+  user_id: string;
+  status: string;
+};
+
+type TeamMatchRow = {
+  id: string;
+  title: string;
+  date_time: string;
+  organizer_id: string;
+  requested_positions: Record<string, number | string> | null;
+  team: { title: string } | null;
+  match_participants: MatchParticipantRow[] | null;
+};
+
 type LocationPreference = {
   user_id: string;
   city: string;
@@ -27,6 +42,10 @@ type LocationPreference = {
 const SEARCH_RADIUS_KM = 20;
 const NEARBY_LOOKAHEAD_HOURS = 72;
 const REVIEW_REMINDER_DELAY_HOURS = 24;
+const TEAM_ATTENDANCE_REMINDER_HOURS = 48;
+const TEAM_PUBLISH_PROMPT_HOURS = 24;
+const TEAM_PUSH_WINDOW_MINUTES = 5;
+const activeStatuses = ['joined', 'approved'];
 
 function assertCronSecret(req: Request) {
   const expectedSecret = Deno.env.get('CRON_SECRET');
@@ -57,9 +76,44 @@ function distanceKm(a: { latitude: number; longitude: number }, b: { latitude: n
   return 2 * earthRadiusKm * Math.asin(Math.sqrt(h));
 }
 
-async function sendMatchReminders() {
+function futureWindow(now: Date, hours: number) {
+  const target = now.getTime() + hours * 60 * 60 * 1000;
+  const margin = TEAM_PUSH_WINDOW_MINUTES * 60 * 1000;
+  return {
+    start: new Date(target - margin).toISOString(),
+    end: new Date(target + margin).toISOString(),
+  };
+}
+
+function hasAvailableTeamSpots(match: TeamMatchRow) {
+  const capacity = Object.values(match.requested_positions ?? {}).reduce((total, value) => {
+    const count = Number(value);
+    return Number.isFinite(count) && count > 0 ? total + count : total;
+  }, 0);
+  const participants = match.match_participants ?? [];
+  const confirmed = participants.filter((participant) => activeStatuses.includes(participant.status)).length;
+  return capacity > confirmed;
+}
+
+async function loadPrivateTeamMatchesAt(now: Date, hours: number) {
   const supabase = createServiceClient();
-  const now = new Date();
+  const window = futureWindow(now, hours);
+  const { data, error } = await supabase
+    .from('matches')
+    .select('id, title, date_time, organizer_id, requested_positions, team:match_series!inner(title), match_participants(user_id, status)')
+    .not('series_id', 'is', null)
+    .eq('is_private', true)
+    .eq('recruiting_public', false)
+    .eq('status', 'open')
+    .gte('date_time', window.start)
+    .lte('date_time', window.end);
+
+  if (error) throw error;
+  return (data ?? []) as unknown as TeamMatchRow[];
+}
+
+async function sendMatchReminders(now: Date) {
+  const supabase = createServiceClient();
   const windowStart = new Date(now.getTime() + 25 * 60 * 1000).toISOString();
   const windowEnd = new Date(now.getTime() + 35 * 60 * 1000).toISOString();
 
@@ -90,6 +144,54 @@ async function sendMatchReminders() {
   }
 
   return sendPushMessages(messages);
+}
+
+async function sendTeamAttendanceReminders(now: Date) {
+  const matches = await loadPrivateTeamMatchesAt(now, TEAM_ATTENDANCE_REMINDER_HOURS);
+  const messages = [];
+
+  for (const match of matches.filter(hasAvailableTeamSpots)) {
+    const teamTitle = match.team?.title ?? 'tu equipo';
+    for (const participant of (match.match_participants ?? []).filter(({ status }) => status === 'pending')) {
+      messages.push({
+        userId: participant.user_id,
+        type: 'team_attendance_reminder' as const,
+        title: '¿Juegas este partido?',
+        body: `Quedan 48 h para ${match.title} con ${teamTitle}. ¿Vas a ir?`,
+        matchId: match.id,
+        url: `/match/${match.id}`,
+        dedupeKey: `team_attendance_reminder:${match.id}:${participant.user_id}`,
+      });
+    }
+  }
+
+  return sendPushMessages(messages);
+}
+
+async function sendTeamPublishPrompts(now: Date) {
+  const matches = await loadPrivateTeamMatchesAt(now, TEAM_PUBLISH_PROMPT_HOURS);
+  const messages = matches.filter(hasAvailableTeamSpots).map((match) => ({
+    userId: match.organizer_id,
+    type: 'team_publish_prompt' as const,
+    title: `Aún quedan plazas para ${match.title}`,
+    body: '¿Quieres abrirlo a Rondo?',
+    matchId: match.id,
+    url: `/match/${match.id}`,
+    dedupeKey: `team_publish_prompt:${match.id}:${match.organizer_id}`,
+  }));
+
+  return sendPushMessages(messages);
+}
+
+async function sendScheduledMatchPushes() {
+  const now = new Date();
+  const [matchReminders, teamAttendanceReminders, teamPublishPrompts] = await Promise.all([
+    sendMatchReminders(now),
+    sendTeamAttendanceReminders(now),
+    sendTeamPublishPrompts(now),
+  ]);
+
+  return { matchReminders, teamAttendanceReminders, teamPublishPrompts };
 }
 
 async function loadNearbyMatchesForPreference(preference: LocationPreference) {
@@ -269,7 +371,7 @@ Deno.serve(async (req: Request) => {
   const type = await getRequestType(req);
 
   try {
-    if (type === 'match_reminders') return jsonResponse(await sendMatchReminders());
+    if (type === 'match_reminders') return jsonResponse(await sendScheduledMatchPushes());
     if (type === 'nearby_digest') return jsonResponse(await sendNearbyDigest());
     if (type === 'review_reminders') return jsonResponse(await sendReviewReminders());
     return jsonError('Unknown scheduled push type', 400);

@@ -14,7 +14,11 @@ export type PushType =
   | 'nearby_digest'
   | 'chat_message'
   | 'participant_left'
-  | 'match_cancelled';
+  | 'match_cancelled'
+  | 'team_match_created'
+  | 'team_attendance_reminder'
+  | 'team_match_published'
+  | 'team_publish_prompt';
 
 type PushMessage = {
   userId: string;
