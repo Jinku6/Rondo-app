@@ -81,7 +81,7 @@ describe('team match push notifications', () => {
   });
 
   it('makes the captain an active member and pending participant', () => {
-    const migration = read('supabase/migrations/20260831184933_team_match_notifications.sql');
+    const migration = read('supabase/migrations/20260901065052_team_match_notifications.sql');
     const publicTeamProfiles = read('supabase/migrations/20260828172548_public_team_profiles.sql');
 
     expect(migration).toMatch(/CREATE OR REPLACE FUNCTION private\.ensure_team_captain_membership\(\)/i);
@@ -102,7 +102,7 @@ describe('team match push notifications', () => {
   });
 
   it('creates publication markers only for pending team members before releasing reservations', () => {
-    const migration = read('supabase/migrations/20260831184933_team_match_notifications.sql');
+    const migration = read('supabase/migrations/20260901065052_team_match_notifications.sql');
     const markerIndex = migration.indexOf("'team_match_published'");
     const deleteIndex = migration.indexOf('DELETE FROM public.match_participants');
 
