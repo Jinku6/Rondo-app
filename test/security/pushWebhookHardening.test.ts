@@ -6,7 +6,7 @@ const root = path.resolve(__dirname, '../..');
 const read = (relativePath: string) => fs.readFileSync(path.join(root, relativePath), 'utf8');
 
 describe('push webhook hardening migration', () => {
-  const migrationPath = 'supabase/migrations/20260901073427_secure_push_webhook_secret.sql';
+  const migrationPath = 'supabase/migrations/20260901074310_secure_push_webhook_secret.sql';
 
   it('loads the dedicated credential from Vault with a fixed search path', () => {
     const migration = read(migrationPath);
