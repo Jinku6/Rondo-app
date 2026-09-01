@@ -2,6 +2,7 @@ import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { handleOptions, jsonError, jsonResponse, requirePost } from '../_shared/http.ts';
 import { createServiceClient, getBearerToken } from '../_shared/supabase.ts';
 import { hasRecentPush, normalizePreview, sendPushMessages } from '../_shared/push.ts';
+import { matchesWebhookSecret } from '../_shared/webhookAuth.ts';
 
 type WebhookPayload<T = Record<string, unknown>> = {
   record?: T;
@@ -52,9 +53,11 @@ const getDisplayName = (user?: { full_name?: string | null; username?: string | 
   user?.full_name || user?.username || 'Un jugador';
 
 function assertWebhookSecret(req: Request) {
-  const expectedSecret = Deno.env.get('SEND_PUSH_WEBHOOK_SECRET');
   const providedSecret = getBearerToken(req);
-  return !!expectedSecret && providedSecret === expectedSecret;
+  return matchesWebhookSecret(providedSecret, [
+    Deno.env.get('SEND_PUSH_WEBHOOK_SECRET'),
+    Deno.env.get('SEND_PUSH_WEBHOOK_SECRET_NEXT'),
+  ]);
 }
 
 async function loadMatch(matchId: string) {
