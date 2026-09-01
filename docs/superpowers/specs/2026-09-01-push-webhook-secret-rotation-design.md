@@ -40,9 +40,7 @@ La comparación será de tiempo constante y fallará con `401` si faltan credenc
 
 ### Gestión de la credencial
 
-El secreto nuevo se generará con un generador criptográfico y al menos 256 bits de entropía. Durante la operación vivirá únicamente en un archivo temporal fuera del repositorio, con alcance limitado a la rotación. El mismo valor se cargará en Edge Functions y en Supabase Vault con el nombre `send_push_webhook_secret`.
-
-El archivo temporal se eliminará tras completar o abortar la rotación. No se leerán ni mostrarán valores existentes.
+El secreto nuevo se generará con un generador criptográfico y al menos 256 bits de entropía. Durante la operación vivirá únicamente en memoria del proceso de rotación. El mismo valor se cargará en Edge Functions y en Supabase Vault con el nombre `send_push_webhook_secret`; no se escribirá en archivos ni aparecerá en argumentos, salidas o logs controlados por la aplicación.
 
 ### Función de Postgres
 
@@ -69,7 +67,7 @@ Si Vault no contiene exactamente una credencial válida, la función omitirá la
 8. Promover el valor nuevo a `SEND_PUSH_WEBHOOK_SECRET` y eliminar `SEND_PUSH_WEBHOOK_SECRET_NEXT`.
 9. Desplegar la versión final que acepta solo el secreto primario.
 10. Invocar la Edge Function desde Postgres con el secreto anterior temporal y comprobar `401`; repetir con el secreto nuevo y comprobar `200`.
-11. Eliminar de Vault la copia temporal del secreto anterior.
+11. Eliminar de Vault la copia temporal del secreto anterior y descartar de memoria el nuevo valor operativo.
 
 Si falla cualquier verificación antes del paso 7, Edge seguirá aceptando el secreto anterior y se podrá restaurar la función de Postgres sin perder la vía de autenticación.
 
