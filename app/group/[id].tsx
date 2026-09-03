@@ -168,7 +168,6 @@ export default function GroupDetailScreen() {
       const avatarUrl = values.avatarAsset
         ? await uploadAvatar({
           asset: values.avatarAsset,
-          ownerId: user.id,
           folder: `teams/${privateTeam.id}`,
         })
         : values.avatarUrl;

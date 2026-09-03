@@ -205,7 +205,7 @@ export default function ProfileScreen() {
   const uploadProfileAvatar = async (asset: AvatarAsset) => {
     setUploading(true);
     try {
-      const avatarUrl = await uploadAvatar({ asset, ownerId: user.id });
+      const avatarUrl = await uploadAvatar({ asset });
       const { error } = await supabase.from('users').update({ avatar_url: avatarUrl }).eq('id', user.id);
       if (error) throw error;
       await refreshProfile();

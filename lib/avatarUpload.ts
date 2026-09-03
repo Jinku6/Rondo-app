@@ -31,11 +31,9 @@ export async function pickSquareAvatar(): Promise<AvatarAsset | null> {
 
 export async function uploadAvatar({
   asset,
-  ownerId,
   folder,
 }: {
   asset: AvatarAsset;
-  ownerId: string;
   folder?: string;
 }): Promise<string> {
   try {
@@ -48,14 +46,29 @@ export async function uploadAvatar({
       throw new Error('La imagen debe pesar menos de 2 MB.');
     }
 
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    if (userError) throw userError;
+    if (!userData.user) throw new Error('Inicia sesión de nuevo para subir una imagen.');
+
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    if (sessionError) throw sessionError;
+    if (!sessionData.session || sessionData.session.user.id !== userData.user.id) {
+      throw new Error('Tu sesión ya no es válida. Inicia sesión de nuevo para subir una imagen.');
+    }
+
     const normalizedFolder = folder?.replace(/^\/+|\/+$/g, '');
-    const fileName = [ownerId, normalizedFolder, `${Date.now()}.${fileExt}`]
+    const fileName = [userData.user.id, normalizedFolder, `${Date.now()}.${fileExt}`]
       .filter(Boolean)
       .join('/');
     const { error } = await supabase.storage.from('avatars').upload(
       fileName,
       decode(asset.base64),
-      { cacheControl: '3600', upsert: true, contentType: mimeType },
+      {
+        cacheControl: '3600',
+        upsert: true,
+        contentType: mimeType,
+        headers: { Authorization: `Bearer ${sessionData.session.access_token}` },
+      },
     );
     if (error) throw error;
 
