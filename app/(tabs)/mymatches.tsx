@@ -329,7 +329,7 @@ export default function MyMatchesScreen() {
                   </View>
                   <View className="ml-3 flex-1">
                     <Text className="font-display text-sm font-extrabold text-ink">Monta tu equipo</Text>
-                    <Text className="font-body text-xs leading-5 text-ink-dim">La plantilla de cada pachanga, siempre a mano.</Text>
+                    <Text className="font-body text-xs leading-5 text-ink-dim">La plantilla de cada partido, siempre a mano.</Text>
                   </View>
                   <Ionicons name="chevron-forward" size={19} color={colors.textDim} />
                 </TouchableOpacity>

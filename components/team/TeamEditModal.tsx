@@ -215,7 +215,7 @@ export function TeamEditModal({ visible, team, saving, onClose, onSave }: Props)
                 placeholderTextColor={c.textMuted}
                 style={s.input}
               />
-              <Text style={s.hint}>Podrás cambiarlo en cada pachanga.</Text>
+              <Text style={s.hint}>Podrás cambiarlo en cada partido.</Text>
             </View>
 
             <PrimaryActionButton

@@ -120,7 +120,7 @@ export default function JoinSeriesScreen() {
         Te quieren en el equipo
       </Text>
       <Text style={{ color: c.textDim, fontSize: 16, lineHeight: 24, marginTop: 12 }}>
-        Entra en Rondo y tendrás la lista y cada pachanga semanal en el mismo sitio.
+        Entra en Rondo y tendrás la lista y cada partido semanal en el mismo sitio.
       </Text>
       <View style={{ gap: 12, marginTop: 32 }}>
         <TouchableOpacity

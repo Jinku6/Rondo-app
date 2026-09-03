@@ -370,7 +370,7 @@ export default function CreateMatchScreen() {
         .single();
       if (error) throw error;
 
-      Alert.alert('Equipo listo', 'El vestuario ya tiene su equipo para preparar la próxima pachanga.', [
+      Alert.alert('Equipo listo', 'El vestuario ya tiene su equipo para preparar el próximo partido.', [
         { text: 'Abrir equipo', onPress: () => router.replace(`/group/${data.id}` as never) },
       ]);
     } catch (error) {
@@ -568,7 +568,7 @@ export default function CreateMatchScreen() {
         {!teamId && <View className="bg-bg-elev border border-border p-5 rounded-lg-r mb-4">
           <Text className="text-ink font-display font-black text-lg mb-2">¿Es para tu equipo?</Text>
           <Text className="text-ink-muted font-body text-sm mb-4">
-            Reutiliza la plantilla y organiza cada pachanga con el mismo equipo.
+            Reutiliza la plantilla y organiza cada partido con el mismo equipo.
           </Text>
           <View className="flex-row gap-2">
             {([
@@ -693,7 +693,7 @@ export default function CreateMatchScreen() {
                   value={seriesCity}
                   onChangeText={setSeriesCity}
                 />
-                <Text className="text-[10px] text-ink-muted mt-2 font-body">El campo se decide en cada pachanga.</Text>
+                <Text className="text-[10px] text-ink-muted mt-2 font-body">El campo se decide en cada partido.</Text>
               </View>
             )}
             {creationMode === 'match' ? <View>

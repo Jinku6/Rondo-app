@@ -250,7 +250,7 @@ export function MatchDetailContent({
           <View style={s.seriesConfirmCard}>
             {seriesResponse === 'pending' ? (
               <>
-                <Text style={s.seriesConfirmTitle}>¿Juegas esta pachanga?</Text>
+                <Text style={s.seriesConfirmTitle}>¿Juegas este partido?</Text>
                 <Text style={s.seriesConfirmCopy}>Confirma para que el equipo sepa con quién cuenta.</Text>
                 {actionLoading ? (
                   <ActivityIndicator color={c.brand} style={{ height: 48 }} />
@@ -288,7 +288,7 @@ export function MatchDetailContent({
             ) : seriesResponse === 'declined' ? (
               <Text style={[s.seriesResponseText, { color: c.danger }]}>Esta semana no puedes</Text>
             ) : (
-              <Text style={s.seriesConfirmCopy}>Te sumas a la lista desde la próxima pachanga.</Text>
+              <Text style={s.seriesConfirmCopy}>Te sumas a la lista desde el próximo partido.</Text>
             )}
           </View>
         ) : isPending ? (
