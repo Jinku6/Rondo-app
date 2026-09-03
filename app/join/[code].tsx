@@ -1,13 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/hooks/use-theme';
 import {
-  clearPendingSeriesInvite,
+  completeSeriesInvite,
   normalizeSeriesInviteCode,
   savePendingSeriesInvite,
 } from '@/lib/seriesInvite';
@@ -24,6 +24,7 @@ export default function JoinSeriesScreen() {
   const [joining, setJoining] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  const joinInFlightRef = useRef(false);
 
   useEffect(() => {
     if (!code || authLoading) return;
@@ -33,24 +34,29 @@ export default function JoinSeriesScreen() {
     const continueInvite = async () => {
       try {
         if (!user) {
-          await savePendingSeriesInvite(code);
+          const saved = await savePendingSeriesInvite(code);
+          if (!saved) throw new Error('No hemos podido guardar la invitación. Inténtalo de nuevo.');
           return;
         }
 
+        if (joinInFlightRef.current) return;
+        joinInFlightRef.current = true;
         setJoining(true);
         setError(null);
-        const { data, error: joinError } = await supabase.rpc('join_match_series', {
-          p_invite_code: code,
+        const teamId = await completeSeriesInvite(code, async (inviteCode) => {
+          const { data, error: joinError } = await supabase.rpc('join_match_series', {
+            p_invite_code: inviteCode,
+          });
+          if (joinError) throw joinError;
+          if (typeof data !== 'string') throw new Error('La invitación no ha devuelto un equipo válido.');
+          return data;
         });
-        if (joinError) throw joinError;
-        if (!active || typeof data !== 'string') return;
-
-        await clearPendingSeriesInvite();
-        router.replace(`/group/${data}` as never);
+        if (active) router.replace(`/group/${teamId}` as never);
       } catch (joinError) {
         if (!active) return;
         setError(joinError instanceof Error ? joinError.message : 'No hemos podido meterte en el equipo.');
       } finally {
+        joinInFlightRef.current = false;
         if (active) setJoining(false);
       }
     };

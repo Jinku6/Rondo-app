@@ -2,7 +2,7 @@ import { AppleSignInButton } from '@/components/auth/AppleSignInButton';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/hooks/use-theme';
 import { Ionicons } from '@expo/vector-icons';
-import { Link, useRouter } from 'expo-router';
+import { Link } from 'expo-router';
 import React, { useState } from 'react';
 import {
   ActivityIndicator, Alert,
@@ -42,8 +42,6 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const { signIn, signInWithGoogle } = useAuth();
-  const router = useRouter();
-
   async function handleLogin() {
     const normalizedEmail = email.trim().toLowerCase();
     try {
@@ -55,12 +53,13 @@ export default function LoginScreen() {
       }
     }
     setLoading(true);
-    const { error } = await signIn(normalizedEmail, password);
-    setLoading(false);
-    if (error) {
-      Alert.alert('Error', translateError(error));
-    } else {
-      router.replace('/(tabs)');
+    try {
+      const { error } = await signIn(normalizedEmail, password);
+      if (error) Alert.alert('Error', translateError(error));
+    } catch {
+      Alert.alert('Error', 'No se pudo iniciar sesión. Inténtalo de nuevo.');
+    } finally {
+      setLoading(false);
     }
   }
 

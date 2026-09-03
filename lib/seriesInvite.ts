@@ -12,6 +12,23 @@ export function buildSeriesInviteUrl(code: string): string {
   return `https://rondofc.app/join/${code}`;
 }
 
+export async function getPostAuthSeriesInvitePath(): Promise<`/join/${string}` | null> {
+  const code = await getPendingSeriesInvite();
+  return code ? `/join/${code}` : null;
+}
+
+export async function completeSeriesInvite(
+  code: string,
+  join: (inviteCode: string) => Promise<string>,
+): Promise<string> {
+  const normalized = normalizeSeriesInviteCode(code);
+  if (!normalized) throw new Error('El código de invitación no es válido.');
+
+  const teamId = await join(normalized);
+  await clearPendingSeriesInvite();
+  return teamId;
+}
+
 export async function savePendingSeriesInvite(code: string): Promise<boolean> {
   try {
     const normalized = normalizeSeriesInviteCode(code);

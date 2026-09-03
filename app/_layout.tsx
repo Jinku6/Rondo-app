@@ -35,7 +35,7 @@ import { JetBrainsMono_700Bold } from '@expo-google-fonts/jetbrains-mono/700Bold
 import * as Sentry from '@sentry/react-native';
 
 import { scrubSentryEvent } from '@/lib/sentry/scrub';
-import { getPendingSeriesInvite } from '@/lib/seriesInvite';
+import { getPostAuthSeriesInvitePath } from '@/lib/seriesInvite';
 const MIN_BIRTHDAY_DATE = new Date(1900, 0, 1);
 
 Sentry.init({
@@ -246,6 +246,7 @@ function RootLayoutNav() {
   const router = useRouter();
   // Flag para evitar redirigir a tabs cuando estamos en flujo de recuperación de contraseña
   const passwordRecoveryRef = useRef(false);
+  const postAuthRedirectingRef = useRef(false);
   const notificationListener = useRef<Notifications.EventSubscription | null>(null);
   const responseListener = useRef<Notifications.EventSubscription | null>(null);
 
@@ -317,13 +318,20 @@ function RootLayoutNav() {
     if (!session && !inAuthGroup && !inPublicJoin) {
       // Redirigir al inicio de sesión si no hay sesión y no estamos ya en la zona auth
       router.replace('/(auth)/login');
-    } else if (session && inAuthGroup) {
+    } else if (session && !inPublicJoin && !postAuthRedirectingRef.current) {
+      postAuthRedirectingRef.current = true;
       const redirectAfterAuth = async () => {
         try {
-          const pendingInvite = await getPendingSeriesInvite();
-          router.replace(pendingInvite ? `/join/${pendingInvite}` as never : '/(tabs)');
+          const invitePath = await getPostAuthSeriesInvitePath();
+          if (invitePath) {
+            router.replace(invitePath as never);
+          } else if (inAuthGroup) {
+            router.replace('/(tabs)');
+          }
         } catch {
-          router.replace('/(tabs)');
+          if (inAuthGroup) router.replace('/(tabs)');
+        } finally {
+          postAuthRedirectingRef.current = false;
         }
       };
       void redirectAfterAuth();
