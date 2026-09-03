@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
-  getUser: vi.fn(),
   getSession: vi.fn(),
   upload: vi.fn(),
   getPublicUrl: vi.fn(),
@@ -11,7 +10,7 @@ vi.mock('expo-image-picker', () => ({}));
 vi.mock('base64-arraybuffer', () => ({ decode: vi.fn(() => new ArrayBuffer(0)) }));
 vi.mock('@/lib/supabase', () => ({
   supabase: {
-    auth: { getUser: mocks.getUser, getSession: mocks.getSession },
+    auth: { getSession: mocks.getSession },
     storage: { from: vi.fn(() => ({ upload: mocks.upload, getPublicUrl: mocks.getPublicUrl })) },
   },
 }));
@@ -30,8 +29,7 @@ describe('uploadAvatar', () => {
     vi.clearAllMocks();
   });
 
-  it('uses the validated session identity and forwards its bearer token to Storage', async () => {
-    mocks.getUser.mockResolvedValue({ data: { user: { id: userId } }, error: null });
+  it('uses the current session identity and forwards its bearer token to Storage', async () => {
     mocks.getSession.mockResolvedValue({
       data: { session: { user: { id: userId }, access_token: 'current-token' } },
       error: null,
@@ -48,11 +46,10 @@ describe('uploadAvatar', () => {
     );
   });
 
-  it('does not upload when the local session is missing or belongs to another user', async () => {
-    mocks.getUser.mockResolvedValue({ data: { user: { id: userId } }, error: null });
+  it('does not upload when the local session is missing', async () => {
     mocks.getSession.mockResolvedValue({ data: { session: null }, error: null });
 
-    await expect(uploadAvatar({ asset })).rejects.toThrow('Tu sesión ya no es válida');
+    await expect(uploadAvatar({ asset })).rejects.toThrow('Inicia sesión de nuevo');
     expect(mocks.upload).not.toHaveBeenCalled();
   });
 });

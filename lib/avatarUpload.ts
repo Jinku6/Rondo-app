@@ -46,18 +46,12 @@ export async function uploadAvatar({
       throw new Error('La imagen debe pesar menos de 2 MB.');
     }
 
-    const { data: userData, error: userError } = await supabase.auth.getUser();
-    if (userError) throw userError;
-    if (!userData.user) throw new Error('Inicia sesión de nuevo para subir una imagen.');
-
     const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
     if (sessionError) throw sessionError;
-    if (!sessionData.session || sessionData.session.user.id !== userData.user.id) {
-      throw new Error('Tu sesión ya no es válida. Inicia sesión de nuevo para subir una imagen.');
-    }
+    if (!sessionData.session) throw new Error('Inicia sesión de nuevo para subir una imagen.');
 
     const normalizedFolder = folder?.replace(/^\/+|\/+$/g, '');
-    const fileName = [userData.user.id, normalizedFolder, `${Date.now()}.${fileExt}`]
+    const fileName = [sessionData.session.user.id, normalizedFolder, `${Date.now()}.${fileExt}`]
       .filter(Boolean)
       .join('/');
     const { error } = await supabase.storage.from('avatars').upload(
