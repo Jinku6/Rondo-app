@@ -380,7 +380,7 @@ export default function MyMatchesScreen() {
                 onPress={() => setShowArchived(true)}
                 className={`flex-1 items-center justify-center py-3 rounded-lg ${showArchived ? 'bg-input/15 border border-border-strong' : 'bg-input/5 border border-border'}`}
               >
-                <Text className={`font-display uppercase text-xs tracking-wider ${showArchived ? 'text-white' : 'text-ink-dim'}`}>Archivados</Text>
+                <Text className={`font-display uppercase text-xs tracking-wider ${showArchived ? 'text-ink' : 'text-ink-dim'}`}>Archivados</Text>
               </TouchableOpacity>
             </View>
 

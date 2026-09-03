@@ -12,7 +12,6 @@ import { PendingReviewsAlert } from '@/components/PendingReviewsAlert';
 import { ProfileOverview } from '@/components/profile/ProfileOverview';
 import { ProfileTeams } from '@/components/profile/ProfileTeams';
 import { isSafeUrl } from '@/lib/utils';
-import { Colors } from '@/constants/theme';
 import { FLOATING_TAB_BAR_HEIGHT } from '@/components/rondo/FloatingTabBar';
 import { getErrorMessage, logSupabaseError } from '@/lib/supabaseErrors';
 import { containsProfanity } from '@/lib/profanityFilter';
@@ -25,8 +24,6 @@ import {
 } from '@/components/profile/profileDisplay';
 import type { PublicUserTeam } from '@/types/series';
 
-const c = Colors;
-
 const MIN_PASSWORD_LENGTH = 6;
 const showAlert = (title: string, message: string, onOk?: () => void) => {
   if (Platform.OS === 'web') {
@@ -37,31 +34,29 @@ const showAlert = (title: string, message: string, onOk?: () => void) => {
   }
 };
 
-const inp = {
-  backgroundColor: 'rgba(255,255,255,0.04)' as const,
-  borderColor: 'rgba(255,255,255,0.08)' as const,
-  borderWidth: 1,
-  borderRadius: 14,
-  paddingHorizontal: 16,
-  paddingVertical: 13,
-  color: c.text,
-  fontSize: 15,
-};
-
-const sectionCard = {
-  backgroundColor: c.bgElev,
-  borderRadius: 20,
-  borderWidth: 1,
-  borderColor: c.border,
-  padding: 18,
-  marginBottom: 14,
-};
-
 export default function ProfileScreen() {
   const { colors: c } = useTheme();
   const { user, profile, refreshProfile, signOut } = useAuth();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const inp = {
+    backgroundColor: c.inputBg,
+    borderColor: c.border,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
+    color: c.text,
+    fontSize: 15,
+  };
+  const sectionCard = {
+    backgroundColor: c.bgElev,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: c.border,
+    padding: 18,
+    marginBottom: 14,
+  };
 
   const [isEditing, setIsEditing] = useState(false);
   const [teams, setTeams] = useState<PublicUserTeam[]>([]);
@@ -466,7 +461,7 @@ export default function ProfileScreen() {
               <Text style={[lbl, !!usernameError && { color: c.danger }]}>Nombre de usuario</Text>
               <View style={{ position: 'relative', justifyContent: 'center' }}>
                 <TextInput
-                  style={{ ...inp, paddingRight: 44, borderColor: usernameError ? c.danger : 'rgba(255,255,255,0.08)' }}
+                  style={{ ...inp, paddingRight: 44, borderColor: usernameError ? c.danger : c.border }}
                   value={username}
                   onChangeText={checkUsername}
                   placeholder="usuario"
@@ -527,8 +522,8 @@ export default function ProfileScreen() {
                       style={{
                         flexDirection: 'row', alignItems: 'center', gap: 6,
                         paddingHorizontal: 14, paddingVertical: 10, borderRadius: 14, borderWidth: 1,
-                        backgroundColor: active ? c.brandSoft : 'rgba(255,255,255,0.04)',
-                        borderColor: active ? c.brand : 'rgba(255,255,255,0.08)',
+                        backgroundColor: active ? c.brandSoft : c.inputBg,
+                        borderColor: active ? c.brand : c.border,
                       }}
                     >
                       <Text style={{ fontSize: 16 }}>{POSITION_EMOJIS[pos]}</Text>

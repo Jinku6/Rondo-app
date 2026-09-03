@@ -105,7 +105,7 @@ export default function LoginScreen() {
               </Text>
               <TextInput
                 style={{
-                  width: '100%', padding: 14, backgroundColor: 'rgba(255,255,255,0.04)',
+                  width: '100%', padding: 14, backgroundColor: c.inputBg,
                   borderWidth: 1, borderColor: c.border, borderRadius: 14,
                   color: c.text, fontSize: 15, fontWeight: '500',
                 }}
@@ -134,7 +134,7 @@ export default function LoginScreen() {
               <View style={{ position: 'relative' }}>
                 <TextInput
                   style={{
-                    width: '100%', padding: 14, paddingRight: 48, backgroundColor: 'rgba(255,255,255,0.04)',
+                    width: '100%', padding: 14, paddingRight: 48, backgroundColor: c.inputBg,
                     borderWidth: 1, borderColor: c.border, borderRadius: 14,
                     color: c.text, fontSize: 15, fontWeight: '500',
                   }}

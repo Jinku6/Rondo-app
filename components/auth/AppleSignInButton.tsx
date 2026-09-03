@@ -4,6 +4,7 @@ import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Haptics from 'expo-haptics';
 
 import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/hooks/use-theme';
 import { signInWithApple } from '@/lib/auth/signInWithApple';
 
 type AppleSignInButtonProps = {
@@ -13,6 +14,7 @@ type AppleSignInButtonProps = {
 export function AppleSignInButton({ height = 52 }: AppleSignInButtonProps) {
   const [loading, setLoading] = useState(false);
   const { refreshProfile } = useAuth();
+  const { scheme } = useTheme();
 
   if (Platform.OS !== 'ios') return null;
 
@@ -45,7 +47,9 @@ export function AppleSignInButton({ height = 52 }: AppleSignInButtonProps) {
     <View style={{ opacity: loading ? 0.7 : 1 }}>
       <AppleAuthentication.AppleAuthenticationButton
         buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
-        buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE_OUTLINE}
+        buttonStyle={scheme === 'dark'
+          ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE_OUTLINE
+          : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
         cornerRadius={14}
         onPress={handlePress}
         style={{ width: '100%', height }}

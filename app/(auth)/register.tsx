@@ -10,7 +10,6 @@ import { useRouter } from 'expo-router';
 import { supabase } from '@/lib/supabase';
 import { Ionicons } from '@expo/vector-icons';
 import { z } from 'zod';
-import { Colors } from '@/constants/theme';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import ConfirmHcaptcha from '@hcaptcha/react-native-hcaptcha';
 import { AppleSignInButton } from '@/components/auth/AppleSignInButton';
@@ -55,34 +54,30 @@ const POSITIONS = [
   { key: 'delantero',   label: 'Delantero', emoji: '⚡' },
 ];
 
-const c = Colors;
 const MIN_BIRTHDAY_DATE = new Date(1900, 0, 1);
-
-const inp = {
-  backgroundColor: 'rgba(255,255,255,0.04)' as const,
-  borderColor: 'rgba(255,255,255,0.08)' as const,
-  borderWidth: 1,
-  borderRadius: 14,
-  paddingHorizontal: 16,
-  paddingVertical: 14,
-  color: c.text,
-  fontSize: 15,
-};
-
-const inpError = { ...inp, borderColor: c.danger as string };
-
-const lbl = {
-  fontSize: 11,
-  fontWeight: '600' as const,
-  color: c.textDim,
-  marginBottom: 6,
-  letterSpacing: 0.5,
-  textTransform: 'uppercase' as const,
-};
 
 export default function RegisterScreen() {
   const { colors: c } = useTheme();
   const insets = useSafeAreaInsets();
+  const inp = {
+    backgroundColor: c.inputBg,
+    borderColor: c.border,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    color: c.text,
+    fontSize: 15,
+  };
+  const inpError = { ...inp, borderColor: c.danger };
+  const lbl = {
+    fontSize: 11,
+    fontWeight: '600' as const,
+    color: c.textDim,
+    marginBottom: 6,
+    letterSpacing: 0.5,
+    textTransform: 'uppercase' as const,
+  };
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -309,8 +304,8 @@ export default function RegisterScreen() {
                         paddingVertical: 12,
                         borderRadius: 14,
                         borderWidth: 1,
-                        backgroundColor: active ? c.brandSoft : 'rgba(255,255,255,0.04)',
-                        borderColor: active ? c.brand : (submitted && !preferredPosition ? c.danger : 'rgba(255,255,255,0.08)'),
+                        backgroundColor: active ? c.brandSoft : c.inputBg,
+                        borderColor: active ? c.brand : (submitted && !preferredPosition ? c.danger : c.border),
                       }}
                     >
                       <Text style={{ fontSize: 18 }}>{pos.emoji}</Text>
@@ -348,7 +343,7 @@ export default function RegisterScreen() {
                 onPress={() => setShowBirthdayPicker(true)}
                 style={{
                   ...inp,
-                  borderColor: submitted && !birthday ? c.danger : 'rgba(255,255,255,0.08)',
+                  borderColor: submitted && !birthday ? c.danger : c.border,
                   flexDirection: 'row',
                   alignItems: 'center',
                 }}
@@ -489,7 +484,7 @@ export default function RegisterScreen() {
             <TouchableOpacity
               onPress={signInWithGoogle}
               style={{
-                backgroundColor: 'rgba(255,255,255,0.06)',
+                backgroundColor: c.inputBg,
                 borderWidth: 1,
                 borderColor: c.border,
                 borderRadius: 16,

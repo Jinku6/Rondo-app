@@ -244,7 +244,7 @@ export default function MessagesScreen() {
                   onPress={() => setSelectedTab('archived')}
                   className={`flex-1 items-center justify-center py-3 rounded-lg ${selectedTab === 'archived' ? 'bg-input/15 border border-border-strong' : 'bg-input/5 border border-border'}`}
                 >
-                  <Text className={`font-display uppercase text-xs tracking-wider ${selectedTab === 'archived' ? 'text-white' : 'text-ink-dim'}`}>Archivados</Text>
+                  <Text className={`font-display uppercase text-xs tracking-wider ${selectedTab === 'archived' ? 'text-ink' : 'text-ink-dim'}`}>Archivados</Text>
                 </TouchableOpacity>
               </View>
             </View>
