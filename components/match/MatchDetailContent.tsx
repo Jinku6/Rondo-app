@@ -246,7 +246,7 @@ export function MatchDetailContent({
               {match.status === 'completed' ? '✅ Partido finalizado' : '🚫 Partido cancelado'}
             </Text>
           </View>
-        ) : isPrivateTeamMatch && !isOrganizer ? (
+        ) : isPrivateTeamMatch ? (
           <View style={s.seriesConfirmCard}>
             {seriesResponse === 'pending' ? (
               <>
