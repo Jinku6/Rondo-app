@@ -80,3 +80,6 @@ eas-local-build-artifacts/
 .expo-shared/
 
 .env.local
+
+# Project documentation
+docs/
