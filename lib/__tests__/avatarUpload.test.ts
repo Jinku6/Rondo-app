@@ -42,7 +42,10 @@ describe('uploadAvatar', () => {
     expect(mocks.upload).toHaveBeenCalledWith(
       expect.stringMatching(new RegExp(`^${userId}/teams/team-id/\\d+\\.png$`)),
       expect.any(ArrayBuffer),
-      expect.objectContaining({ headers: { Authorization: 'Bearer current-token' } }),
+      expect.objectContaining({
+        upsert: false,
+        headers: { Authorization: 'Bearer current-token' },
+      }),
     );
   });
 

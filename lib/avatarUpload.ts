@@ -59,7 +59,7 @@ export async function uploadAvatar({
       decode(asset.base64),
       {
         cacheControl: '3600',
-        upsert: true,
+        upsert: false,
         contentType: mimeType,
         headers: { Authorization: `Bearer ${sessionData.session.access_token}` },
       },
